@@ -871,3 +871,7 @@ _persistAtStamp
 
 @ Any edit is an edit — taps, strokes and silent arrivals are durable via the shared engine, opt-in per tool (Mark's directive, S675)
 wideEditTriggers
+@ S676 — FRT edit durability (Lane A, from the Lane C work order). The barrier/door
+@ symbols above now also exist in FRT's facade; isDirty is the FRT door's diff gate
+@ on the model and is new to the manifest.
+isDirty

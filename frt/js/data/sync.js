@@ -70,3 +70,70 @@ SyncEngine.onDiag = function (event, detail) {
     }
   } catch (_) {}
 };
+
+/* ═══ S676 — THE BOOT BARRIER (Lane C work order, from Diesel S673).
+   Until the host announces its boot apply (bootApplyComplete), the screen is
+   not the report: a stamp minted against the boot-window state certifies
+   values nobody typed (Diesel's 17 Aug NPSH wipe). holdEditStamps makes the
+   engine's edit stamper inert during that window; the outbound doors in
+   app.js ask bootApplied() before acting. The host lifts the barrier in every
+   terminal boot path; a 20s fallback guarantees it can never stay up. */
+var _bootApplied = false;
+var _bootHoldTimer = null;
+var _bootAppliedState = null;
+var BOOT_HOLD_MAX_MS = 20000;
+
+function _liftBootHold(why) {
+  if (_bootApplied) return;
+  _bootApplied = true;
+  if (_bootHoldTimer) { clearTimeout(_bootHoldTimer); _bootHoldTimer = null; }
+  try { SyncEngine.holdEditStamps = false; } catch (_) {}
+  /* Engine-side no-op for FRT (gated on getProjectReadsScreen, which FRT
+     deliberately does not set — S643b) — called for parity with the Diesel
+     facade so the engine owns the decision, not this file. */
+  try { if (SyncEngine.anchorBoot) SyncEngine.anchorBoot(_bootAppliedState); } catch (e) {
+    console.warn('[FRT sync S676] boot anchor skipped:', e && e.message);
+  }
+  /* Flush once: anything entered while the barrier was up re-diffs now and
+     goes durable with its honest keystroke stamps (S646 item stamps were
+     minted in the model at input time; nothing here invents a time). */
+  try { SyncEngine.stampSoon(); } catch (_) {}
+  if (why !== 'host') console.warn('[FRT sync S676] boot barrier lifted by ' + why);
+}
+
+try { SyncEngine.holdEditStamps = true; } catch (_) {}
+_bootHoldTimer = setTimeout(function () { _liftBootHold('timeout'); }, BOOT_HOLD_MAX_MS);
+
+/* The host (frt/js/app.js) calls this after its boot paint, in every terminal
+   boot path. Idempotent; appliedState is optional evidence for the engine. */
+SyncEngine.bootApplyComplete = function (appliedState) {
+  if (appliedState) _bootAppliedState = appliedState;
+  _liftBootHold('host');
+};
+SyncEngine.bootApplied = function () { return _bootApplied; };
+
+/* ═══ S676 — THE DURABILITY DOOR (from Diesel S674: the value rides with its
+   claim). The engine's keystroke stamper makes the CLAIM durable at 500ms
+   (stampLocal → the syncMeta ledger). FRT's VALUE save is the model's own
+   800ms debounce — kill in between and the ledger holds a timed claim about
+   a value nothing on disk has. The door closes the gap by flushing the
+   model's OWN field-proven save at the same trigger: saveNow() cancels the
+   pending debounce and writes now, so claim and value become durable
+   together. Diff gate: Model.isDirty() — not dirty means the debounced save
+   already holds everything, so an idle sweep or a changed-nothing tap costs
+   one boolean read. Local only; no network; the push cadence is untouched
+   (storage rule, S496 — FRT keeps its own save path, never Diesel's cache). */
+function _persistAtStamp() {
+  if (!_bootApplied) return;                    // S676 — the screen is not the report yet
+  try {
+    if (Model.isDirty && !Model.isDirty()) return;   // nothing newer than the last save
+    if (Model.saveNow) Model.saveNow();
+  } catch (_) { /* durability must never break typing */ }
+}
+try { SyncEngine.onStampPersist = _persistAtStamp; } catch (_) {}
+
+/* ═══ S676 — ANY EDIT IS AN EDIT (from S675), last and one line: taps, pen
+   strokes and silent arrivals now feed the same diff-gated stamp pipeline
+   typing already uses. Raised only after the barrier and the door above
+   exist — the flag alone would stamp more while saving nothing extra. */
+try { SyncEngine.wideEditTriggers = true; } catch (_) {}

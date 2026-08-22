@@ -142,6 +142,81 @@ for await (const line of rl) {
     } else if (m.cmd === 'conflicts') {
       /* S666 — what did THIS device's conflict modal see, and how often */
       send({ id: m.id, ok: true, log: conflictLog });
+    } else if (m.cmd === 'snapshot') {
+      /* ═══ S676 — STORAGE THAT SURVIVES THE PROCESS (battle_device S625
+         pattern). Every kill-and-relaunch probe before this silently
+         relaunched WITHOUT the dead session's disk, which is precisely NOT
+         what a tablet does. The device hands its whole persisted world back
+         through the REAL IndexedDB API — nothing in the storage layer is
+         stubbed — and a fresh process is seeded with it. Only STORAGE
+         crosses; the engine re-imports clean, exactly as a relaunched app. */
+      const ls = {};
+      for (let i = 0; i < w.localStorage.length; i++) { const k = w.localStorage.key(i); ls[k] = w.localStorage.getItem(k); }
+      const idbDump = {};
+      for (const st of IDB.STORE_DEFS.map(d => d.name)) {
+        idbDump[st] = await IDB.getAll(st).catch(() => []);
+      }
+      send({ id: m.id, ok: true, store: { localStorage: ls, idb: idbDump } });
+    } else if (m.cmd === 'restore') {
+      try {
+        Object.keys((m.store && m.store.localStorage) || {}).forEach(k => w.localStorage.setItem(k, m.store.localStorage[k]));
+        const idbDump = (m.store && m.store.idb) || {};
+        for (const st of Object.keys(idbDump)) {
+          for (const rec of idbDump[st] || []) { await IDB.put(st, rec); }
+        }
+        send({ id: m.id, ok: true });
+      } catch (e) { send({ id: m.id, ok: false, err: String((e && e.message) || e) }); }
+    } else if (m.cmd === 'boot') {
+      /* ═══ S676 — THE REAL RELAUNCH, in the app's own order (frt/js/app.js
+         boot()): fast-path loadIDBSnapshot → prefer the device's own newer
+         'projects' record when it exists (the S676 recovery) → render (set
+         model) → boot pull, adopt vs merge per the same rule → the host
+         announces bootApplyComplete. A probe that skips a step here proves
+         nothing about the app; a step the app does not have may not appear. */
+      /* The TREE decides which boot this is: the S676 recovery exists only
+         where the S676 facade does (bootApplyComplete). A pre-S676 tree
+         boots the pre-S676 way — fast-path snapshot, adopt-mode pull, no
+         own-record read — so the red baseline measures the app that ships,
+         not a boot the harness invented for it. */
+      const hasS676 = !!SyncEngine.bootApplyComplete;
+      let ownNewer = false, seeded = null;
+      const snap = await SyncEngine.loadIDBSnapshot('p1', ROW);
+      if (hasS676 && snap && snap.id) {
+        const own = await IDB.get('projects', snap.id).catch(() => null);
+        if (own && own.modified && snap.modified && own.modified > snap.modified &&
+            !(SyncEngine._isBlankSnapshot && SyncEngine._isBlankSnapshot(own))) { ownNewer = true; seeded = own; }
+      }
+      if (seeded || snap) Model.setProject(seeded || snap);
+      let pulled = null;
+      try { pulled = await SyncEngine.pull('p1', ROW, ownNewer ? {} : { allowStaleOverwrite: true }); } catch (_) {}
+      await new Promise(r => setTimeout(r, 80));
+      if (SyncEngine.bootApplyComplete) SyncEngine.bootApplyComplete(Model.getProject());
+      send({ id: m.id, ok: true, ownNewer, pulled: !!pulled, hasBarrier: hasS676 });
+    } else if (m.cmd === 'edit') {
+      /* ═══ S676 — an edit the way the tool makes one: the REAL mutator (so
+         the S646 keystroke stamp is minted in the model), then the REAL
+         trigger door — a document-level DOM event caught by the engine's own
+         capture listeners. kind 'type' dispatches input on a form field
+         (the S635 feeder); 'tap' a click and 'pen' a pointerup (the S675
+         feeders); 'silent' dispatches nothing at all — the 5s idle sweep is
+         the only thing that may notice it. Driving stampSoon() directly is
+         forbidden: it proves only the half of the path that was already
+         right (work-order trap #3). */
+      if (m.fn) { const fn = Model[m.fn]; if (typeof fn === 'function') fn.apply(Model, m.args || []); }
+      const kind = m.kind || 'type';
+      if (kind === 'type') {
+        let inp = w.document.getElementById('sim-input');
+        if (!inp) { inp = w.document.createElement('input'); inp.id = 'sim-input'; w.document.body.appendChild(inp); }
+        inp.dispatchEvent(new w.Event('input', { bubbles: true }));
+      } else if (kind === 'tap') {
+        w.document.body.dispatchEvent(new w.Event('click', { bubbles: true }));
+      } else if (kind === 'pen') {
+        w.document.body.dispatchEvent(new w.Event('pointerup', { bubbles: true }));
+      } /* 'silent': no event — the sweep or nothing */
+      send({ id: m.id, ok: true, kind });
+    } else if (m.cmd === 'idbget') {
+      const rec = await IDB.get(m.store || 'projects', m.key).catch(() => null);
+      send({ id: m.id, ok: true, rec: rec ? JSON.parse(JSON.stringify(rec)) : null });
     } else if (m.cmd === 'offline') { online = false; send({ id: m.id, ok: true }); }
     else if (m.cmd === 'online')  { online = true;  send({ id: m.id, ok: true }); }
     else if (m.cmd === 'exit')    { send({ id: m.id, ok: true }); process.exit(0); }

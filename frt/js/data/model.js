@@ -5067,6 +5067,13 @@ export var Model = {
     return _saveToIDB();
   },
 
+  /* S676 — read-only view of the pending-save flag. The durability door
+     (frt/js/data/sync.js _persistAtStamp) uses it as its diff gate: not dirty
+     means the debounced save already holds everything, so the door does no
+     work — an idle sweep or a no-op tap costs one boolean read, never a
+     deep clone. */
+  isDirty: function() { return _dirty; },
+
   // S351b: mark the project dirty so an edit reaches the CLOUD on the next push,
   // not just IDB. saveNow() alone only writes IDB; the cloud push fires on the
   // _dirty flag. A field saved via saveNow() but not marked dirty (e.g. photo

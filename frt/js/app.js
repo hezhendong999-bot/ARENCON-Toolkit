@@ -1501,6 +1501,11 @@ async function _frtHeartbeatTick() {
                       the instance id, the four-door boot-race shape again. */
   var _why = '';
   if (!_hubMode || !_projectId) _why = 'no-project';
+  /* S676 — a kick during boot collects the boot-window state; hold it. The
+     boot capture pull itself never comes through the tick, so it is exempt
+     by construction. One gate here covers the interval, the visibility wake
+     and the realtime wake, which all arrive as this tick. */
+  else if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) _why = 'boot-pending';
   else if (!navigator.onLine) _why = 'offline';
   else if (typeof document !== 'undefined' && document.hidden) _why = 'hidden';   // S155 gate, now visible in the diary
   else if (_frtPulling && (Date.now() - _frtPullingSince) < TICK_WATCHDOG_MS) _why = 'busy';
@@ -1625,6 +1630,10 @@ function _showRemoteUpdateBanner(remoteTs){
 
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
+  /* S676 — nothing pushes before the report exists on screen. _pushDirty is
+     preserved; the barrier lift's stamp flush and the S155 safety push send
+     held work with honest stamps once boot completes. */
+  if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) return;
   // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
   // nothing has changed since the last successful push, no network round
   // trip happens. The 'saved' Model event sets _pushDirty=true the moment
@@ -1661,6 +1670,9 @@ function _pushToCloud() {
 }
 
 function _pushToCloudNow() {
+  /* S676 — same barrier as _pushToCloud; this is the door the heartbeat
+     flush and the banner use, so it must hold on its own. */
+  if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) return;
   // S155: optimistic clear. If push succeeds, _pushDirty stays false. If a
   // concurrent 'saved' fires during the network round-trip, it re-sets
   // _pushDirty=true and the next cycle picks it up — no edit lost. If push
@@ -3012,6 +3024,9 @@ function boot() {
       }
     } catch (_) {}
     _setCloudStatus('error', 'Startup stalled \u2014 working from this device');
+    /* S676 — the forced local render is a terminal boot path too. Normally a
+       no-op: the facade's own 20s fallback has already lifted by 25s. */
+    try { if (SyncEngine.bootApplyComplete) SyncEngine.bootApplyComplete(Model.getProject()); } catch (_) {}
   }, 25000);
 
   // S170 (Fix A) — initialize the photo outbox in parallel with everything
@@ -3035,16 +3050,46 @@ function boot() {
     if (!hasToken) return null;  // standalone or signed-out → no fast path
     var instanceId = new URLSearchParams(window.location.search).get('instance');
     return SyncEngine.loadIDBSnapshot(_projectId, instanceId).then(function(snap) {
-      if (snap) {
-        Model.setProject(snap);
-        showProjectView();
-        _updateHeaderForProject();
-        _restoreView();
-        _localRendered = true;
-        var elapsedFast = (performance.now() - t0).toFixed(0);
-        console.log('[FRT v2] Boot complete (local) in ' + elapsedFast + 'ms — cloud pull in background');
+      /* ═══ S676 — RELAUNCH READS THE DEVICE'S OWN FRESHEST TRUTH.
+         The syncMeta snapshot is the last state this device AGREED WITH THE
+         CLOUD — by definition it never contains an unsent edit. The model's
+         own save (Model._saveToIDB → 'projects', flushed at the keystroke by
+         the S676 durability door) is strictly fresher whenever unsent work
+         exists, and it carries the S646 keystroke _ts stamps the merge law
+         arbitrates with. Hub boot never read it, so any edit killed before
+         its cloud push was invisible at relaunch even though it was durable
+         on disk. Prefer it ONLY when it is provably this device's later
+         work: same document id, non-blank, and a strictly newer `modified`
+         (both stamps are this same device's clock, so they are comparable).
+         The snapshot stays the merge base untouched — nothing here writes
+         syncMeta — and the boot pull then runs in MERGE mode (see below) so
+         the cloud and this device settle field-by-field under the same
+         per-item law every 30s pull already uses. */
+      var seed = Promise.resolve(snap);
+      if (snap && snap.id) {
+        seed = IDB.get('projects', snap.id).then(function(own) {
+          if (own && own.modified && snap.modified && own.modified > snap.modified &&
+              !(SyncEngine._isBlankSnapshot && SyncEngine._isBlankSnapshot(own))) {
+            window._frtBootOwnNewer = true;
+            console.log('[FRT v2] Boot: device copy is newer than the last cloud agreement (' +
+              own.modified + ' > ' + snap.modified + ') — rendering it; boot pull will merge, not adopt');
+            return own;
+          }
+          return snap;
+        }).catch(function() { return snap; });
       }
-      return snap;
+      return seed.then(function(doc) {
+        if (doc) {
+          Model.setProject(doc);
+          showProjectView();
+          _updateHeaderForProject();
+          _restoreView();
+          _localRendered = true;
+          var elapsedFast = (performance.now() - t0).toFixed(0);
+          console.log('[FRT v2] Boot complete (local) in ' + elapsedFast + 'ms — cloud pull in background');
+        }
+        return doc;
+      });
     });
   }).catch(function(e) {
     // Fast-path failure is non-fatal — main path will still render after cloud pull.
@@ -3153,8 +3198,17 @@ function boot() {
         // is no in-progress local edit to protect).
         // S608: time-bound. A stalled pull is NOT an empty cloud — the retry
         // loop keeps asking, and new-project creation below is gated off.
+        /* S676 — EXCEPT when the fast path found this device's own newer
+           saved state (unsent work from a killed session). Adopt mode
+           replaces the model wholesale and would wipe that work a second
+           time; merge mode runs the same per-item entry-time law the 30s
+           pull uses all day, so the recovered edits and the cloud's newer
+           entries both survive, field by field. The S626b skeleton concern
+           does not apply: the injected model here is a real saved document
+           carrying its S646 keystroke stamps, never the default skeleton. */
         return _bootStep('cloud-pull',
-          SyncEngine.pull(_projectId, instanceId, { allowStaleOverwrite: true }),
+          SyncEngine.pull(_projectId, instanceId,
+            window._frtBootOwnNewer ? {} : { allowStaleOverwrite: true }),
           20000
         ).then(function (r) {
           _bootPullTimedOut = r.timedOut;
@@ -3200,6 +3254,13 @@ function boot() {
       _updateHeaderForProject();
       _restoreView();
     }
+
+    /* S676 — the boot apply is done and painted: lift the boot barrier.
+       BEFORE Model.startAutoSave and _startCloudSync below, so the first
+       save/push those arm runs against a lifted barrier. This is the one
+       funnel every successful boot passes through — hub with cloud data,
+       hub empty, sign-in stalled, and standalone all arrive here. */
+    try { if (SyncEngine.bootApplyComplete) SyncEngine.bootApplyComplete(Model.getProject()); } catch (_) {}
 
     // Rebuild missing R2 URLs (safety net for sync issues)
     var proj = Model.getProject();
@@ -3296,6 +3357,9 @@ function boot() {
       _updateHeaderForProject();
       switchTab('info');
     }
+    /* S676 — a failed boot is still a terminal boot path; without this the
+       barrier sits held for the full 20s fallback on every error boot. */
+    try { if (SyncEngine.bootApplyComplete) SyncEngine.bootApplyComplete(Model.getProject()); } catch (_) {}
   });
 
   // Update header whenever a new project is loaded (e.g., JSON import,
