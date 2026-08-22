@@ -706,11 +706,11 @@ def main():
         gen = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            'gen_precache.py')
         if os.path.exists(gen):
-            r = subprocess.run([sys.executable, gen, '--check',
+            r = subprocess.run([sys.executable, gen, '--check', '--live',
                                 '--sw', os.path.abspath(a.new)],
                                capture_output=True, text=True,
                                cwd=os.path.dirname(os.path.dirname(gen)))
-            print('   ── precache check (gen_precache --check) ──')
+            print('   ── precache check (gen_precache --check --live) ──')
             for ln in (r.stdout + r.stderr).strip().splitlines():
                 print('   ' + ln)
             if r.returncode != 0:

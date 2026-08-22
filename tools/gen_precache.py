@@ -153,14 +153,84 @@ def render(paths):
     return BEGIN + '\n' + BEGIN2 + '\n' + BEGIN3 + '\n' + body + '\n' + END
 
 
+def live_missing(sw_path):
+    """S679c — THE HOLE THE LOCAL CHECK CANNOT SEE.
+
+    --check derives the list from THIS checkout. A lane whose checkout predates
+    another lane's push therefore derives a list that is legitimately correct
+    for the tree it can see, passes every gate, and silently drops the other
+    lane's files out of the precache. That has now happened three times
+    (13867ce5, 12a2da49, and 679-A dropping the Phase 2 files) — and the third
+    was the dangerous one: the tool had already been changed to REQUIRE those
+    files, so a tablet that had not fetched them would have had a save path
+    calling a function that does not exist. Offline, that is a report that
+    cannot be saved.
+
+    Re-asserting HEAD before pushing does not help, because the staleness is in
+    the pusher's own working tree, not in the ref. The only thing that catches
+    it is asking LIVE what the tools currently load. So: fetch each deployed
+    shell from live main, collect what it references, and require every one of
+    those paths to be present in the sw.js about to be pushed.
+
+    Read-only, and skipped with a loud notice when no token is available —
+    never a silent pass.
+    """
+    import json, urllib.request
+    tok = os.environ.get('PAT') or os.environ.get('GITHUB_TOKEN') or ''
+    if not tok:
+        print('[gen_precache] live check SKIPPED — no PAT in environment.')
+        print('               A stale checkout cannot be detected without it.')
+        return None
+    api = 'https://api.github.com/repos/hezhendong999-bot/ARENCON-Toolkit/contents/%s?ref=main'
+
+    def fetch(p):
+        req = urllib.request.Request(api % p, headers={
+            'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json'})
+        try:
+            with urllib.request.urlopen(req, timeout=25) as r:
+                import base64
+                return base64.b64decode(json.load(r)['content']).decode('utf-8', 'replace')
+        except Exception:
+            return None
+
+    sw_src = open(sw_path, encoding='utf-8').read()
+    listed = set(current_list(sw_src) or [])
+    required = set()
+    for e in ENTRIES:
+        src = fetch(e)
+        if src is None:
+            continue
+        base = posixpath.dirname(e)
+        specs = (SCRIPTSRC_RE.findall(src) + CSSHREF_RE.findall(src) +
+                 IMPORT_RE.findall(src) + DYNIMPORT_RE.findall(src))
+        for s in specs:
+            p = norm(base, s)
+            if p and p.endswith(('.js', '.mjs', '.css')):
+                required.add(p)
+    missing = sorted(p for p in required if p not in listed)
+    if missing:
+        print('[gen_precache] BLOCKED BY LIVE CHECK — the tools at live main load')
+        print('               files this sw.js does not cache. Your checkout is')
+        print('               behind another lane. Pull, re-run --write, re-gate:')
+        for p in missing:
+            print('  loaded live, absent from your precache : %s' % p)
+        return missing
+    print('[gen_precache] live check OK — %d referenced path(s) at live main all covered.'
+          % len(required))
+    return []
+
+
 def main():
     args = sys.argv[1:]
     mode = '--check'
     sw_path = SW
+    live = False
     while args:
         a = args.pop(0)
         if a in ('--check', '--write'):
             mode = a
+        elif a == '--live':
+            live = True
         elif a == '--sw':
             # The gate passes the lane's WORKING COPY here, so the check runs
             # against the exact bytes about to be pushed — not the repo's copy,
@@ -188,6 +258,8 @@ def main():
             print('[gen_precache] Run: python3 tools/gen_precache.py --write')
             return 1
         print('[gen_precache] OK — %d entries, sw.js matches derived list.' % len(derived))
+        if live and live_missing(sw_path):
+            return 1
         return 0
 
     if mode == '--write':
