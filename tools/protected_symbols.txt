@@ -914,11 +914,10 @@ dieselStateEnv
 dieselCollectViaManifest
 dieselApplyViaManifest
 
-@ S679-B — lightbox unification Phase L2 (Lane A): FRT's personality module and
-@ the shell's host-persistence delegation. Removing any of these silently routes
-@ an FRT markup save into the bake pipeline — the exact failure Rule 1 forbids.
-buildFrtLightboxHooks
-persistMarkup
-clearMarkup
-revertMarkup
-photoSrcFallback
+@ S680 — unified update engine. Every tool updates itself at a safe moment; the boot
+@ window is what makes a fresh login apply silently instead of asking. Remove any of
+@ these and a tool goes back to needing a manual hard-refresh in the field, which is
+@ the state Diesel and Electric were in until now.
+BOOT_APPLY_MS
+_withinBootWindow
+_declaredBuildChanged

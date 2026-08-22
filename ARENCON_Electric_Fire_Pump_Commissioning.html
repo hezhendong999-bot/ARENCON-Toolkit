@@ -749,6 +749,49 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   import '/lib/ui/electricHelpCards.js';
   import { createPhotoStore } from '/lib/data/photoStore.js';   /* S552 */
   import { createBinaryOutbox } from '/lib/data/photoOutbox.js'; /* S556: rescue */
+  /* ═══ S680 — ELECTRIC JOINS THE UPDATE ENGINE ═══════════════════════════
+     Electric, like Diesel, has never noticed a push: new code arrived only
+     when someone hard-refreshed. Same engine, same safety rules.
+
+     NO BUILD DECLARATION YET, deliberately. The engine can tell whether a push
+     was this tool's own by reading its build stamp — but Electric's lives
+     inside this 650 KB file, and re-fetching that on every lane's push would
+     cost a field tablet real bandwidth for a cosmetic decision. Until the
+     stamp moves to a small file of its own (as Diesel's already is), Electric
+     applies on every safe moment and shows the pill when it cannot. That is
+     the correct trade: updating is the point, and knowing whose push it was
+     only changes whether a pill appears. */
+  import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';
+  window.addEventListener('load', function () {
+    try {
+      initLiveUpdate({
+        toolName: 'electric',
+        isBusy: function () {
+          try {
+            if (window._r2UploadsInFlight > 0) return true;
+            if (document.querySelector('.modal.open, .arc-modal, dialog[open]')) return true;
+          } catch (e) {}
+          return false;
+        },
+        busyReason: function () { return 'finish what is open to apply'; },
+        flush: function () {
+          return Promise.resolve().then(function () {
+            if (window.CloudSync && window.CloudSync.saveNow) return window.CloudSync.saveNow();
+          });
+        },
+        capture: function () {
+          try { return { panel: (typeof window.currentPanel !== 'undefined') ? window.currentPanel : null,
+                         scroll: window.scrollY || 0 }; } catch (e) { return null; }
+        }
+      });
+      var _luE = restoreAfterUpdate('electric');
+      if (_luE && _luE.panel && typeof window.switchPanel === 'function') {
+        setTimeout(function () {
+          try { window.switchPanel(_luE.panel); window.scrollTo(0, _luE.scroll || 0); } catch (e) {}
+        }, 400);
+      }
+    } catch (e) { try { console.warn('[LiveUpdate] electric arm failed', e); } catch (_) {} }
+  });
   function call(name, ev){ var f = window[name]; if (typeof f === 'function') return f(ev); }
 
   var _HELP_ICON_PLAIN = '<span class="help-q">?</span><span class="wn-dot" style="display:none"></span>';
@@ -2007,7 +2050,7 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S675';
+var ELEC_BUILD = 'S680';
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA

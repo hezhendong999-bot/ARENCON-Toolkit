@@ -105,6 +105,54 @@ window.__capturePdfFromPreview = capturePdfFromPreview;
    and the capture bakes them into real PDF /Link annotations. */
 import { buildPhotoHrefs } from '../lib/data/photoLinkMint.js';
 window.__buildPhotoHrefs = buildPhotoHrefs;
+/* ═══ S680 — DIESEL JOINS THE UPDATE ENGINE ═══════════════════════════════
+   Until now only FRT and the Hub noticed a push. Diesel never did: a fix
+   shipped in the morning sat unused on a tablet until somebody thought to
+   hard-refresh, which is not a thing an inspector in a pump room is going to
+   do. Same engine, same safety rules, one declaration.
+
+   isBusy names the two states where a reload costs real work: a photo still
+   uploading, and a modal open mid-decision. Nothing else is guessed at — the
+   engine already refuses while a field is focused or a dialog is open.
+
+   The build declaration is what lets Diesel tell whether a push was ITS push;
+   part14.js is three lines, so the check costs nothing. */
+import { initLiveUpdate, restoreAfterUpdate } from '../lib/ui/liveUpdate.js';
+window.addEventListener('load', function () {
+  try {
+    initLiveUpdate({
+      toolName: 'diesel',
+      buildFile: 'js/part14.js',
+      buildVar: 'DIESEL_BUILD',
+      buildValue: (typeof window.DIESEL_BUILD !== 'undefined') ? window.DIESEL_BUILD : null,
+      isBusy: function () {
+        try {
+          if (window._r2UploadsInFlight > 0) return true;
+          if (document.querySelector('.modal.open, .arc-modal, dialog[open]')) return true;
+        } catch (e) {}
+        return false;
+      },
+      busyReason: function () { return 'finish what is open to apply'; },
+      /* A swap must never be the reason something did not reach the cloud. */
+      flush: function () {
+        return Promise.resolve().then(function () {
+          if (window.CloudSync && window.CloudSync.saveNow) return window.CloudSync.saveNow();
+        });
+      },
+      capture: function () {
+        try { return { panel: (typeof window.currentPanel !== 'undefined') ? window.currentPanel : null,
+                       scroll: window.scrollY || 0 }; } catch (e) { return null; }
+      }
+    });
+    var _lu = restoreAfterUpdate('diesel');
+    if (_lu && _lu.panel && typeof window.switchPanel === 'function') {
+      setTimeout(function () {
+        try { window.switchPanel(_lu.panel); window.scrollTo(0, _lu.scroll || 0); } catch (e) {}
+      }, 400);
+    }
+  } catch (e) { try { console.warn('[LiveUpdate] diesel arm failed', e); } catch (_) {} }
+});
+
 </script>
 <link rel="stylesheet" href="css/diesel-01.css?v=202608100110">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
