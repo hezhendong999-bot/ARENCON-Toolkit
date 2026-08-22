@@ -320,6 +320,25 @@ for await (const line of rl) {
       await new Promise(res => setTimeout(res, m.settle || 900));
       send({ id: m.id, ok: true });
     }
+    else if (m.cmd === 'tap') {
+      /* S675 — an inspector TAPS: a checklist YES/NO/NA answer, a toggle, any
+         button. Taps mutate state through their own handlers and fire no
+         input/change event, so nothing durability-related ever saw them. The
+         probe dispatches a real bubbling click at the document, exactly what
+         a tap produces, and waits out the stamp debounce. */
+      try { w.document.dispatchEvent(new w.MouseEvent('click', { bubbles: true })); } catch (_) {
+        try { w.document.dispatchEvent(new w.Event('click', { bubbles: true })); } catch (_) {}
+      }
+      await new Promise(res => setTimeout(res, m.settle || 900));
+      send({ id: m.id, ok: true });
+    }
+    else if (m.cmd === 'penup') {
+      /* S675 — a signature stroke ends: pointerup is the only DOM trace a
+         canvas drawing leaves. */
+      try { w.document.dispatchEvent(new w.Event('pointerup', { bubbles: true })); } catch (_) {}
+      await new Promise(res => setTimeout(res, m.settle || 900));
+      send({ id: m.id, ok: true });
+    }
     else if (m.cmd === 'paintfail') { paintOk = false; send({ id: m.id, ok: true }); }
     else if (m.cmd === 'paintok')   { paintOk = true;  send({ id: m.id, ok: true }); }
     else if (m.cmd === 'get')     { send({ id: m.id, ok: true, screen: screen }); }

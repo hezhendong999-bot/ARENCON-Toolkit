@@ -514,6 +514,10 @@ const CloudSync = (function () {
        screen, and retire the durable pending flag when nothing differs. */
     /* S674 — the engine's keystroke stamper carries the value with it. */
     try { engine.onStampPersist = _persistAtStamp; } catch (_) {}
+    /* S675 — any edit is an edit: taps, strokes, and silent arrivals feed the
+       same diff-gated pipeline. Opt-in flag; FRT stays unchanged until its
+       own lane raises it. */
+    try { engine.wideEditTriggers = true; } catch (_) {}
 
     engine.onModelReplaced = function () {
       try {

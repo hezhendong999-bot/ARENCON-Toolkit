@@ -868,3 +868,6 @@ anchorBoot
 @ Keystroke durability — a claim and its value are made permanent together (Mark's 21 Aug Rated Flow loss, S674)
 onStampPersist
 _persistAtStamp
+
+@ Any edit is an edit — taps, strokes and silent arrivals are durable via the shared engine, opt-in per tool (Mark's directive, S675)
+wideEditTriggers
