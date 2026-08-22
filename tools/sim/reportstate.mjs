@@ -176,7 +176,14 @@ function runHost(shape, seed) {
     _ensureFlowPhotoIds: () => {}, _ensureDeficIds: () => {},
     JSON, Object, Array, Set, Number, String
   };
-  const names = ['document', 'Date', 'Math', '_ensureFlowPhotoIds', '_ensureDeficIds', 'JSON', 'Object', 'Array', 'Set', 'Number', 'String'];
+  /* After conversion collectState delegates, so it needs what the browser
+     gives it: the engine, the manifest and this tool's bindings. Before
+     conversion these are simply unused. The same probe therefore runs on both
+     sides of the switch, which is the point. */
+  const env = makeEnv(dom, st, seededRandom(seed));
+  scope.dieselCollectViaManifest = () => RS.collect(MAN, env);
+  const names = ['document', 'Date', 'Math', '_ensureFlowPhotoIds', '_ensureDeficIds',
+                 'dieselCollectViaManifest', 'JSON', 'Object', 'Array', 'Set', 'Number', 'String'];
   const stateNames = Object.keys(st);
   const body = 'var ' + stateNames.map(n => `${n} = __st.${n}`).join(', ') + ';\n' +
     lifted._photoOut + '\n' + lifted.collectState + '\nreturn collectState();';
@@ -442,6 +449,49 @@ console.log('  ' + SHAPES.length + ' round trips (save -> reopen -> save) — ' 
   check('an existing id is never re-minted over', preserved, JSON.stringify(ids));
   console.log('  identities — ' + ids.length + ' rows, all named: ' + (everyHasId ? 'yes' : 'NO') +
               ' · unique: ' + (unique ? 'yes' : 'NO') + ' · existing preserved: ' + (preserved ? 'yes' : 'NO'));
+}
+
+/* 8 — THE PRE-CONVERSION GOLDEN.
+       Arm 3 compares the live collectState against the manifest. The moment
+       Part B converts collectState INTO a call to the manifest, that
+       comparison becomes two ways of saying the same thing and quietly stops
+       testing anything — the same trap the acceptance differential hit in
+       Phase 1. So what the tool produced BEFORE conversion is captured once,
+       from the old code, and checked in. From here on the question is not
+       "do the two agree" but "does the tool still produce exactly what it
+       produced on 22 Aug 2026, before any of this started".
+
+       THE GOLDEN FILE IS A HISTORICAL RECORD, NOT AN OUTPUT. Never regenerate
+       it to clear a failure. A deliberate change to what a report carries is a
+       Mark decision, re-cut in the same session, stated on the record. */
+{
+  const GOLDEN = path.join(HERE, 'fixtures/reportstate_golden.json');
+  if (process.env.CUT_GOLDEN === '1') {
+    const cut = SHAPES.map(s => ({ shape: s.name, state: JSON.parse(normIds(runHost(s, 11))) }));
+    fs.writeFileSync(GOLDEN, JSON.stringify(cut));
+    console.log('  GOLDEN RE-CUT — ' + cut.length + ' shapes written. This must be a deliberate, stated decision.');
+  } else if (!fs.existsSync(GOLDEN)) {
+    check('pre-conversion golden exists', false, 'missing ' + GOLDEN);
+  } else {
+    const golden = JSON.parse(fs.readFileSync(GOLDEN, 'utf8'));
+    let gFails = 0;
+    golden.forEach(g => {
+      const shape = SHAPES.find(s => s.name === g.shape);
+      if (!shape) { gFails++; fails.push('golden shape no longer exists: ' + g.shape); return; }
+      const now = JSON.parse(normIds(runHost(shape, 11)));
+      const diffs = [...new Set([...Object.keys(g.state), ...Object.keys(now)])]
+        .filter(k => JSON.stringify(g.state[k]) !== JSON.stringify(now[k]));
+      if (diffs.length) {
+        gFails++;
+        fails.push('the tool no longer produces what it produced pre-conversion — shape "' + g.shape +
+          '" differs on: ' + diffs.join(', ') +
+          '\n      then: ' + String(JSON.stringify(g.state[diffs[0]])).slice(0, 160) +
+          '\n      now : ' + String(JSON.stringify(now[diffs[0]])).slice(0, 160));
+      }
+      checks++;
+    });
+    console.log('  ' + golden.length + ' shapes vs the pre-conversion capture — ' + gFails + ' differ');
+  }
 }
 
 console.log('\n' + checks + ' checks, ' + fails.length + ' failures');

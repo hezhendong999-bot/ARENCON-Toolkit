@@ -66,6 +66,13 @@
      to it. Loaded here beside pumpCurve for the same reason: both are pure
      calculation with no dependencies. -->
 <script src="../lib/calc/pumpAcceptance.js"></script>
+<!-- S679 — unification Phase 2. The engine walks a declared list; the manifest
+     IS that list for Diesel; the bindings are the only place the engine can
+     reach this tool's state. Order does not matter for correctness (everything
+     resolves at call time) but this is the reading order. -->
+<script src="../lib/data/reportState.js"></script>
+<script src="js/reportManifest.js"></script>
+<script src="js/reportBindings.js"></script>
 <script src="../lib/calc/curveData.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
 <script src="../lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->

@@ -1801,175 +1801,22 @@ function _photoOut(p, extra) {
 }
 
 function collectState() {
+  /* S679 — THE HOST READS THE SCREEN; THE MANIFEST SAYS WHAT A REPORT IS.
+     Everything that used to be below this line was a hand-written list of ~80
+     element ids and 39 state keys, kept in step with a second hand-written
+     list in the load path by nothing but attention. That is what let
+     witnessSignRows be collected on every save and applied nowhere for a year
+     (S496), and it is why the flow photos are still assigned twice on the way
+     back in. The list now lives in diesel-app/js/reportManifest.js, declared
+     once, both directions, and lib/data/reportState.js walks it.
+
+     Pinned by tools/sim/reportstate.mjs against a capture of exactly what this
+     function produced before it was converted — 12 report shapes, byte for
+     byte. Not "equivalent": identical. */
   _ensureFlowPhotoIds();
   _ensureDeficIds();
-  /* S605 — permanent ids for pump-curve rows so the engine can pair them by
-     identity (S540 pattern); without ids the whole table merged last-save-wins. */
-  [typeof pumpCurvePoints!=='undefined'?pumpCurvePoints:null, typeof pldPumpCurvePoints!=='undefined'?pldPumpCurvePoints:null].forEach(function(arr){
-    if(!Array.isArray(arr)) return;
-    arr.forEach(function(p){ if(p && !p.id) p.id='cv_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); });
-  });
-  const proj = {};
-  ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
-   'pi-contractor','pi-version','pi-ref','pi-revision','pi-date-modified',
-   'pm-prv','pm-rpm','pm-equip','pm-pitot','pm-pitotflow','pm-rated-flow',
-   'pm-relief','pm-reducing','pm-relief-pld','pm-reducing-pld',
-   'pm-pitot-pld','pm-pitotflow-pld','pm-rated-flow-pld',
-   'ws-static-flow','ws-static-psi','ws-res-flow','ws-res-psi',
-   'dem-spr-flow','dem-spr-psi','dem-hose-flow',
-   'pld-ws-static-flow','pld-ws-static-psi','pld-ws-res-flow','pld-ws-res-psi',
-   'pld-dem-spr-flow','pld-dem-spr-psi','pld-dem-hose-flow',
-   'pm-prv-pld','pm-pld-setting','pm-rpm-pld',
-   'ps-jci-d','ps-jci-f','ps-jco-d','ps-jco-f','ps-fci-d','ps-fci-f','ps-fco-d','ps-fco-f','ps-jci-d-pld','ps-jci-f-pld','ps-jco-d-pld','ps-jco-f-pld','ps-fci-d-pld','ps-fci-f-pld','ps-fco-d-pld','ps-fco-f-pld',
-   'np-mfr','np-model','np-serial','np-size','np-stages','np-impeller','np-bhp','np-maxbhp','np-drvmfg','np-drvsn','np-ctlmfg','np-ctlsn','np-mfr-pld','np-model-pld','np-serial-pld','np-size-pld','np-stages-pld','np-impeller-pld','np-bhp-pld','np-maxbhp-pld','np-drvmfg-pld','np-drvsn-pld','np-ctlmfg-pld','np-ctlsn-pld',
-   'so-name','so-title','so-company','so-date','test-result',
-  ].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) proj[id] = el.value;
-  });
-  /* ═══ S622i — A DEFAULT THE PERSON NEVER CHOSE MUST NEVER LEAVE THE DEVICE
-     (Mark's B2, 06 Aug: pick 7-Point on PC, sync to the phone, hard-refresh
-     PC — and BOTH devices were back on 3-Point). The kill chain: if the boot
-     restore fails to relight the buttons for any reason, this collect used to
-     fall back to 'std', the engine saw 'std' vs the ledger's 'pld', minted it
-     as a fresh entry, and the fabricated default beat the real choice on
-     every device. The skeleton rule (S622, statusMaps) applies to this scalar
-     too: no button lit and no choice made → the save simply OMITS testType,
-     and absence never deletes — the cloud's real choice survives no matter
-     what state this device's screen is in. */
-  var testType;
-  document.querySelectorAll('.pump-type-btns button').forEach(function(b){ if(b.classList.contains('on')) testType=b.dataset.ptype; });
-  // S582: whether a person has actually chosen the test type. Legacy saves have
-  // no field; the load path treats a present testType as chosen (see below).
-  var ttChosen = (typeof _ttChosen!=='undefined') ? !!_ttChosen : true;
-  if (testType === undefined) ttChosen = undefined;   // unset ships as absent, not as a claim
-  // Equipment checkboxes
-  /* ═══ S616c — EQUIPMENT ANSWERS GET IDENTITIES ═══════════════════════════
-     These were stored as POSITIONS — "boxes 0, 3 and 5 are ticked" — with no
-     record of WHICH equipment that was. Two consequences, both silent:
-       • two inspectors in one report could not be reconciled, because a
-         position means nothing across devices, so one person's equipment
-         answers replaced the other's on whatever saved last;
-       • the day anyone edits or reorders that list, every saved report shifts
-         and reports equipment that was never used, with no error.
-     Each answer is now its own record — this item, this answer, this time —
-     the same shape the checklist uses, which the merge engine already
-     arbitrates correctly. An absent key means never answered; 'no' means
-     deliberately unticked and travels like any other answer.
-
-     The legacy position array is STILL WRITTEN, deliberately. A tablet on a
-     cached older build reads only that key, and would otherwise show a blank
-     equipment list on a report someone else had filled in. It is derived
-     output, never read back by this build (see the load path), so it cannot
-     fight the stamped map. Drop it once every device is confirmed current. */
-  const equipState = {};
-  const equipChecked = [];
-  document.querySelectorAll('input[name="equip3a"]').forEach(function(cb,i){
-    var k = cb.value || ('pos'+i);
-    equipState[k] = { status: cb.checked ? 'yes' : 'no' };
-    if(cb.checked) equipChecked.push(i);
-  });
-  // S321: the 7-pt tab's equipment was NEVER persisted
-  const equipState4b = {};
-  const equipChecked4b = [];
-  document.querySelectorAll('input[name="equip4b"]').forEach(function(cb,i){
-    var k = cb.value || ('pos'+i);
-    equipState4b[k] = { status: cb.checked ? 'yes' : 'no' };
-    if(cb.checked) equipChecked4b.push(i);
-  });
-  // S321: pitot rows were NEVER persisted — readings lived only in the DOM
-  const pitotRows = {};
-  ['3a','4b'].forEach(function(tab){
-    var rows=[];
-    for(var n=1;n<=((typeof pitotCounts!=='undefined'&&pitotCounts[tab])||0);n++){
-      var pp=document.getElementById('pp-'+tab+'-'+n), pf=document.getElementById('pf-'+tab+'-'+n), po=document.getElementById('po-'+tab+'-'+n);
-      if(!pp&&!pf&&!po) continue;   // removed row
-      // S540: carry the row's permanent name; mint for rows predating this change.
-      var _pr=document.getElementById('pr-'+tab+'-'+n);
-      var _pid=_pr?_pr.getAttribute('data-pid'):null;
-      if(!_pid){ _pid='pt_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); if(_pr) _pr.setAttribute('data-pid',_pid); }
-      rows.push({id:_pid, p:pp?pp.value:'', f:pf?pf.value:'', o:po?po.value:'1'});
-    }
-    pitotRows[tab]=rows;
-  });
-  // S321: custom equipment TEXT was never persisted (only its checkbox index)
-  const customEquip = {};
-  ['3a','4b'].forEach(function(tab){
-    var arr=[];
-    document.querySelectorAll('#equip-custom-'+tab+' label').forEach(function(w){
-      var cb=w.querySelector('input[type=checkbox]'), tx=w.querySelector('input[type=text]');
-      // S540: carry the row's permanent name; mint for rows predating this change.
-      var _cid=w.getAttribute('data-cid');
-      if(!_cid){ _cid='ce_'+Date.now().toString(36)+'_'+Math.random().toString(36).substr(2,6); w.setAttribute('data-cid',_cid); }
-      arr.push({id:_cid, t:tx?tx.value:'', c:cb?cb.checked:true});
-    });
-    customEquip[tab]=arr;
-  });
-  return {
-    proj,
-    testType,
-    ttChosen,
-    npshPsi,
-    npshPsiPld,
-    equipChecked,
-    equipChecked4b,
-    equipState,
-    equipState4b,
-    pitotRows,
-    customEquip,
-    stdData: stdData.map(r=>({...r})),
-    pldData: pldData.map(r=>({...r})),
-    pumpCurvePoints: pumpCurvePoints.map(p=>({...p})),
-    pldPumpCurvePoints: pldPumpCurvePoints.map(p=>({...p})),
-    clState: JSON.parse(JSON.stringify(clState)),
-    clSchemaVer: 2,
-    customItems: JSON.parse(JSON.stringify(customItems)),
-    contractors: [...contractors],
-    contractorTrades: JSON.parse(JSON.stringify(contractorTrades)),
-    deficiencies: JSON.parse(JSON.stringify(deficiencies)),
-    generalDeficiencies: JSON.parse(JSON.stringify(generalDeficiencies)),
-    contractorSignRows: contractorSignRows.map(r=>({...r})),
-    witnessSignRows: witnessSignRows.map(r=>({...r})),
-    /* S605 — wrapped {s:[...]} per canvas so the engine's per-key stamp
-       survives JSON; bare arrays drop attached properties on serialize. */
-    sigStrokes: (function(){ var o={}; if(typeof _sigStrokes!=='undefined') Object.keys(_sigStrokes).forEach(function(k){ o[k]={s:JSON.parse(JSON.stringify(_sigStrokes[k]||[]))}; }); return o; })(),
-    // Photos stored separately to keep main state lean
-    batData: {b1:[...batData.b1], b2:[...batData.b2]},
-    flowTestPhotosPld: flowTestPhotosPld.map(p=>_photoOut(p,{tag:p.tag||''})),
-    deletedItems: (function(){ var o={}; Object.keys(deletedItems).forEach(function(k){ o[k]=[...deletedItems[k]]; }); return o; })(),
-    flowTestPhotos: flowTestPhotos.map(p=>_photoOut(p,{tag:p.tag||''})),
-    recordPhotos: recordPhotos.map(p=>_photoOut(p,{kind:p.kind,date:p.date||''})),
-    sketchEntries: sketchEntries.map(e=>({id:e.id||'', comment:e.comment, markupImg:e.markupImg||null})),
-    formRevision,
-    formDateModified,
-    appendixExcluded: (typeof _appendixExcl!=='undefined') ? Array.from(_appendixExcl) : [],   // S315 F1
-    /* ═══ S616c — PUTTING A PHOTO BACK IN IS A DECISION, NOT AN ABSENCE ═════
-       The exclusions were already keyed to each photo's own id, so identity
-       was never the problem here. The problem was direction: only "excluded"
-       was ever recorded, so re-including a photo looked exactly like never
-       having touched it. Between two devices that made exclusion one-way —
-       once anyone dropped a photo from the appendix, nobody could restore it,
-       because their restore carried no evidence to beat the other device's
-       exclusion. Both answers are now recorded with the time they were made,
-       so the later decision wins whichever way it went.
-       Only photos a person has actually ruled on appear here; the map is not
-       pre-filled with every eligible photo. */
-    appendixState: (function(){
-      var out = {};
-      try {
-        if (typeof _appendixExcl !== 'undefined') _appendixExcl.forEach(function(k){ out[k] = { status:'out' }; });
-        if (typeof _appendixIncl !== 'undefined') _appendixIncl.forEach(function(k){ if(!out[k]) out[k] = { status:'in' }; });
-      } catch(_) {}
-      return out;
-    })(),
-    distribution: [...distribution],   // S328: report recipients
-    smState: JSON.parse(JSON.stringify(smState)),
-    smCapVis: JSON.parse(JSON.stringify(smCapVis)),
-    annDsForce: JSON.parse(JSON.stringify(annDsForce)),
-  };
+  return dieselCollectViaManifest();
 }
-
-
 
 // ═══ BUILD SAVE HTML (used by email export) ═══
 // ═══ CLOUD STATE — strips base64 photos from CloudSync payload ═══

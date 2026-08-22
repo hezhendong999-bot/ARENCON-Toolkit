@@ -962,153 +962,46 @@ function _applyLoadedState(raw) {
     /* S616c — prefer the per-photo decisions. Older reports carry only the
        one-way exclusion list and are read exactly as before, so nothing about
        an existing report changes on open. */
-    _alsStep='appendix-decisions';
-    if(s.appendixState && typeof s.appendixState==='object' && !Array.isArray(s.appendixState) && typeof _appendixExcl!=='undefined'){
-      _appendixExcl = new Set();
-      if(typeof _appendixIncl!=='undefined') _appendixIncl = new Set();
-      Object.keys(s.appendixState).forEach(function(k){
-        var e = s.appendixState[k];
-        if(!e) return;
-        if(e.status==='out') _appendixExcl.add(k);
-        else if(e.status==='in' && typeof _appendixIncl!=='undefined') _appendixIncl.add(k);
-      });
+    /* ═══ S679 — ONE DECLARED LIST, NOT TWO HAND-WRITTEN ONES ═════════════
+       Everything that used to be between here and the re-render below was the
+       second of two hand-maintained lists: ~39 keys put back one at a time,
+       kept in step with collectState by nothing but attention. What that cost:
+       witnessSignRows was collected on every save and applied NOWHERE (S496),
+       so a witness signature round-tripped to empty and the next save erased
+       it from the cloud too; and the 7-point flow photos were assigned twice,
+       sixteen lines apart, harmless only by luck.
+
+       The list is now declared once, both directions, in
+       diesel-app/js/reportManifest.js, and walked by lib/data/reportState.js.
+       A key with only one side declared is a hard error, and a key cannot be
+       written twice.
+
+       IT ALSO ENDS THE ALL-OR-NOTHING RESTORE. Every line here used to sit in
+       one try: the first thing that threw abandoned every remaining key and
+       the screen silently kept whatever it had — both of Mark's standing
+       complaints, a report that opens empty and values that never repaint. The
+       engine applies each key independently and reports what failed, so one
+       bad key is one bad key and the other thirty-eight still land. */
+    _alsStep='apply-manifest';
+    var _applyRes = dieselApplyViaManifest(s);
+    if(_applyRes && _applyRes.failed && _applyRes.failed.length){
+      console.warn('[DIESEL] restore: '+_applyRes.failed.length+' key(s) failed', _applyRes.failed);
+      try{
+        if (typeof CloudSync !== 'undefined' && CloudSync && typeof CloudSync.reportDiag === 'function') {
+          CloudSync.reportDiag('apply_partial', {
+            failed: _applyRes.failed.slice(0,8).join('|').slice(0,200),
+            applied: _applyRes.applied.length,
+            build: (typeof DIESEL_BUILD !== 'undefined' ? DIESEL_BUILD : '?')
+          });
+        }
+      }catch(_e2){}
     }
-    else if(Array.isArray(s.appendixExcluded) && typeof _appendixExcl!=='undefined'){ _appendixExcl = new Set(s.appendixExcluded); }   // S315 F1
-    // Project fields
-    // S264 fix: when Hub-launched, the project IDENTITY fields (proj no / name /
-    // client / address) are authoritative from the URL params and were set readOnly
-    // at boot. A saved blob can carry a DIFFERENT project's stale values for these
-    // (observed: header showed 1490.04 from params while these fields showed 15230.01
-    // from an old blob). Never let saved state overwrite a Hub-locked field — params
-    // win. Once the correct values stand and the user saves, collectState() re-reads
-    // the DOM and the blob self-heals. Non-Hub (standalone) load is unaffected.
-    var _hubLockedIds = (typeof _csHubMode!=='undefined' && _csHubMode)
-      ? {'pi-projno':1,'pi-projname':1,'pi-client':1,'pi-addr':1} : {};
-    _alsStep='project-fields';
-    Object.entries(s.proj||{}).forEach(([id,val]) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      if (_hubLockedIds[id] && el.readOnly) return; // params authoritative — do not clobber
-      el.value = val;
-    });
-    // Test type
-    _alsStep='pump-type';
-    if (s.testType) {
-      /* S622c — THE PUMP-TYPE SELECTION DIED ON EVERY CLOUD LOAD. This path
-         only called setPumpTestType if a radio named "pump-test-type"
-         existed — a control extinct since the S582 button merge — so the
-         stored choice was never restored to the screen, the default button's
-         hard-coded 'on' class stayed lit, and the next autosave collected
-         'std' and pushed it with a fresh entry stamp, actively overwriting
-         the real choice on every device. tool_data_history for 06 Aug shows
-         it plainly: every save from every device left as 'std', stamp 0.
-         Restore unconditionally; the legacy radio write stays harmless. */
-      const r = document.querySelector(`input[name="pump-test-type"][value="${s.testType}"]`);
-      if (r) r.checked = true;
-      if (typeof setPumpTestType === 'function') setPumpTestType(s.testType);
-      /* S582: saved reports count as chosen; only a new-era pre-choice save stays gated. */
-      try{ _ttChosen = (s.ttChosen===false) ? false : true; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
-    }
-    // stdData — assign fields, but preserve any local photo binary the incoming copy lacks
-    _alsStep='3pt-rows';
-    if (s.stdData) s.stdData.forEach((r,i) => { if(stdData[i]) _assignRowPreservePhotos(stdData[i], r); });
-    _alsStep='npsh';
-    if (s.npshPsi !== undefined) { npshPsi = s.npshPsi; var _ne=document.getElementById('npsh-psi'); if(_ne) _ne.value = s.npshPsi||''; }
-    if (s.npshPsiPld !== undefined) { npshPsiPld = s.npshPsiPld; var _nep=document.getElementById('npsh-psi-pld'); if(_nep) _nep.value = s.npshPsiPld||''; }
-    // pldData
-    _alsStep='7pt-rows';
-    if (s.pldData) s.pldData.forEach((r,i) => { if(pldData[i]) _assignRowPreservePhotos(pldData[i], r); });
-    // safety margin per-chart state (on/off + chip offset)
-    _alsStep='chart-state';
-    if (s.smState){ Object.keys(smState).forEach(function(k){ if(s.smState[k]) Object.assign(smState[k], s.smState[k]); }); }
-    if (s.smCapVis){ Object.keys(smCapVis).forEach(function(k){ if(s.smCapVis[k]) Object.assign(smCapVis[k], s.smCapVis[k]); }); }
-    if (s.annDsForce){ Object.keys(annDsForce).forEach(function(k){ if(s.annDsForce[k]) annDsForce[k]=Object.assign({}, s.annDsForce[k]); }); }
-    // pumpCurvePoints
-    if (s.pumpCurvePoints) {
-      pumpCurvePoints.length = 0;
-      s.pumpCurvePoints.forEach(p => pumpCurvePoints.push(p));
-    }
-    if (s.pldPumpCurvePoints) {
-      pldPumpCurvePoints.length = 0;
-      s.pldPumpCurvePoints.forEach(p => pldPumpCurvePoints.push(p));
-    }
-    // clState
-    _alsStep='checklists';
-    if (s.clState) { var _migCl2=_migrateClState(s.clState, s.clSchemaVer); Object.assign(clState, _migCl2); Object.keys(clState).forEach(function(k){ if(clState[k]) delete clState[k].timestamp; }); }
-    // customItems
-    if (s.customItems) Object.assign(customItems, s.customItems);
-    // contractors + deficiencies
-    if (s.contractors) {
-      contractors.length = 0;
-      s.contractors.forEach(c => contractors.push(c));
-    }
-    if (Array.isArray(s.distribution)) { distribution.length = 0; s.distribution.forEach(n => distribution.push(n)); }   // S328
-    if (s.contractorTrades) contractorTrades = JSON.parse(JSON.stringify(s.contractorTrades));
-    _alsStep='deficiencies';
-    if (s.deficiencies) {
-      Object.keys(deficiencies).forEach(k => delete deficiencies[k]);
-      Object.assign(deficiencies, s.deficiencies);
-    }
-    if (s.generalDeficiencies) { generalDeficiencies.length=0; s.generalDeficiencies.forEach(function(d){generalDeficiencies.push(d);}); }
-    // contractorSignRows
-    if (s.contractorSignRows) {
-      contractorSignRows.length = 0;
-      s.contractorSignRows.forEach(r => contractorSignRows.push(r));
-    }
-    /* S496 audit fix: witnessSignRows was COLLECTED on every save but never
-       RESTORED here — the only state key with that asymmetry. Round-trip damage:
-       add a witness (AHJ / owner rep) row -> it saves to cloud -> reload -> the
-       in-memory array is empty, the UI shows no witness rows, and the NEXT save
-       pushes the empty array back, permanently erasing the witness signatures
-       from the cloud as well. renderAllSignRows() below already rebuilds the
-       witness container and restores witness signature ink (canvas c-100+); the
-       array restore was the single missing link. */
-    if (s.witnessSignRows) {
-      witnessSignRows.length = 0;
-      s.witnessSignRows.forEach(r => witnessSignRows.push(r));
-    }
-    _alsStep='signatures';
-    if (s.sigStrokes && typeof _sigStrokes!=='undefined'){ Object.keys(_sigStrokes).forEach(function(k){delete _sigStrokes[k];}); Object.keys(s.sigStrokes).forEach(function(k){ var v=s.sigStrokes[k]; _sigStrokes[k]=(v&&!Array.isArray(v)&&Array.isArray(v.s))?v.s:v; }); }   // S605: unwrap {s:[...]}; legacy bare arrays pass through
-    // flowTestPhotos
-    /* S640 — the render call is gone from this data branch; the one repaint
-       list runs at the end of this function. Note this exact assignment also
-       appears ~16 lines below: a pre-existing duplicate, harmless because it
-       is idempotent, left alone here rather than tangled into a repaint fix. */
-    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(p=>flowTestPhotosPld.push(p)); }
-    // batData
-    if (s.batData) {
-      if(s.batData.b1) batData.b1 = s.batData.b1.map(Number);
-      if(s.batData.b2) batData.b2 = s.batData.b2.map(Number);
-      renderBatTable('bat1-body','b1');
-      renderBatTable('bat2-body','b2');
-      updateBatTotals();
-    }
-    // deletedItems
-    if (s.deletedItems) {
-      Object.keys(s.deletedItems).forEach(function(k){
-        deletedItems[k] = new Set(s.deletedItems[k]);
-      });
-    }
-    // flowTestPhotosPld
-    if (s.flowTestPhotosPld) { flowTestPhotosPld.length=0; s.flowTestPhotosPld.forEach(function(p){flowTestPhotosPld.push(p);}); }   // S640: repaint is the shared list's job
-    if (s.flowTestPhotos) {
-      flowTestPhotos.length = 0;
-      s.flowTestPhotos.forEach(p => flowTestPhotos.push(p));    }
-    // recordPhotos (site records: pump / placard / site)
-    _alsStep='site-photos';
-    if (s.recordPhotos) {
-      recordPhotos.length = 0;
-      s.recordPhotos.forEach(function(p){ recordPhotos.push(p); });
-      if(typeof _renderRecordZones==='function') _renderRecordZones();
-    }
-    // sketchEntries
-    if (s.sketchEntries) {
-      sketchEntries.length = 0;
-      s.sketchEntries.forEach(e => sketchEntries.push(e));
-    }
-    // Revision
-    if (s.formRevision) { formRevision = s.formRevision; }
-    if (s.formDateModified) { formDateModified = s.formDateModified; }
+    /* The surfaces those keys feed. These are RENDER calls, not data: the
+       engine deliberately does not repaint, because the repaint list is this
+       tool's personality and Electric's will differ. */
+    _alsStep='render-after-apply';
+    if (s.batData) { renderBatTable('bat1-body','b1'); renderBatTable('bat2-body','b2'); updateBatTotals(); }
+    if (s.recordPhotos && typeof _renderRecordZones==='function') _renderRecordZones();
     _alsStep='revision';
     updateRevisionDisplay();
     // Re-render

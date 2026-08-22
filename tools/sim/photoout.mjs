@@ -42,6 +42,13 @@ const REPO  = path.resolve(_HERE, '../..');
 const LIVE  = process.env.SIM_LIVE || path.resolve(REPO, '../live');
 const ROOT  = TARGET === 'fix' ? REPO : LIVE;
 const SRC   = path.join(ROOT, 'diesel-app/js/part06c.js');
+/* S679 — the photo arrays are now serialised in the report BINDINGS rather
+   than inline in collectState. The guarantee this probe enforces is unchanged:
+   one serialiser, every array through it, pointer fields never hand-listed.
+   Only its address moved, so the probe reads both files as one subject. If it
+   read only the old one it would go green on an empty file, which is the
+   failure mode a probe must never have. */
+const SRC2  = path.join(ROOT, 'diesel-app/js/reportBindings.js');
 
 const results = [];
 function check(name, pass, detail) {
@@ -50,23 +57,38 @@ function check(name, pass, detail) {
 }
 
 if (!fs.existsSync(SRC)) { console.error('SUBJECT MISSING: ' + SRC); process.exit(2); }
-const src = fs.readFileSync(SRC, 'utf8');
+if (!fs.existsSync(SRC2)) { console.error('SUBJECT MISSING: ' + SRC2); process.exit(2); }
+const src = fs.readFileSync(SRC, 'utf8') + '\n' + fs.readFileSync(SRC2, 'utf8');
 
 console.log('\n═══ PHOTO-OUT PROBE ═══');
-console.log('source: ' + SRC + '\n');
+console.log('source: ' + SRC + '\n      + ' + SRC2 + '\n');
 
 /* Every photo array collectState writes out. Adding a surface without adding
    it here is itself a gap, so the list is asserted against the source below. */
 const ARRAYS = ['flowTestPhotos', 'flowTestPhotosPld', 'recordPhotos'];
+
+/* Two shapes are accepted, because the serialiser moved but the rule did not:
+   the old inline `name: name.map(...)` inside collectState, and the binding
+   `collectName: function () { return name.map(...) }`. Anything else counts as
+   no serialiser at all. */
+function matchArray(text, arr) {
+  const bound = text.match(new RegExp('collect' + arr[0].toUpperCase() + arr.slice(1) +
+                                      ':\\s*function[^{]*\\{([\\s\\S]*?)\\}\\);\\s*\\}', 'm'));
+  if (bound) return bound[1].replace(/\s+/g, ' ').trim();
+  /* the pre-S679 inline shape; a bare `name: name,` reference is NOT a
+     serialiser, so a mapping call is required before it counts */
+  const inline = text.match(new RegExp('^\\s*' + arr + ':\\s*(.+\\.map\\(.+?),\\s*$', 'm'));
+  return inline ? inline[1] : null;
+}
 const POINTER_FIELDS = ['r2Key', 'r2Url', 'r2Status'];
 
 /* ══ 1 — EVERY PHOTO ARRAY WRITES ITS ADDRESS ═══════════════════════════ */
 console.log('1 ADDRESS-SAVED   every photo array must write r2Key / r2Url / r2Status');
 {
   for (const arr of ARRAYS) {
-    const m = src.match(new RegExp('^\\s*' + arr + ':\\s*(.+?),\\s*$', 'm'));
-    if (!m) { check(arr + ' is serialised by collectState', false, 'no line found — did the key move?'); continue; }
-    const line = m[1];
+    const m = matchArray(src, arr);
+    if (!m) { check(arr + ' is serialised on the way out', false, 'no serialiser found — did the key move?'); continue; }
+    const line = m;
     const viaShared = /_photoOut\s*\(/.test(line);
     const namesAll = POINTER_FIELDS.every(f => new RegExp('\\b' + f + '\\b').test(line));
     check(arr + ' writes the photo\'s cloud address',
@@ -83,8 +105,8 @@ console.log('1 ADDRESS-SAVED   every photo array must write r2Key / r2Url / r2St
 console.log('\n2 ONE-IMPLEMENTATION  all photo arrays share a single serialiser (S478)');
 {
   const usingShared = ARRAYS.filter(arr => {
-    const m = src.match(new RegExp('^\\s*' + arr + ':\\s*(.+?),\\s*$', 'm'));
-    return m && /_photoOut\s*\(/.test(m[1]);
+    const m = matchArray(src, arr);
+    return m && /_photoOut\s*\(/.test(m);
   });
   check('every photo array routes through _photoOut',
         usingShared.length === ARRAYS.length,
@@ -121,14 +143,14 @@ console.log('\n3 NEVER-BAKE      derived display caches stay out of the saved re
    would scatter every flow photo out of its slot. */
 console.log('\n4 EXTRAS-KEPT     per-array fields that only one array carries');
 {
-  const flow = src.match(/^\s*flowTestPhotos:\s*(.+?),\s*$/m);
-  const flowPld = src.match(/^\s*flowTestPhotosPld:\s*(.+?),\s*$/m);
-  const rec  = src.match(/^\s*recordPhotos:\s*(.+?),\s*$/m);
+  const flow = matchArray(src, 'flowTestPhotos');
+  const flowPld = matchArray(src, 'flowTestPhotosPld');
+  const rec  = matchArray(src, 'recordPhotos');
   check('flow-test photos still carry their slot tag',
-        !!flow && /\btag\b/.test(flow[1]) && !!flowPld && /\btag\b/.test(flowPld[1]),
+        !!flow && /\btag\b/.test(flow) && !!flowPld && /\btag\b/.test(flowPld),
         'tag missing — flow photos would lose which chart or equipment slot they belong to');
   check('record photos still carry kind and date',
-        !!rec && /\bkind\b/.test(rec[1]) && /\bdate\b/.test(rec[1]),
+        !!rec && /\bkind\b/.test(rec) && /\bdate\b/.test(rec),
         'kind/date missing — record photos would lose their category');
 }
 

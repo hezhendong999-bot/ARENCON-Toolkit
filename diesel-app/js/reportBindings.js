@@ -49,13 +49,6 @@ function _dslMintId(prefix) {
   return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 6);
 }
 
-/* The outbound photo shape. Delegates to the live _photoOut so there is one
-   definition, not a copy that can drift — this is exactly the mistake the
-   unification rules exist to prevent. */
-function _dslPhotoOut(p, extra) {
-  return (typeof _photoOut === 'function') ? _photoOut(p, extra) : p;
-}
-
 function dieselStateEnv(opts) {
   opts = opts || {};
   return {
@@ -241,8 +234,14 @@ function dieselStateEnv(opts) {
 
       /* ── checklist state: migration then timestamp strip ──────────────── */
       applyClState: function (v, env, spec) {
+        /* The migration must run against the version the REPORT was saved
+           with, not against today's. Passing a default here would migrate an
+           old checklist as though it were current — the answers would land in
+           the wrong shape and look like unanswered items. */
+        var savedVer = (env && env._state && env._state.clSchemaVer !== undefined)
+          ? env._state.clSchemaVer : ((spec && spec.schemaVer) || 2);
         var migrated = (typeof _migrateClState === 'function')
-          ? _migrateClState(v, (spec && spec.schemaVer) || 2) : v;
+          ? _migrateClState(v, savedVer) : v;
         Object.assign(clState, migrated);
         Object.keys(clState).forEach(function (k) { if (clState[k]) delete clState[k].timestamp; });
       },
@@ -276,9 +275,9 @@ function dieselStateEnv(opts) {
       },
 
       /* ── photo arrays: shaped on the way out by the tool's own rule ───── */
-      collectFlowTestPhotos:    function () { return flowTestPhotos.map(function (p) { return _dslPhotoOut(p, { tag: p.tag || '' }); }); },
-      collectFlowTestPhotosPld: function () { return flowTestPhotosPld.map(function (p) { return _dslPhotoOut(p, { tag: p.tag || '' }); }); },
-      collectRecordPhotos:      function () { return recordPhotos.map(function (p) { return _dslPhotoOut(p, { kind: p.kind, date: p.date || '' }); }); },
+      collectFlowTestPhotos:    function () { return flowTestPhotos.map(function (p) { return _photoOut(p, { tag: p.tag || '' }); }); },
+      collectFlowTestPhotosPld: function () { return flowTestPhotosPld.map(function (p) { return _photoOut(p, { tag: p.tag || '' }); }); },
+      collectRecordPhotos:      function () { return recordPhotos.map(function (p) { return _photoOut(p, { kind: p.kind, date: p.date || '' }); }); },
       collectSketchEntries:     function () { return sketchEntries.map(function (e) { return { id: e.id || '', comment: e.comment, markupImg: e.markupImg || null }; }); },
 
       /* ── contractor trades: reassigned, so it goes through set() ──────── */
@@ -336,9 +335,13 @@ function dieselCollectViaManifest() {
 }
 function dieselApplyViaManifest(state) {
   var env = dieselStateEnv();
-  /* The legacy appendix list must lose to the per-photo map when both are
-     present; the engine applies keys in manifest order, so the flag is set
-     before either runs. */
+  /* Custom appliers sometimes need a second key from the same payload — the
+     checklist migration needs the schema version the report was saved with,
+     and the legacy appendix list must lose to the per-photo map when both are
+     present. The engine hands each applier its own value; the payload itself
+     is put here so a rule can look sideways without the engine having to know
+     which rules do. */
+  env._state = state || {};
   env._appendixStatePresent = !!(state && state.appendixState &&
                                  typeof state.appendixState === 'object' &&
                                  !Array.isArray(state.appendixState));

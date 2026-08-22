@@ -896,3 +896,13 @@ _frtLabelProjectPhotos
 @ pump still scores exactly the same. Pinned to a pre-move golden capture by
 @ tools/sim/advisorytext.mjs.
 _dslAdvisoryText
+
+@ S679 — unification Phase 2. One declared list of what a report IS, walked by the
+@ shared engine, replacing two hand-maintained lists that nothing kept in step. Lose
+@ any of these and Diesel silently stops saving or restoring whole families of a
+@ report — the S496 witness-signature failure, but for every key at once.
+ReportState
+DieselReportManifest
+dieselStateEnv
+dieselCollectViaManifest
+dieselApplyViaManifest
