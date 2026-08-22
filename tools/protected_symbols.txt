@@ -883,3 +883,9 @@ evalPldPoint
 overallVerdict
 gateTarget
 nfpa20Gate
+
+@ S677 — ONE project photo running order (Mark: arrows must not stop inside a pin,
+@ a thread or the activity log). Removing any of these silently re-walls the viewer.
+buildProjectPhotoList
+openInProject
+_frtLabelProjectPhotos

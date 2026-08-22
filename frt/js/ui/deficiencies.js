@@ -20,6 +20,7 @@ import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { buildThreadHtml, buildComposerHtml, buildTrayHtml, crbCountPending } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray · S498: pending-review count (read-only)
 import { PhotoInput } from '../../../lib/ui/photoInput.js';           // S478: THE shared photo surface — every tool renders this one
+import { openInProject } from './photoNav.js';                        // S677: ONE project-wide photo running order, shared by every surface
 import { AIAssist } from '../ai/assistant.js';
 import { esc } from '../lib/esc.js'; // S453: shared HTML-escape (was local copy; byte-identical)
 
@@ -5800,7 +5801,11 @@ document.addEventListener('click', function(e) {
         ? Model.getEffectivePhotos(f.defic, obsIdx)
         : (f.defic.observations[obsIdx].photos || []);
       if (photos.length && window._frtLightbox) {
-        window._frtLightbox.open(photos, photoIdx);
+        /* S677 — the arrows continue through the report instead of stopping
+           at the end of this observation's strip. Same photo opens; only what
+           lies either side changes. */
+        try { if (window._frtLabelProjectPhotos) window._frtLabelProjectPhotos(); } catch (_) {}
+        openInProject(photos[photoIdx] || photos[0], photos, photoIdx, {});
       }
     }
   }
@@ -6068,7 +6073,11 @@ document.addEventListener('click', function(e) {
     // thrown on first tap, on a tablet, in a warehouse.)
     if (window._frtLightbox && window._frtLightbox.open) {
       try {
-        window._frtLightbox.open(_lpList, _lpIdx);
+        /* S677 — a thread photo now sits in the report's running order, so
+           the arrows carry on into the pin's own photos and the rest of the
+           report rather than stopping after the contractor's attachments. */
+        try { if (window._frtLabelProjectPhotos) window._frtLabelProjectPhotos(); } catch (_) {}
+        openInProject(_lpList[_lpIdx] || _lpList[0], _lpList, _lpIdx, {});
         return;
       } catch (_lbErr) {
         console.warn('[CRB] lightbox open failed:', _lbErr);
@@ -6506,7 +6515,9 @@ document.addEventListener('click', function(e) {
     }
     if (!actEntry || !actEntry.photos || !actEntry.photos.length) return;
     if (window._frtLightbox && window._frtLightbox.open) {
-      window._frtLightbox.open(actEntry.photos, pi || 0);
+      /* S677 — same running order as every other surface. */
+      try { if (window._frtLabelProjectPhotos) window._frtLabelProjectPhotos(); } catch (_) {}
+      openInProject(actEntry.photos[pi || 0], actEntry.photos, pi || 0, {});
     }
   }
 

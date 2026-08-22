@@ -13,6 +13,7 @@ import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark) — also sets window.openCameraBurst for the engine (S479e)
 import { PhotoInput } from '../../../lib/ui/photoInput.js'; // S479e: THE shared photo surface — gallery renders this one, not its own
+import { openInProject } from './photoNav.js'; // S677: ONE project-wide photo running order, shared by every surface
 
 function esc(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 // S431: display-layer host rewrite (same as lightbox's _r2Host). Local model
@@ -886,6 +887,38 @@ Model.onChange('deficiency', _scheduleRender);
 // Click handlers
 // S205 — build the lightbox caption label listing every pin that references
 // this photo's binary (r2Key). Optional prefix (e.g. "Site Photo") leads.
+/* S677 — LABEL THE WHOLE RUNNING ORDER, NOT JUST THE TAPPED SET.
+   Each surface used to label only the handful of photos it passed. Now that
+   the arrows cross into photos the caller never listed, those photos would
+   arrive at the viewer wearing a stale label from a previous open (or none).
+   One pass, the same S205 precedence the site gallery and pin cards already
+   use: a site photo reads "Site Photo · Pin 3" if a pin references the same
+   binary; a pin photo reads its pin references, falling back to its own pin
+   number. Exported through the module's own click handlers only — nothing
+   outside photos.js needs to compute a label. */
+function _frtLabelProjectPhotos() {
+  try {
+    var proj = Model.getProject();
+    if (!proj) return;
+    (proj.photos || []).forEach(function (p) { p._ctxLabel = _phPinLabel(p, 'Site Photo'); });
+    var all = (Model.getAllDeficiencies) ? Model.getAllDeficiencies(proj) : [];
+    all.forEach(function (d) {
+      var defic = d && d.defic;
+      if (!defic) return;
+      var own = 'Pin #' + (defic.num || '?');
+      function lab(p) { if (p) p._ctxLabel = _phPinLabel(p, '') || own; }
+      (defic.photos || []).forEach(lab);
+      (defic.observations || []).forEach(function (o) {
+        (o.photos || []).forEach(lab);
+        (o.responses || []).forEach(function (e) { (e.rectPhotos || []).forEach(lab); });
+        (o.arenconReviews || []).forEach(function (e) { (e.followupPhotos || []).forEach(lab); });
+      });
+      (defic.activity || []).forEach(function (a) { (a.photos || []).forEach(lab); });
+    });
+  } catch (_) { /* a missing label must never block opening a photo */ }
+}
+try { window._frtLabelProjectPhotos = _frtLabelProjectPhotos; } catch (_) {}
+
 function _phPinLabel(p, prefix) {
   var parts = [];
   if (prefix) parts.push(prefix);
@@ -910,8 +943,11 @@ document.addEventListener('click', function(e) {
       // so the markup save handler can find r2Key/id and propagate to siblings.
       // S205: per-photo caption shows "Site Photo" plus any pins referencing
       // the same binary. No global contextLabel so the per-photo label wins.
-      (proj.photos || []).forEach(function(p) { p._ctxLabel = _phPinLabel(p, 'Site Photo'); });
-      window._frtLightbox.open(proj.photos, idx, {});
+      /* S677 — one labeller, one running order. The site gallery already
+         walked every site photo; it now continues into the pin photos rather
+         than stopping at the last site one. */
+      _frtLabelProjectPhotos();
+      openInProject((proj.photos || [])[idx], proj.photos, idx, {});
     }
     return;
   }
@@ -935,7 +971,12 @@ document.addEventListener('click', function(e) {
         photos.forEach(function(p) {
           p._ctxLabel = _phPinLabel(p, '') || ('Pin #' + (f.defic.num || '?'));
         });
-        window._frtLightbox.open(photos, photoIdx, {});
+        /* S677 — the arrows walk the whole report, not this one observation.
+           The tapped photo is still the one that opens; only what lies either
+           side of it changes. Falls back to this short list if the record is
+           not in the running order. */
+        _frtLabelProjectPhotos();
+        openInProject(photos[photoIdx] || photos[0], photos, photoIdx, {});
       }
     }
     return;
