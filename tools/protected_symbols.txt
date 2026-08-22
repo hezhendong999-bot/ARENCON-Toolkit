@@ -936,3 +936,10 @@ photoSrcFallback
 @ back to announcing every other lane's push as its own — the pill-fatigue failure.
 HUB_BUILD
 ELEC_BUILD
+
+@ S679-C — lightbox unification Phase L3: the cutover shim's contract. These are
+@ the members every FRT surface and the Android back-peel call; the rescue names
+@ carry the S628c/S650 protected feature into the unified viewer.
+_flushMarkupForUnload
+_restoreMarkupRescue
+_clearMarkupRescue
