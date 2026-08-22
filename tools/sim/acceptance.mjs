@@ -66,8 +66,8 @@ const p06  = fs.readFileSync(path.join(REPO, 'diesel-app/js/part06.js'), 'utf8')
 const p06b = fs.readFileSync(path.join(REPO, 'diesel-app/js/part06b.js'), 'utf8');
 
 const HOST_FNS = ['_ratedNetFrom', '_isGatePct', '_nfpa20Gate', '_effVerdict',
-                  '_pldDeviceCheck', '_curveDevOver1pct', '_calcFlowPoint',
-                  'updatePldVerdictObj'];
+                  '_pldDeviceCheck', '_curveDevOver1pct', '_dslAdvisoryText',
+                  '_calcFlowPoint', 'updatePldVerdictObj'];
 const lifted = {};
 for (const n of HOST_FNS) {
   const s = liftFunction(p06, n) || liftFunction(p06b, n);
@@ -106,6 +106,17 @@ function makeHost() {
 /* ── comparison ─────────────────────────────────────────────────────────── */
 let cases = 0, mismatches = [];
 const norm = v => JSON.stringify(v, (k, x) => (typeof x === 'number' && !isFinite(x)) ? String(x) : x);
+/* S678 — the host now adds its own worded `flags` on top of the module's
+   `advisories` codes, so it legitimately carries a key the module does not.
+   This probe is about the JUDGEMENT; the wording has its own tripwire in
+   tools/sim/advisorytext.mjs, pinned to a golden capture of the pre-move text.
+   Only that one presentation key is dropped — everything else must still match
+   field for field, so a delegation that quietly stopped being wired still
+   shows up red here. */
+const judgement = v => {
+  if (!v || typeof v !== 'object' || !('flags' in v)) return v;
+  const c = { ...v }; delete c.flags; return c;
+};
 function agree(label, a, b) {
   cases++;
   if (norm(a) !== norm(b) && mismatches.length < 8) {
@@ -158,7 +169,7 @@ for (const ratedRpm of [null, 1760]) {
               for (const over of OVERRIDES) {
                 const row = { pct, suction, discharge, rpm, placard: '100', bfUp: '15', overStd: over };
                 agree(`std ${pct}/${suction}/${discharge}/${rpm}/${over}`,
-                  Hc.calcStd(row),
+                  judgement(Hc.calcStd(row)),
                   M.evalStdPoint(row, { ratedRpm, ratedNet: M.ratedNetFrom(CTX.stdData), npshPsi: npsh, sysRating }));
               }
             }

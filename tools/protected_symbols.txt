@@ -889,3 +889,10 @@ nfpa20Gate
 buildProjectPhotoList
 openInProject
 _frtLabelProjectPhotos
+
+@ S678 — advisory WORDING is the host's, the judgement stays shared (Mark's decision,
+@ 22 Aug). _dslAdvisoryText is the only place a Diesel flow-point advisory sentence
+@ exists; delete it and every advisory silently stops printing on a report while the
+@ pump still scores exactly the same. Pinned to a pre-move golden capture by
+@ tools/sim/advisorytext.mjs.
+_dslAdvisoryText

@@ -1677,18 +1677,49 @@ function _setVerdictOverride(scope, idx, val){
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
 
+/* S678 — THE WORDING IS THE HOST'S. The shared module decides WHETHER a point
+   earns an advisory and hands back a code plus the numbers behind it; this
+   turns that code into the sentence a Diesel report prints. Text lives here,
+   next to the screen that shows it, so re-wording a note for a client or an
+   AHJ never means editing the file that decides whether a pump passes — and so
+   Electric can word its own notes without a "which tool is asking" branch
+   appearing inside the shared rulebook.
+   The strings below are byte-for-byte what the module produced before the
+   move; tools/sim/advisorytext.mjs pins them against a golden capture taken
+   from the pre-move code, so drift shows up red rather than shipping.
+   An unrecognised code returns '' and is dropped — never a blank warning row. */
+function _dslAdvisoryText(a){
+  if(!a || !a.code) return '';
+  if(a.code==='curveBand')
+    return 'Curve match: adj net ' + a.adj.toFixed(0) + ' psi vs placard ' + a.placard.toFixed(0) +
+           ' psi \u2014 outside \u00B11% gauge accuracy (NFPA 20 \u00A714.2.4.2)';
+  if(a.code==='suctionBelowNpsh')
+    return 'Suction &lt; NPSH (' + a.npsh + ' psi) \u2014 supply/cavitation concern';
+  if(a.code==='backflowLow')
+    return 'Backflow upstream &lt; 20 psi';
+  if(a.code==='churnOverPressure')
+    return 'Churn over-pressure: net churn + suction (' + a.total.toFixed(0) +
+           ' psi) &gt; system rating (' + a.sysRating + ' psi) \u2014 NFPA 20 \u00A74.7.7.1';
+  return '';
+}
+
 function _calcFlowPoint(row){
   /* S676 — THE HOST READS THE SCREEN; THE MODULE MAKES THE JUDGEMENT.
      Everything below this line used to be the maths. It now gathers the four
      things only this screen knows — rated RPM, the rated net from the 100%
      row, NPSH and the system rating — and hands them to the shared module.
      Electric calls the same module with its own four. */
-  return window.PumpAcceptance.evalStdPoint(row, {
+  var r = window.PumpAcceptance.evalStdPoint(row, {
     ratedRpm:  _ratedRpm(),
     ratedNet:  _ratedNetFrom(stdData),
     npshPsi:   (typeof npshPsi!=='undefined') ? npshPsi : '',
     sysRating: _sysRating()
   });
+  /* S678 — the module's codes become this tool's sentences here, once, so the
+     two render sites below keep reading r.flags exactly as they always have. */
+  r.flags = (r.advisories||[]).map(function(a){ return _dslAdvisoryText(a); })
+                              .filter(function(s){ return !!s; });
+  return r;
 }
 
 function renderStdTable() {
