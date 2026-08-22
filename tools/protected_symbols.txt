@@ -913,3 +913,12 @@ DieselReportManifest
 dieselStateEnv
 dieselCollectViaManifest
 dieselApplyViaManifest
+
+@ S679-B — lightbox unification Phase L2 (Lane A): FRT's personality module and
+@ the shell's host-persistence delegation. Removing any of these silently routes
+@ an FRT markup save into the bake pipeline — the exact failure Rule 1 forbids.
+buildFrtLightboxHooks
+persistMarkup
+clearMarkup
+revertMarkup
+photoSrcFallback
