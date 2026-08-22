@@ -61,6 +61,11 @@
      module. Classic script (not a module) because the delegates read
      window.PumpCurve synchronously during chart/report rendering. -->
 <script src="../lib/calc/pumpCurve.js"></script>
+<!-- S676 UNIFICATION PHASE 1: the NFPA 20 acceptance rules. MUST load before
+     part06 — every flow-point verdict and the overall report result delegate
+     to it. Loaded here beside pumpCurve for the same reason: both are pure
+     calculation with no dependencies. -->
+<script src="../lib/calc/pumpAcceptance.js"></script>
 <script src="../lib/calc/curveData.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
 <script src="../lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->

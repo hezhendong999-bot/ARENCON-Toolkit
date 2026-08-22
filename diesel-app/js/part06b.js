@@ -19,57 +19,13 @@
        here, gate this file against its own previous version.
    ═══════════════════════════════════════════════════════════════════════════ */
 function _dslVerdict(){
-  var f=_dslVerdictFacts();
-  var plural=function(c,one,many){ return c+' '+(c===1?one:many); };
-  // advisory tail — named so the reader knows they exist, never part of the decision
-  var aside='';
-  var bits=[];
-  if(f.recs) bits.push(plural(f.recs,'recommendation','recommendations'));
-  if(f.records) bits.push(plural(f.records,'site record','site records'));
-  if(bits.length) aside=' Also recorded for information (no effect on the result): '+bits.join(', ')+'.';
-  var perfLine = !f.perfTotal ? 'No pump performance points have been scored.'
-    : f.perfTotal===1 ? 'The pump performance point met the NFPA 20 acceptance criteria.'
-    : 'All '+f.perfTotal+' pump performance points met the NFPA 20 acceptance criteria.';
-  if(!f.anyResponse && !f.perfTotal && !f.outstanding && !f.recs && !f.records)
-    return {status:'none',label:'',desc:'',banner:'',icon:''};
-  if(f.tcc==='fail')
-    return {status:'fail',icon:'\u2717',label:'FAIL',
-      banner:'OVERALL: FAIL \u2014 Consultant recorded the test result as Fail',
-      desc:'The consultant recorded the test result as Fail.'+aside};
-  if(f.outstanding)
-    return {status:'fail',icon:'\u2717',label:'FAIL',
-      banner:'OVERALL: FAIL \u2014 '+plural(f.outstanding,'outstanding deficiency','outstanding deficiencies'),
-      desc:plural(f.outstanding,'outstanding deficiency remains','outstanding deficiencies remain')+' open. All deficiencies must be addressed and closed before this report can pass.'+aside};
-  if(f.perfMissed)
-    return {status:'fail',icon:'\u2717',label:'FAIL',
-      banner:'OVERALL: FAIL \u2014 '+f.perfMissed+' of '+f.perfTotal+' performance points did not meet the NFPA 20 criteria',
-      desc:f.perfMissed+' of '+f.perfTotal+' pump performance points did not meet the NFPA 20 acceptance criteria (churn \u2264 140%, rated \u2265 100%, 150% \u2265 65% of rated net).'+aside};
-  // S509b (Mark): a report can never assert a result the pump was never tested for.
-  // Until at least one performance point is scored, the overall result is NOT CONFIRMED
-  // — not a pass, not a conditional pass. This sits BELOW the three fail rules on
-  // purpose: an outstanding deficiency, a missed gate or a consultant Fail are all
-  // conclusions the recorded data does support, and they still fail the report.
-  if(!f.perfTotal)
-    return {status:'review',icon:'\u26A0',label:'NOT CONFIRMED',
-      banner:'Not confirmed \u2014 no pump performance points have been scored',
-      desc:(!f.perfRows
-             ? 'No pump performance readings have been recorded, so the pump\'s performance has not been assessed.'
-             : !f.ratedNet
-               ? 'Pump readings are recorded, but the rated pressure has not been entered from the pump placard at the 100% flow point. Without it the NFPA 20 acceptance criteria cannot be evaluated.'
-               : 'Pump readings are recorded, but none of them fall on a scored flow point (0%, 100% or 150% of rated flow), so the NFPA 20 acceptance criteria cannot be evaluated.')
-           +' The overall result cannot be confirmed until that is corrected.'+aside};
-  if(f.checklistNo)
-    return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
-      banner:'OVERALL: CONDITIONAL \u2014 '+plural(f.checklistNo,'checklist item','checklist items')+' answered No',
-      desc:plural(f.checklistNo,'checklist item was','checklist items were')+' answered No. '+perfLine+' All deficiencies are closed.'+aside};
-  if(f.tcc==='conditional')
-    return {status:'cond',icon:'\u26A0',label:'CONDITIONAL',
-      banner:'OVERALL: CONDITIONAL \u2014 Consultant recorded the test result as Conditional',
-      desc:'The consultant recorded the test result as Conditional. '+perfLine+' All deficiencies are closed.'+aside};
-  return {status:'pass',icon:'\u2713',label:'PASS',
-    banner:'OVERALL: PASS \u2014 '+(f.perfTotal?'All performance points met the NFPA 20 criteria, all deficiencies closed':'All recorded items complete, all deficiencies closed'),
-    desc:perfLine+' All recorded deficiencies are closed.'+aside};
+  /* S676 — the report's overall result. Gathering the facts stays here (it
+     walks contractors, deficiencies, the flow tables and the checklist); the
+     DECISION — the locked rule ladder and its precedence — moved to the shared
+     module, pinned by a 291,820-case differential (tools/sim/acceptance.mjs). */
+  return window.PumpAcceptance.overallVerdict(_dslVerdictFacts());
 }
+
 function updateVerdict() {
   const el = document.getElementById('report-verdict');
   if (!el) return;
@@ -1154,7 +1110,8 @@ function updateNetChart3pt() {
     if(isNaN(d)&&isNaN(s)) return;
     var net=(d||0)-(s||0);
     measured.push({x:f,y:parseFloat(net.toFixed(1))});
-    var adj=(!isNaN(rpm)&&rpm>0&&rated)?net*Math.pow(rated/rpm,2):net;
+    /* S676 — one speed-correction rule, from the shared module. */
+    var adj=window.PumpAcceptance.adjustToRatedSpeed(net, rpm, rated);
     adjusted.push({x:f,y:parseFloat(adj.toFixed(1))});
   });
   measured.sort(function(a,b){return a.x-b.x;});
@@ -1351,7 +1308,8 @@ function updatePldNetChart() {
     if(isNaN(d)&&isNaN(s)) return;
     var net=(d||0)-(s||0);
     measured.push({x:f,y:parseFloat(net.toFixed(1))});
-    var adj=(!isNaN(rpm)&&rpm>0&&ratedPld)?net*Math.pow(ratedPld/rpm,2):net;
+    /* S676 — one speed-correction rule, from the shared module. */
+    var adj=window.PumpAcceptance.adjustToRatedSpeed(net, rpm, ratedPld);
     adjusted.push({x:f,y:parseFloat(adj.toFixed(1))});
   });
   measured.sort(function(a,b){return a.x-b.x;});

@@ -875,3 +875,11 @@ wideEditTriggers
 @ symbols above now also exist in FRT's facade; isDirty is the FRT door's diff gate
 @ on the model and is new to the manifest.
 isDirty
+
+@ NFPA 20 acceptance extracted to the shared module — unification Phase 1 (Lane C, S676b)
+PumpAcceptance
+evalStdPoint
+evalPldPoint
+overallVerdict
+gateTarget
+nfpa20Gate

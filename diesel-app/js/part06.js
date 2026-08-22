@@ -1617,21 +1617,21 @@ function _sysRating(){ var v=parseFloat(document.getElementById('pm-sysrating') 
 // ════════════════════════════════════════════════════════════════════════════
 
 // Rated net = placard pressure on the 100% row of the given dataset.
+/* S676 UNIFICATION PHASE 1 — the NFPA 20 acceptance rules now live in
+   lib/calc/pumpAcceptance.js, pinned against this host by a 291,820-case
+   differential (tools/sim/acceptance.mjs). These are THIN DELEGATES, not a
+   second implementation: the module owns the one copy, and Electric will call
+   the same one. The `||` fallbacks exist only so a failed module load cannot
+   strand an inspector mid-commissioning — the same pattern S499 established
+   for lib/calc/pumpCurve.js. */
 function _ratedNetFrom(rows){
-  if(!Array.isArray(rows)) return null;
-  for(var i=0;i<rows.length;i++){ if(rows[i] && rows[i].pct==='100%'){ var p=parseFloat(rows[i].placard); return (!isNaN(p))?p:null; } }
-  return null;
+  return window.PumpAcceptance.ratedNetFrom(rows);
 }
 // Which points are the NFPA 20 acceptance gates.
-function _isGatePct(pct){ return pct==='0%' || pct==='100%' || pct==='150%'; }
+function _isGatePct(pct){ return window.PumpAcceptance.isGatePct(pct); }
 // Evaluate the NFPA 20 gate for one point. Returns 'pass'|'fail'|'na' (na = not a gate, or no data).
 function _nfpa20Gate(pct, adjNet, ratedNet){
-  if(!_isGatePct(pct)) return 'na';
-  if(adjNet==null || isNaN(adjNet) || ratedNet==null || isNaN(ratedNet) || ratedNet<=0) return 'na';
-  if(pct==='0%')   return (adjNet <= ratedNet*1.40) ? 'pass' : 'fail';   // churn ≤ 140% rated
-  if(pct==='100%') return (adjNet >= ratedNet*1.00) ? 'pass' : 'fail';   // rated ≥ 100% rated
-  if(pct==='150%') return (adjNet >= ratedNet*0.65) ? 'pass' : 'fail';   // peak  ≥  65% rated
-  return 'na';
+  return window.PumpAcceptance.nfpa20Gate(pct, adjNet, ratedNet);
 }
 // §14.2.4.2 ±1% certified-curve deviation flag for one point (vs that point's OWN placard).
 // Returns true if the point is OUTSIDE the ±1% calibrated-gauge band (→ ⚑ flag).
@@ -1648,21 +1648,14 @@ function _curveDevOver1pct(adjNet, pointPlacard){
 }
 // PLD device check. Returns {state:'ok'|'flag'|'fail', over:Number} for a w/PLD discharge vs setpoint.
 function _pldDeviceCheck(disW, setpoint){
-  if(isNaN(disW) || isNaN(setpoint) || setpoint<=0) return {state:'ok', over:0};
-  var over = disW - setpoint;
-  if(over <= 0)  return {state:'ok',   over:over};
-  if(over <= 3)  return {state:'flag', over:over};
-  return {state:'fail', over:over};
+  return window.PumpAcceptance.pldDeviceCheck(disW, setpoint);
 }
 function _pldSetting(){ var e=document.getElementById('pm-pld-setting'); var v=e?parseFloat(e.value):NaN; return (!isNaN(v)&&v>0)?v:null; }
 // Effective verdict = manual override if set, else the computed auto verdict.
 // override values: undefined/'' /'auto' → use auto ; 'pass'|'fail'|'flag' → use override.
 // For ROLLUP, 'flag' is treated as not-a-fail (neutral pass).
 function _effVerdict(autoV, override){
-  if(override==='pass') return 'pass';
-  if(override==='fail') return 'fail';
-  if(override==='flag') return 'flag';
-  return autoV;
+  return window.PumpAcceptance.effVerdict(autoV, override);
 }
 // Build the per-point override dropdown. canvasKey 'std'|'pld', idx = row index.
 function _overrideDropdown(scope, idx, current){
@@ -1685,31 +1678,17 @@ function _setVerdictOverride(scope, idx, val){
 }
 
 function _calcFlowPoint(row){
-  var suc=parseFloat(row.suction), dis=parseFloat(row.discharge), rpm=parseFloat(row.rpm);
-  var plac=parseFloat(row.placard), bf=parseFloat(row.bfUp);
-  var rated=_ratedRpm();
-  var net=(!isNaN(suc)&&!isNaN(dis))?(dis-suc):null;
-  // adjusted net needs recorded rpm AND rated rpm; if no rpm pair, adjusted falls back to recorded
-  var adj=(net!=null&&!isNaN(rpm)&&rpm>0&&rated)?net*Math.pow(rated/rpm,2):net;
-  // NFPA 20 gate (0/100/150% only), vs rated net = placard@100%
-  var ratedNet=_ratedNetFrom(stdData);
-  var gate=_nfpa20Gate(row.pct, adj, ratedNet);
-  var autoVerdict = gate;   // 'pass'|'fail'|'na' (na on non-gate points or missing data)
-  var effVerdict = _effVerdict(autoVerdict, row.overStd);
-  // §14.2.4.2 ±1% certified-curve flag (all points, vs own placard) — flag only
-  var curveFlag = _curveDevOver1pct(adj, plac);
-  // advisory flags (do NOT drive verdict)
-  var flags=[];
-  if(curveFlag && adj!=null && !isNaN(plac)) flags.push('Curve match: adj net '+adj.toFixed(0)+' psi vs placard '+plac.toFixed(0)+' psi — outside \u00B11% gauge accuracy (NFPA 20 \u00A714.2.4.2)');
-  var npsh=parseFloat(npshPsi);
-  if(!isNaN(suc)&&!isNaN(npsh)&&npsh>0&&suc<npsh) flags.push('Suction &lt; NPSH ('+npsh+' psi) — supply/cavitation concern');
-  if(!isNaN(bf)&&bf<20) flags.push('Backflow upstream &lt; 20 psi');
-  var sr=_sysRating();
-  if((row.pct==='0%')&&net!=null&&!isNaN(suc)&&sr&&(net+suc)>sr){
-    flags.push('Churn over-pressure: net churn + suction ('+(net+suc).toFixed(0)+' psi) &gt; system rating ('+sr+' psi) — NFPA 20 \u00A74.7.7.1');
-  }
-  return {net:net, adj:adj, ratedNet:ratedNet, gate:gate, curveFlag:curveFlag,
-          flags:flags, override:row.overStd||'', autoVerdict:autoVerdict, verdict:effVerdict};
+  /* S676 — THE HOST READS THE SCREEN; THE MODULE MAKES THE JUDGEMENT.
+     Everything below this line used to be the maths. It now gathers the four
+     things only this screen knows — rated RPM, the rated net from the 100%
+     row, NPSH and the system rating — and hands them to the shared module.
+     Electric calls the same module with its own four. */
+  return window.PumpAcceptance.evalStdPoint(row, {
+    ratedRpm:  _ratedRpm(),
+    ratedNet:  _ratedNetFrom(stdData),
+    npshPsi:   (typeof npshPsi!=='undefined') ? npshPsi : '',
+    sysRating: _sysRating()
+  });
 }
 
 function renderStdTable() {
@@ -2129,11 +2108,12 @@ function updateStdCalcCells(i) {
     // Readout now shows adjusted net vs the NFPA 20 gate target for this point (if it's a gate),
     // or just the adjusted net for informational points.
     var gateTxt='', okStd=true;
-    if(r.ratedNet!=null && _isGatePct(row.pct)){
-      if(row.pct==='0%'){ gateTxt='\u2264 '+(r.ratedNet*1.40).toFixed(0)+' (140%)'; okStd=(r.adj!=null&&r.adj<=r.ratedNet*1.40); }
-      else if(row.pct==='100%'){ gateTxt='\u2265 '+(r.ratedNet*1.00).toFixed(0)+' (100%)'; okStd=(r.adj!=null&&r.adj>=r.ratedNet*1.00); }
-      else if(row.pct==='150%'){ gateTxt='\u2265 '+(r.ratedNet*0.65).toFixed(0)+' (65%)'; okStd=(r.adj!=null&&r.adj>=r.ratedNet*0.65); }
-    }
+    /* S676 — the threshold SHOWN and the threshold SCORED are now the same
+       number, from the shared module. They used to be two copies of
+       1.40 / 1.00 / 0.65, which is how a report comes to display one
+       acceptance limit and judge against another. */
+    var _gt = window.PumpAcceptance.gateTarget(row.pct, r.ratedNet, r.adj);
+    if(_gt){ gateTxt = _gt.label; okStd = _gt.met; }
     endEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
       '<span class="ea" title="Adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
       '<span class="ea-adj '+(okStd?'pass':'fail')+'">adj '+adjTxt+'</span>'+(gateTxt?'<span class="ea-req">req '+gateTxt+'</span>':'')+'</span>';
@@ -2255,36 +2235,17 @@ function _pldHideBF(i){
 
 // Shared PLD verdict computation — used by on-screen cells AND email export (one source of truth)
 function updatePldVerdictObj(row, i){
-  const skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
-  const netNo = skipNoPLD ? null : (parseFloat(row.dis_no)||0)-(parseFloat(row.suc_no)||0);
-  const netW  = (parseFloat(row.dis_w)||0)-(parseFloat(row.suc_w)||0);
-  const placard  = parseFloat(row.placard);
-  const rated = _ratedRpmPld();
-  // SCORED net = w/o-PLD (true pump capability). Skipped rows (25/50/75/125%) have no w/o-PLD
-  // reading; they're informational only (not NFPA 20 gates anyway).
-  const checkNet = skipNoPLD ? null : netNo;
-  const checkRpm = parseFloat(row.rpm_no);
-  const adjNet = (checkNet!=null && checkNet && !isNaN(checkRpm) && checkRpm>0 && rated) ? checkNet*Math.pow(rated/checkRpm,2) : checkNet;
-  const ratedNet = _ratedNetFrom(pldData);
-  // NFPA 20 gate (0/100/150% only) on the w/o-PLD adjusted net
-  const gate = _nfpa20Gate(row.pct, adjNet, ratedNet);
-  // PLD device check: w/PLD discharge vs PLD setting (every row that has a w/PLD discharge)
-  const disW = parseFloat(row.dis_w);
-  const pldSet = _pldSetting();
-  const pldDev = (!isNaN(disW) && pldSet!=null) ? _pldDeviceCheck(disW, pldSet) : {state:'ok', over:0};
-  // §14.2.4.2 ±1% certified-curve flag (vs this row's placard), on the scored adj net
-  const curveFlag = _curveDevOver1pct(adjNet, placard);
-  // AUTO verdict: gate fail OR PLD device fail → fail; gate pass → pass; else na.
-  var autoVerdict = 'na';
-  if(pldDev.state==='fail') autoVerdict='fail';
-  else if(gate==='fail') autoVerdict='fail';
-  else if(gate==='pass') autoVerdict='pass';
-  // EFFECTIVE verdict via manual override (sticky, stored on row.overPld)
-  var verdict = _effVerdict(autoVerdict, row.overPld);
-  return {netNo:netNo, netW:netW, adjNet:adjNet, ratedNet:ratedNet, gate:gate,
-          pldDev:pldDev, curveFlag:curveFlag, override:row.overPld||'',
-          autoVerdict:autoVerdict, verdict:verdict};
+  /* S676 — same division as _calcFlowPoint: this reads the screen, the shared
+     module makes the judgement. PLD_NO_SKIP is a host concern (which rows this
+     tool chose not to take a w/o-PLD reading at), so it is passed in. */
+  return window.PumpAcceptance.evalPldPoint(row, {
+    ratedRpm:   _ratedRpmPld(),
+    ratedNet:   _ratedNetFrom(pldData),
+    pldSetting: _pldSetting(),
+    skipNoPLD:  (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i)
+  });
 }
+
 function updatePldCalcCells(i) {
   const row = pldData[i];
   const v = updatePldVerdictObj(row, i);
@@ -2297,11 +2258,9 @@ function updatePldCalcCells(i) {
     var netTxt = v.netNo ? v.netNo.toFixed(1) : '\u2014';
     var adjTxt = (v.adjNet!=null && !isNaN(v.adjNet)) ? v.adjNet.toFixed(1) : '\u2014';
     var gTxt='', okPld=true;
-    if(v.ratedNet!=null && _isGatePct(row.pct)){
-      if(row.pct==='0%'){ gTxt='\u2264 '+(v.ratedNet*1.40).toFixed(0)+' (140%)'; okPld=(v.adjNet!=null&&v.adjNet<=v.ratedNet*1.40); }
-      else if(row.pct==='100%'){ gTxt='\u2265 '+(v.ratedNet*1.00).toFixed(0)+' (100%)'; okPld=(v.adjNet!=null&&v.adjNet>=v.ratedNet*1.00); }
-      else if(row.pct==='150%'){ gTxt='\u2265 '+(v.ratedNet*0.65).toFixed(0)+' (65%)'; okPld=(v.adjNet!=null&&v.adjNet>=v.ratedNet*0.65); }
-    }
+    /* S676 — same rule, same module as the 3-point readout above. */
+    var _gtp = window.PumpAcceptance.gateTarget(row.pct, v.ratedNet, v.adjNet);
+    if(_gtp){ gTxt = _gtp.label; okPld = _gtp.met; }
     noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
       '<span class="ea" title="w/o-PLD adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
       '<span class="ea-adj '+(okPld?'pass':'fail')+'">adj '+adjTxt+'</span>'+(gTxt?'<span class="ea-req">req '+gTxt+'</span>':'')+'</span>';
