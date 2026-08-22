@@ -943,3 +943,14 @@ ELEC_BUILD
 _flushMarkupForUnload
 _restoreMarkupRescue
 _clearMarkupRescue
+
+@ S681 — unification Phase 3, first cut: the photo deletion model. PhotoLifecycle
+@ owns whether a photograph still exists — the phantom-delete guard that stopped the
+@ 7155.51 loss, delState as the authority with the legacy booleans mirrored for older
+@ cached builds, and a restore recorded as a decision. Remove any of these and photos
+@ start disappearing from signed reports with no error anywhere.
+PhotoLifecycle
+markDeleted
+markLive
+normalizeAll
+PHANTOM_WINDOW_MS

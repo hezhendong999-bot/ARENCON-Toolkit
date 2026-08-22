@@ -212,7 +212,13 @@ var _pgPurgedForProject = null;   // run-once auto-purge guard (per project id)
 // The legacy `deleted`/`deletedDate`/`deletedBy` fields are kept MIRRORED so any
 // reader not yet migrated still behaves; _normalizePhotoDel() converts old data to
 // the canonical field on load (migration rule A: any old deleted:true → deleted).
-function _isPhotoDeleted(p){ return window.PhotoLifecycle.isDeleted(p); }
+function _isPhotoDeleted(p){
+  if(!p) return false;
+  if(p.delState === 'deleted') return true;
+  if(p.delState === 'live') return false;
+  // legacy fallback (pre-S354 data not yet normalized): any deleted flag = deleted
+  return !!p.deleted;
+}
 // S341 (Bug 1 diag): ring buffer of recent soft-deletes, readable in-app via the
 // diagnostics gesture — no desktop console needed (TWA can't open one). Each entry
 // records the photo id, its creation→delete age, and the call stack that fired the
@@ -220,38 +226,47 @@ function _isPhotoDeleted(p){ return window.PhotoLifecycle.isDeleted(p); }
 // capture being deleted without a real user action) — it raises a loud, distinct
 // toast so it's caught the moment it happens, with the firing caller captured.
 window._dslDelDiag = window._dslDelDiag || [];
-function _photoCreatedTs(ph){ return window.PhotoLifecycle.createdTs(ph); }
+function _photoCreatedTs(ph){
+  // id pattern: ph_<ms-timestamp>_<rand>. Fall back to 0 if unparseable.
+  try{ var m=String(ph&&ph.id||'').match(/^ph_(\d{10,})_/); return m?parseInt(m[1],10):0; }catch(e){ return 0; }
+}
 function _markPhotoDeleted(ph, opts){
-  /* S681 — THE RULE IS SHARED; SAYING SO IS THIS TOOL'S JOB.
-     The decision — is this photo already gone, is it too fresh for a delete
-     nobody asked for, what gets written when it goes — now lives in
-     lib/data/photoLifecycle.js, so Electric inherits it instead of receiving a
-     copy that can drift. What stays here is the part that is Diesel's: the
-     ring-buffer entry a field session can be asked to read back, and the
-     toast that tells whoever is holding the tablet that a delete was refused.
-     A refusal nobody can see is indistinguishable from a photo quietly
-     disappearing, which is the whole reason the guard has a voice. */
-  var res = window.PhotoLifecycle.markDeleted(ph, opts);
-  if (res.reason === 'no-photo' || res.reason === 'already-deleted') return false;
-
-  var _entry = null;
+  if(!ph) return false;
+  if(_isPhotoDeleted(ph)) return false;           // idempotent
+  // opts.force === true means an explicit user Delete action (a real Delete button
+  // tap). Any caller WITHOUT force is treated as programmatic (merge propagation,
+  // cleanup, etc.) and is NOT allowed to delete a freshly-captured photo — that is
+  // the phantom-delete signature that lost field photos on 7155.51.
+  var _force = !!(opts && opts.force);
+  // ── diagnostic capture (before flags are written) ──
+  var _ageMs = -1, _entry = null;
   try{
+    var created=_photoCreatedTs(ph), now=Date.now();
+    _ageMs = created?(now-created):-1;
     var stack='';
     try{ stack=(new Error('del')).stack||''; }catch(_e){}
-    var caller=stack.split('\n').slice(2,5).join(' \u00ab ').replace(/https?:\/\/[^ )]+\//g,'');
-    _entry={ id:ph.id||'(no id)', name:ph.n||'', ageMs:res.ageMs, at:new Date().toISOString(), caller:caller, forced:res.forced };
+    // trim stack to the 3 frames after this function for readability
+    var caller=stack.split('\n').slice(2,5).join(' « ').replace(/https?:\/\/[^ )]+\//g,'');
+    _entry={ id:ph.id||'(no id)', name:ph.n||'', ageMs:_ageMs, at:new Date(now).toISOString(), caller:caller, forced:_force };
     window._dslDelDiag.push(_entry);
     if(window._dslDelDiag.length>50) window._dslDelDiag.shift();
     console.warn('[del-diag]', _entry);
   }catch(_e){}
-
-  if (res.blocked) {
+  // ── PHANTOM GUARD (P0-1) ──
+  // A non-forced (programmatic) delete of a photo younger than 10s is blocked. The
+  // photo stays live; the ring-buffer entry above records the caller stack so the
+  // exact offending code path is captured for the field.
+  if(!_force && _ageMs>=0 && _ageMs<10000){
     console.error('[del-diag] PHANTOM DELETE BLOCKED — fresh photo kept', _entry);
     if(_entry) _entry.blocked = true;
-    if(typeof showToast==='function') showToast('\u26A0 Phantom delete blocked: kept '+(ph.n||ph.id||'photo')+' ('+(res.ageMs/1000).toFixed(1)+'s after capture). See Photo Delete Log.', 6000);
+    if(typeof showToast==='function') showToast('\u26A0 Phantom delete blocked: kept '+(ph.n||ph.id||'photo')+' ('+(_ageMs/1000).toFixed(1)+'s after capture). See Photo Delete Log.', 6000);
     return false;
   }
-  return res.ok;
+  // ── canonical soft-delete ──
+  ph.delState = 'deleted';
+  ph.delAt = new Date().toISOString();
+  ph.deleted = true; ph.deletedDate = ph.delAt; ph.deletedBy = _force ? 'user' : 'system'; // legacy mirror
+  return true;
 }
 // S341 (Bug 1 diag): in-app viewer for the photo-delete ring buffer. Newest-first;
 // phantom deletes (age < 10s) flagged red. Reachable from More ▸ Photo Delete Log
@@ -281,12 +296,40 @@ function dslDiag(){
   else alert(JSON.stringify(buf,null,2));
 }
 function _ddEsc(s){ return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];}); }
-function _markPhotoLive(ph){ return window.PhotoLifecycle.markLive(ph); }
+function _markPhotoLive(ph){
+  if(!ph) return false;
+  ph.delState = 'live';
+  delete ph.delAt;
+  delete ph.deleted; delete ph.deletedDate; delete ph.deletedBy; // clear legacy mirror
+  return true;
+}
 // Migration A: normalize one photo's old flags into the canonical field, in place.
 // Called for every photo on load. Idempotent.
-function _normalizePhotoDel(p){ return window.PhotoLifecycle.normalize(p); }
+function _normalizePhotoDel(p){
+  if(!p || typeof p !== 'object') return p;
+  if(p.delState === 'deleted' || p.delState === 'live') return p; // already canonical
+  if(p.deleted){
+    p.delState = 'deleted';
+    p.delAt = p.deletedDate || p.delAt || new Date().toISOString();
+    p.deletedBy = p.deletedBy || 'legacy';
+    p.deletedDate = p.delAt;
+  } else {
+    p.delState = 'live';
+  }
+  return p;
+}
 // Walk every photo array in a state object and normalize. Safe to call repeatedly.
-function _normalizeAllPhotoDel(s){ return window.PhotoLifecycle.normalizeAll(s); }
+function _normalizeAllPhotoDel(s){
+  if(!s || typeof s !== 'object') return s;
+  function arr(a){ if(Array.isArray(a)) a.forEach(_normalizePhotoDel); }
+  arr(s.recordPhotos); arr(s.flowTestPhotos); arr(s.flowTestPhotosPld);
+  if(Array.isArray(s.stdData)) s.stdData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
+  if(Array.isArray(s.pldData)) s.pldData.forEach(function(r){ if(r&&Array.isArray(r.photos)) arr(r.photos); });
+  if(s.clState) Object.keys(s.clState).forEach(function(k){ var v=s.clState[k]; if(v&&Array.isArray(v.photos)) arr(v.photos); });
+  if(s.deficiencies) Object.keys(s.deficiencies).forEach(function(ctr){ (s.deficiencies[ctr]||[]).forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); }); });
+  if(Array.isArray(s.generalDeficiencies)) s.generalDeficiencies.forEach(function(d){ if(Array.isArray(d.photos))arr(d.photos); (d.responses||[]).forEach(function(r){ if(Array.isArray(r.photos))arr(r.photos); }); });
+  return s;
+}
 function _pgVisible(){
   // S372: include _isOrigBackup clean-original records so they render as their own
   // Site Record tiles alongside the marked photo (never-bake / FRT S363 parity).
@@ -303,7 +346,13 @@ function _pgGatherDeleted(){
     });
 }
 // Whole days remaining before auto-purge (>=0). No date → full retention (defensive).
-function _pgTrashDaysLeft(iso){ return window.PhotoLifecycle.trashDaysLeft(iso, _TRASH_RETENTION_DAYS); }
+function _pgTrashDaysLeft(iso){
+  if(!iso) return _TRASH_RETENTION_DAYS;
+  var t = new Date(iso).getTime();
+  if(!t) return _TRASH_RETENTION_DAYS;
+  var elapsedDays = Math.floor((Date.now() - t) / 86400000);
+  return Math.max(0, _TRASH_RETENTION_DAYS - elapsedDays);
+}
 // Soft-delete a single photo object in place (idempotent). Returns true if it
 // flipped live→deleted. S354: routes through the canonical writer.
 // All callers are explicit user Delete actions (post-confirm gallery/bulk delete),
