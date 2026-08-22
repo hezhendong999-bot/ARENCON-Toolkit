@@ -954,3 +954,13 @@ markDeleted
 markLive
 normalizeAll
 PHANTOM_WINDOW_MS
+
+@ S682 — unification Phase 3, second cut: when a photograph was taken. PhotoDate owns
+@ the EXIF read, the id fallback that rescues photos arriving from another device with
+@ their dates stripped by sync, and the NOON rule — a camera gives a calendar date with
+@ no time zone, and reading it as midnight files a photo taken on the 21st under the
+@ 20th for everyone west of UTC. Nothing about that failure looks wrong on screen.
+PhotoDate
+timestampOf
+dateForNewPhoto
+parseExifDate
