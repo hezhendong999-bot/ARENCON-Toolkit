@@ -901,3 +901,15 @@ _dslAdvisoryText
 @ personality. _ENG is the markup-engine indirection every engine touch runs
 @ through; removing it re-hardwires the shell to one tool.
 _ENG
+
+@ S679 — unification Phase 2. One declared list of what a report IS, walked by the
+@ shared engine, replacing two hand-maintained lists that nothing kept in step. Lose
+@ any of these and Diesel silently stops saving or restoring whole families of a
+@ report — the S496 witness-signature failure, but for every key at once.
+@ (Re-landed: a concurrent lane pushed this file from a pre-S679 base and dropped
+@ the block. Both lanes' entries are kept — nothing of theirs removed.)
+ReportState
+DieselReportManifest
+dieselStateEnv
+dieselCollectViaManifest
+dieselApplyViaManifest

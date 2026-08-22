@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608221458';
+var CACHE_NAME = 'arencon-frt-202608221500';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -91,6 +91,8 @@ var APP_FILES = [
   'diesel-app/js/part06b.js',
   'diesel-app/js/part06c.js',
   'diesel-app/js/part06d.js',
+  'diesel-app/js/reportBindings.js',
+  'diesel-app/js/reportManifest.js',
   'diesel-sync.js',
   'frt/css/frt.css',
   'frt/js/ai/assistant.js',
@@ -153,6 +155,7 @@ var APP_FILES = [
   'lib/data/photoOutbox.js',
   'lib/data/r2.js',
   'lib/data/realtime.js',
+  'lib/data/reportState.js',
   'lib/data/sync.js',
   'lib/data/syncCadence.js',
   'lib/data/syncWorkerHost.js',
