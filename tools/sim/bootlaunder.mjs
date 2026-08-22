@@ -145,16 +145,20 @@ check('baseline: 660 agreed on both devices and the cloud',
   `AD=${await npsh('AD')}  PC=${await npsh('PC')}  cloud=${cloud.data.npshPsi}`);
 
 // The offline session, exactly as the sync_diag stamps tell it: 770 typed and
-// autosaved (cache holds 770); the field is CLEARED mid-revision and the
-// 500ms keystroke stamper fires (ledger holds blank@now) but the slower value
-// save never runs; the 50 is typed and the kill lands inside every debounce.
-// Ledger and cache disagree — that hybrid is what the tablet carried back up.
+// autosaved (cache holds 770); the field is CLEARED mid-revision and the 50
+// typed, both dying inside the debounces when the kill lands.
+// S674 NOTE: this arm used to fire the keystroke stamper on the clear, making
+// the ledger claim a blank the cache never held — the orphaned claim. That
+// split is now impossible by construction (a claim and its value are made
+// durable by the same trigger, tools/sim/typekill.mjs), so the kill here lands
+// inside the stamp window instead, where 770 is genuinely the last durable
+// state. The arm's meaning is unchanged: recovered offline work must survive
+// a relaunch whose boot loops fire before the host paints.
 await D('AD').call('offline');
 await D('AD').call('set', { path: ['npshPsi'], value: '770' });
 await D('AD').call('save');                                  // offline: cache=770 + ledger 770
 await sleep(200);
 await D('AD').call('set', { path: ['npshPsi'], value: '' }); // the clear
-await D('AD').call('stamp');                                 // stampSoon fires: ledger=blank@now
 await D('AD').call('set', { path: ['npshPsi'], value: '50' }); // dies un-stamped, un-saved
 const store1 = (await D('AD').call('snapshot')).store;
 killDev('AD');                                               // force-close from recents

@@ -512,6 +512,9 @@ const CloudSync = (function () {
        standing, the next flush re-pushes it over the very data that just
        arrived — the 80→150 revert. Re-point the ledger at what is now on
        screen, and retire the durable pending flag when nothing differs. */
+    /* S674 — the engine's keystroke stamper carries the value with it. */
+    try { engine.onStampPersist = _persistAtStamp; } catch (_) {}
+
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
@@ -878,6 +881,29 @@ const CloudSync = (function () {
         'onclick="this.parentNode.remove()">OK</button>';
       document.body.appendChild(b);
     } catch (_) {}
+  }
+
+  /* S674 (mirror) — THE VALUE RIDES WITH ITS CLAIM. See diesel-sync.js for the
+     full account of Mark's 21 Aug Rated Flow loss: the entry stamp was durable
+     at 500ms, the value not until the ~5500ms push, and a kill in between left
+     an orphaned claim that re-dated whatever the screen showed next. Same
+     trigger as the stamp, local only, held while the boot barrier is up.
+     Harness: tools/sim/typekill.mjs. */
+  function _persistAtStamp() {
+    if (!_bootApplied) return;                 // S673 — the screen is not the report yet
+    if (!_collectStateFn || !_projectId) return;
+    var stateJson;
+    try { stateJson = JSON.stringify(_collectStateFn()); } catch (_) { return; }
+    if (stateJson === _lastSavedJson) return;
+    _lastSavedJson = stateJson;
+    _cachePut(_cacheKey(), {
+      state: stateJson, projectId: _projectId, toolKey: _toolKey,
+      instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
+      savedAt: new Date().toISOString(),
+      pendingPush: true,
+      pendingSince: _pendingSince || (_pendingSince = new Date().toISOString()),
+      bgIfMatch: engine.lastSeenUpdatedAt || null
+    });
   }
 
   /* ══════════════════════════════════════════════════════════════════════

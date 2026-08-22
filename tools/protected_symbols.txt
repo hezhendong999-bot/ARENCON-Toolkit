@@ -864,3 +864,7 @@ _liftBootHold
 _bootApplied
 holdEditStamps
 anchorBoot
+
+@ Keystroke durability — a claim and its value are made permanent together (Mark's 21 Aug Rated Flow loss, S674)
+onStampPersist
+_persistAtStamp

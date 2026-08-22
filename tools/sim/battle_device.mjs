@@ -307,9 +307,17 @@ for await (const line of rl) {
       /* S673 — the keystroke stamper firing WITHOUT the slower value save:
          stampSoon's 500ms debounce beat the 700ms save debounce, then the
          kill landed between them. Ledger and cache disagree — the exact
-         hybrid Mark's tablet carried into its relaunch. */
-      try { await w.SyncEngine.stampLocal(); } catch (_) {}
-      await new Promise(res => setTimeout(res, 80));
+         hybrid Mark's tablet carried into its relaunch.
+         S674 — this now drives stampSoon, the door a KEYSTROKE actually
+         reaches, rather than stampLocal underneath it. Anything the engine
+         hangs off that door — including durability — has to be exercised by
+         the probe, or the probe proves only the half of the path that was
+         already right. */
+      try {
+        if (w.SyncEngine.stampSoon) w.SyncEngine.stampSoon();
+        else await w.SyncEngine.stampLocal();
+      } catch (_) {}
+      await new Promise(res => setTimeout(res, m.settle || 900));
       send({ id: m.id, ok: true });
     }
     else if (m.cmd === 'paintfail') { paintOk = false; send({ id: m.id, ok: true }); }

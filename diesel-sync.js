@@ -781,6 +781,9 @@ const CloudSync = (function () {
       catch (_) {}
     };
 
+    /* S674 — the engine's keystroke stamper carries the value with it. */
+    try { engine.onStampPersist = _persistAtStamp; } catch (_) {}
+
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
@@ -1263,6 +1266,38 @@ const CloudSync = (function () {
         Promise.resolve(save(j)).catch(function () {});
       } catch (_) {}
     }
+  }
+
+  /* ═══ S674 — THE VALUE RIDES WITH ITS CLAIM ═══════════════════════════════
+     Mark, 21 Aug: 2500 typed into Rated Flow, app closed at once, 2000 back on
+     reopen — and the stale 2000 re-dated to that moment, outranking the real
+     edit everywhere. The claim (the entry stamp) was durable at 500ms; the
+     value did not become ARGUABLE until the ~5500ms cloud push reached this
+     cache. Kill in between and the ledger holds a timed claim about a number
+     nothing authoritative has — an orphan that mints recency onto whatever the
+     screen shows next.
+     This is the engine's onStampPersist hook: the same trigger as the stamp,
+     the same instant, LOCAL ONLY. It writes the durable record — the same
+     shape save() writes offline, with the same unsent-work flag — and touches
+     no network and no push bookkeeping, so the normal debounced save still
+     pushes exactly as before and the freshness pill is unaffected. Held while
+     the boot barrier is up (S673): during boot the screen is not the report.
+     Harness: tools/sim/typekill.mjs. */
+  function _persistAtStamp() {
+    if (!_bootApplied) return;                 // S673 — the screen is not the report yet
+    if (!_collectStateFn || !_projectId) return;
+    var stateJson;
+    try { stateJson = JSON.stringify(_collectStateFn()); } catch (_) { return; }
+    if (stateJson === _lastSavedJson) return;  // nothing new to make durable
+    _lastSavedJson = stateJson;
+    _cachePut(_cacheKey(), {
+      state: stateJson, projectId: _projectId, toolKey: _toolKey,
+      instanceId: engine.instanceId || _instanceId, instanceNumber: engine.instanceNumber || _instanceNumber,
+      savedAt: new Date().toISOString(),
+      pendingPush: true,
+      pendingSince: _pendingSince || (_pendingSince = new Date().toISOString()),
+      bgIfMatch: engine.lastSeenUpdatedAt || null
+    });
   }
 
   /* ══════════════════════════════════════════════════════════════════════
