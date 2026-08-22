@@ -11,12 +11,19 @@
 <link rel="icon" type="image/png" sizes="192x192" href="arencon-icon-192.png">
 <link rel="apple-touch-icon" href="arencon-icon-192.png">
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
+<script src="elec-build.js"></script>  <!-- S680b: Electric's build number, in a file small enough for the update engine to re-read. Classic script, so it is a real global and runs before every deferred module. -->
 <script src="shared/auth-gate.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
 <script type="module" src="lib/ui/photoInput.js"></script>  <!-- S492: THE shared photo surface -->
 <script src="lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->
-<script src="lib/ui/updateReady.js"></script>  <!-- S617: "Update ready — tap to restart" pill -->
+<!-- S680b — lib/ui/updateReady.js REMOVED. Electric was running TWO update
+     systems: the S617 pill (tap to restart, never applies on its own) and, as
+     of S680, the shared engine that applies at a safe moment. Two mechanisms
+     watching the same worker means two pills for one push and two answers to
+     "when does this reload" — the exact duplication the shared-engine rule
+     exists to stop. The shared engine is the survivor; it does everything the
+     old pill did and applies by itself when it is free to. -->
 <script>if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);</script>
 <!-- S455: shared header chrome. The engine builds header DOM that needs these
      styles; the s455-header-override block (after the inline styles) neutralizes
@@ -766,6 +773,12 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
     try {
       initLiveUpdate({
         toolName: 'electric',
+        /* S680b — the stamp now lives in elec-build.js, small enough to
+           re-read, so Electric can finally tell its own pushes from another
+           lane's and stay quiet about theirs. */
+        buildFile: 'elec-build.js',
+        buildVar: 'ELEC_BUILD',
+        buildValue: window.ELEC_BUILD || null,
         isBusy: function () {
           try {
             if (window._r2UploadsInFlight > 0) return true;
@@ -2050,7 +2063,11 @@ function closeMobileMenu(){var ha=document.querySelector('.header-actions');if(h
 // S564: build banner — first thing to check when behavior looks stale.
 // Electric had NO stamp at all; the S459i lesson (a frozen gauge is worse
 // than none, and none is still bad) applies here too. Bump every push.
-var ELEC_BUILD = 'S680';
+// S680b — THE NUMBER MOVED TO elec-build.js, loaded as a classic script in the
+// head. The update engine re-reads a tool's build from the server to tell
+// whether a push was that tool's own; it could not justify re-downloading this
+// 650 KB page to do it, so Electric never had the check. Still a plain global,
+// still read identically on the line below. Bump elec-build.js every push.
 console.info('%c[ELECTRIC] build ' + ELEC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
 // ══════════════════════════════════════════════════
 // CHECKLIST DATA
@@ -9085,8 +9102,8 @@ function applyTextSize(size){
 <script>
 if('serviceWorker' in navigator){
   navigator.serviceWorker.register('sw.js')  /* S461f: sw-electric.js never existed (404 every boot) — the root sw.js is the toolkit worker */.then(function(r){
-    /* S617 — "Update ready — tap to restart" (same module as Diesel). */
-    try{ if(window.ArcUpdateReady) ArcUpdateReady.init(r); }catch(_){ }
+    /* S680b — the S617 pill is retired here; lib/ui/liveUpdate.js is armed in
+       the module block above and owns update behaviour for this tool. */
     console.log('[SW] Registered:', r.scope);
   }).catch(function(e){
     console.log('[SW] Not available (offline caching disabled)');

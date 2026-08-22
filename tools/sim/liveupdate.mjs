@@ -196,6 +196,47 @@ console.log('\n6 RULES INTACT    the guards that were paid for in field failures
   check('the position is still restored after a swap', /RESTORE_KEY/.test(src));
 }
 
+/* ══ 7 — S680b: ONE UPDATE MECHANISM, AND EVERY TOOL HAS IT ═════════════
+   The engine being correct is only half of it. Electric was running the S617
+   pill AND the shared engine at once — two mechanisms watching one worker,
+   two pills for one push. Diesel loaded the same S617 script and never armed
+   it, so it looked like it had an update mechanism while having none. Both
+   are structural facts about the tools, not the engine, so they are asserted
+   against the tool files directly. */
+console.log('\n7 ONE MECHANISM   every tool armed, exactly once');
+{
+  const tools = [
+    ['Project Hub',  'ARENCON_Project_Hub.html',                      'hub-build.js',  'HUB_BUILD'],
+    ['Electric',     'ARENCON_Electric_Fire_Pump_Commissioning.html', 'elec-build.js', 'ELEC_BUILD'],
+    ['Diesel',       'diesel-app/index.html',                         'part14.js',     'DIESEL_BUILD']
+  ];
+  for (const [name, file, stampFile, stampVar] of tools) {
+    const src = fs.readFileSync(path.join(REPO, file), 'utf8');
+    /* A PRESENCE check, honestly. It catches the realistic regression — the
+       call deleted in a refactor, which is how Diesel and Electric went years
+       without an update mechanism — but it cannot prove the call is REACHED at
+       runtime; a disabled call still reads as present. Proving reachability
+       means booting the whole tool, which belongs to a field verify, not here.
+       Stated rather than implied, so nobody later mistakes this for more than
+       it is. */
+    check(name + ' arms the shared engine', /initLiveUpdate\s*\(/.test(src),
+          'a tool that never arms it only updates on a manual hard refresh');
+    check(name + ' declares its own build stamp',
+          src.includes(stampFile) && src.includes(stampVar),
+          'without this it announces every other lane\'s push as its own');
+  }
+  const frt = fs.readFileSync(path.join(REPO, 'frt/js/app.js'), 'utf8');
+  check('FRT arms the shared engine', /initLiveUpdate\s*\(/.test(frt));
+  /* No tool may still carry the retired second mechanism. */
+  const stragglers = tools.map(t => t[1]).concat(['frt/index.html'])
+    .filter(f => {
+      const src = fs.readFileSync(path.join(REPO, f), 'utf8');
+      return /<script[^>]+updateReady\.js/.test(src) || /ArcUpdateReady\.init/.test(src);
+    });
+  check('no tool still runs the retired S617 pill', stragglers.length === 0,
+        'still loading it: ' + stragglers.join(', '));
+}
+
 console.log('\n' + checks + ' checks, ' + fails.length + ' failures');
 if (fails.length) {
   fails.forEach(f => console.log('  ' + f));

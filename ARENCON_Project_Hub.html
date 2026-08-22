@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="ARENCON Hub">
 <link rel="icon" type="image/png" sizes="192x192" href="arencon-icon-192.png">
 <link rel="apple-touch-icon" href="arencon-icon-192.png">
+<script src="hub-build.js"></script>  <!-- S680b: the Hub's build number, in a file small enough for the update engine to re-read. Classic script, so it is a real global and runs before every deferred module. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -10128,8 +10129,13 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    but reading it must never be a step in anyone's workflow). Bottom-left, tiny,
    muted, ignores clicks. Nobody needs to look at it; it exists so a support
    question has an answer, and so an update swap is visible while we prove the
-   engine. */
-const HUB_BUILD = 'S667';
+   engine.
+   S680b — THE NUMBER MOVED TO hub-build.js, loaded as a classic script above.
+   Not cosmetics: the update engine has to re-read this tool's build from the
+   server to tell whether a push was the Hub's own, and it could not justify
+   re-downloading 600 KB to do it — so it never asked, and the Hub announced
+   every other lane's push as its own. `HUB_BUILD` is still a plain global and
+   every line below reads it exactly as before. */
 /* S589-b (Mark): log the build the same way every other tool does — one
    burgundy badge line at boot. Support asks "what build are you on"; the
    answer should be in the console, not something anyone hunts for on screen. */
@@ -10447,6 +10453,15 @@ try {
    Supabase), so no flush hook — the engine handles the rest. */
 initLiveUpdate({
   toolName: 'hub',
+  /* S680b — WHOSE PUSH WAS IT. Without this the Hub treated every lane's push
+     as its own: four Diesel pushes in one morning, four "Update ready" pills,
+     on a Hub whose build never moved. The engine compares the number in
+     hub-build.js against the one this session is running and stays silent when
+     they match. It still APPLIES the build at the next safe moment — the
+     question is only whether anyone is told. */
+  buildFile: 'hub-build.js',
+  buildVar: 'HUB_BUILD',
+  buildValue: window.HUB_BUILD || null,
   isBusy: function () {
     /* Anything mid-flight that a reload would interrupt. */
     try {

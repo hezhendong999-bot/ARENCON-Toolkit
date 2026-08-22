@@ -930,3 +930,9 @@ persistMarkup
 clearMarkup
 revertMarkup
 photoSrcFallback
+
+@ S680b — every tool's build stamp in a file small enough for the update engine to
+@ re-read. Without these the engine cannot tell whose push it was, and a tool goes
+@ back to announcing every other lane's push as its own — the pill-fatigue failure.
+HUB_BUILD
+ELEC_BUILD

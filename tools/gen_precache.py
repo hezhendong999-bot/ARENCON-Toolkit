@@ -208,6 +208,46 @@ def live_missing(sw_path):
             if p and p.endswith(('.js', '.mjs', '.css')):
                 required.add(p)
     missing = sorted(p for p in required if p not in listed)
+
+    # S680b — TELLING A REMOVAL APART FROM BEING BEHIND.
+    # Requirements are read from the LIVE shells, because that is the only thing
+    # a stale checkout cannot fake. But this push may be DROPPING a reference on
+    # purpose (it drops lib/ui/updateReady.js from two tools), and against the
+    # live shells that looks identical to being behind.
+    # The discriminator is the working tree itself:
+    #   • the path is NOT in this checkout      -> you are BEHIND. Block. This is
+    #     the real case, three times over: another lane's new file, which your
+    #     tree has never seen, silently dropped out of the precache.
+    #   • the path IS here but no local shell    -> a deliberate un-referencing.
+    #     references it any more                    Allow, and say so out loud.
+    deliberate = []
+    still_behind = []
+    # "Referenced" means an actual script/import specifier, not the filename
+    # appearing anywhere — a comment explaining that a file was REMOVED contains
+    # its name, and a substring test would read that as still loading it.
+    local_required = set()
+    for e in ENTRIES:
+        fp = os.path.join(ROOT, e)
+        if not os.path.exists(fp):
+            continue
+        lsrc = open(fp, encoding='utf-8', errors='replace').read()
+        lbase = posixpath.dirname(e)
+        for spec in (SCRIPTSRC_RE.findall(lsrc) + CSSHREF_RE.findall(lsrc) +
+                     IMPORT_RE.findall(lsrc) + DYNIMPORT_RE.findall(lsrc)):
+            lp = norm(lbase, spec)
+            if lp:
+                local_required.add(lp)
+    for p in missing:
+        on_disk = os.path.exists(os.path.join(ROOT, p))
+        referenced_locally = p in local_required
+        if on_disk and not referenced_locally:
+            deliberate.append(p)
+        else:
+            still_behind.append(p)
+    for p in deliberate:
+        print('[gen_precache] dropped on purpose (present here, no longer loaded): %s' % p)
+    missing = still_behind
+
     if missing:
         print('[gen_precache] BLOCKED BY LIVE CHECK — the tools at live main load')
         print('               files this sw.js does not cache. Your checkout is')

@@ -76,7 +76,11 @@
 <script src="../lib/calc/curveData.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
 <script src="../lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->
-<script src="../lib/ui/updateReady.js"></script>  <!-- S617: "Update ready — tap to restart" pill -->
+<!-- S680b — lib/ui/updateReady.js REMOVED. Diesel loaded it on every boot and
+     never called its init, so it has been dead weight since S617: the script
+     downloaded, parsed, and did nothing, which is why Diesel appeared to have
+     an update mechanism while in fact having none. The shared engine is armed
+     in the module block above and does the job properly. -->
 <script src="../lib/ui/markupEraser.js"></script>
 <script src="../lib/ui/markupSelection.js"></script>
 <script src="../lib/ui/markupText.js"></script>
@@ -124,7 +128,7 @@ window.addEventListener('load', function () {
       toolName: 'diesel',
       buildFile: 'js/part14.js',
       buildVar: 'DIESEL_BUILD',
-      buildValue: (typeof window.DIESEL_BUILD !== 'undefined') ? window.DIESEL_BUILD : null,
+      buildValue: window.DIESEL_BUILD || null,
       isBusy: function () {
         try {
           if (window._r2UploadsInFlight > 0) return true;
