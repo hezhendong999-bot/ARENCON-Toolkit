@@ -110,6 +110,7 @@ function buildScreen(shape) {
       html += `<div id="pr-${tab}-${i}"${pid}></div>`;
       html += `<input id="pp-${tab}-${i}" value="${20 + i}"><input id="pf-${tab}-${i}" value="${300 + i}"><input id="po-${tab}-${i}" value="1">`;
     }
+    html += `<div id="pitot-${tab}"></div>`;
     html += `<div id="equip-custom-${tab}">`;
     (shape.customEquip && shape.customEquip[tab] || []).forEach((row, i) => {
       const cid = (shape.presetCid && i === 0) ? ` data-cid="ce_preset_${tab}"` : '';
@@ -182,188 +183,99 @@ function runHost(shape, seed) {
   return new Function(...names, '__st', body)(...names.map(n => scope[n]), st);
 }
 
-/* ── run the MANIFEST-DRIVEN collect against the same shape ─────────────── */
+/* ── run the MANIFEST-DRIVEN collect against the same shape ───────────────
+   The bindings under test are the REAL ones from diesel-app/js/reportBindings.js,
+   evaluated against the same jsdom screen and the same report globals the live
+   collectState sees. An earlier draft of this probe used hand-written stubs and
+   was replaced: a stub proves that the ENGINE works, which was never the thing
+   in doubt. What has to be proven is that DIESEL'S OWN collectors and appliers
+   produce what Diesel produces today, and a stub cannot say anything about
+   that — it can only agree with itself. */
+const bindingsSrc = fs.readFileSync(path.join(REPO, 'diesel-app/js/reportBindings.js'), 'utf8');
+
 function makeEnv(dom, st, rnd) {
-  const mint = (p) => p + '_' + FROZEN_NOW.toString(36) + '_' + rnd().toString(36).substr(2, 6);
-  return {
-    doc: dom.window.document,
-    mintId: (prefix) => mint(prefix),
-    refs: {
-      stdData: st.stdData, pldData: st.pldData,
-      pumpCurvePoints: st.pumpCurvePoints, pldPumpCurvePoints: st.pldPumpCurvePoints,
-      clState: st.clState, customItems: st.customItems, contractors: st.contractors,
-      deficiencies: st.deficiencies, generalDeficiencies: st.generalDeficiencies,
-      contractorSignRows: st.contractorSignRows, witnessSignRows: st.witnessSignRows,
-      flowTestPhotos: st.flowTestPhotos, flowTestPhotosPld: st.flowTestPhotosPld,
-      recordPhotos: st.recordPhotos, sketchEntries: st.sketchEntries,
-      deletedItems: st.deletedItems, distribution: st.distribution,
-      smState: st.smState, smCapVis: st.smCapVis, annDsForce: st.annDsForce,
-      appendixExcl: st._appendixExcl
-    },
-    get(n) {
-      if (n === 'npshPsi') return st.npshPsi;
-      if (n === 'npshPsiPld') return st.npshPsiPld;
-      if (n === 'formRevision') return st.formRevision;
-      if (n === 'formDateModified') return st.formDateModified;
-      if (n === 'contractorTrades') return st.contractorTrades;
-      return undefined;
-    },
-    set(n, v) { st[n === 'contractorTrades' ? 'contractorTrades' : n] = v; },
-    opts: {},
-    hooks: {},
-    custom: {
-      collectTestType(env) {
-        let t;
-        env.doc.querySelectorAll('.pump-type-btns button').forEach(b => { if (b.classList.contains('on')) t = b.dataset.ptype; });
-        return t;
-      },
-      collectTtChosen(env) {
-        let t;
-        env.doc.querySelectorAll('.pump-type-btns button').forEach(b => { if (b.classList.contains('on')) t = b.dataset.ptype; });
-        if (t === undefined) return undefined;
-        return st._ttChosen === undefined ? true : !!st._ttChosen;
-      },
-      collectPitotRows(env) {
-        const out = {};
-        ['3a', '4b'].forEach(tab => {
-          const rows = [];
-          const total = (st.pitotCounts && st.pitotCounts[tab]) || 0;
-          for (let n = 1; n <= total; n++) {
-            const pp = env.doc.getElementById('pp-' + tab + '-' + n);
-            const pf = env.doc.getElementById('pf-' + tab + '-' + n);
-            const po = env.doc.getElementById('po-' + tab + '-' + n);
-            if (!pp && !pf && !po) continue;
-            const pr = env.doc.getElementById('pr-' + tab + '-' + n);
-            let pid = pr ? pr.getAttribute('data-pid') : null;
-            if (!pid) { pid = mint('pt'); if (pr) pr.setAttribute('data-pid', pid); }
-            rows.push({ id: pid, p: pp ? pp.value : '', f: pf ? pf.value : '', o: po ? po.value : '1' });
-          }
-          out[tab] = rows;
-        });
-        return out;
-      },
-      collectCustomEquip(env) {
-        const out = {};
-        ['3a', '4b'].forEach(tab => {
-          const arr = [];
-          env.doc.querySelectorAll('#equip-custom-' + tab + ' label').forEach(w => {
-            const cb = w.querySelector('input[type=checkbox]'), tx = w.querySelector('input[type=text]');
-            let cid = w.getAttribute('data-cid');
-            if (!cid) { cid = mint('ce'); w.setAttribute('data-cid', cid); }
-            arr.push({ id: cid, t: tx ? tx.value : '', c: cb ? cb.checked : true });
-          });
-          out[tab] = arr;
-        });
-        return out;
-      },
-      collectSigStrokes() {
-        const o = {};
-        Object.keys(st._sigStrokes || {}).forEach(k => { o[k] = { s: JSON.parse(JSON.stringify(st._sigStrokes[k] || [])) }; });
-        return o;
-      },
-      collectBatData() { return { b1: [...st.batData.b1], b2: [...st.batData.b2] }; },
-      collectFlowTestPhotos() { return st.flowTestPhotos.map(p => photoOut(p, { tag: p.tag || '' })); },
-      collectFlowTestPhotosPld() { return st.flowTestPhotosPld.map(p => photoOut(p, { tag: p.tag || '' })); },
-      collectRecordPhotos() { return st.recordPhotos.map(p => photoOut(p, { kind: p.kind, date: p.date || '' })); },
-      collectSketchEntries() { return st.sketchEntries.map(e => ({ id: e.id || '', comment: e.comment, markupImg: e.markupImg || null })); },
-      collectAppendixState() {
-        const out = {};
-        (st._appendixExcl || new Set()).forEach(k => { out[k] = { status: 'out' }; });
-        (st._appendixIncl || new Set()).forEach(k => { if (!out[k]) out[k] = { status: 'in' }; });
-        return out;
-      },
-      /* apply-side */
-      applyNoop() {},
-      applyTestType(v, env) {
-        /* The real host calls setPumpTestType, which lights the button. The
-           collector reads the LIT BUTTON, not a variable — so a stub that only
-           set a variable would make this round trip pass while the live one
-           failed, which is precisely the S622c bug (the stored choice was
-           never restored to the screen, and the next save collected the
-           default and overwrote the real choice on every device). */
-        st.testType = v;
-        env.doc.querySelectorAll('.pump-type-btns button').forEach(b => {
-          if (b.dataset.ptype === v) b.classList.add('on'); else b.classList.remove('on');
-        });
-      },
-      applyEquipState(v, env) { applyEquip(v, env, 'equip3a'); },
-      applyEquipState4b(v, env) { applyEquip(v, env, 'equip4b'); },
-      applyPitotRows(v, env) {
-        /* Rows are REBUILT, not written into whatever happens to be on screen.
-           A saved report can carry more rows than the screen currently shows
-           (someone added two on another device), and writing into missing
-           elements silently drops them. */
-        Object.keys(v || {}).forEach(tab => {
-          st.pitotCounts[tab] = v[tab].length;
-          const body = env.doc.body;
-          v[tab].forEach((r, i) => {
-            const n = i + 1;
-            const need = (id, tag) => {
-              let e = env.doc.getElementById(id);
-              if (!e) { e = env.doc.createElement(tag); e.id = id; body.appendChild(e); }
-              return e;
-            };
-            need('pp-' + tab + '-' + n, 'input').value = r.p;
-            need('pf-' + tab + '-' + n, 'input').value = r.f;
-            need('po-' + tab + '-' + n, 'input').value = r.o;
-            need('pr-' + tab + '-' + n, 'div').setAttribute('data-pid', r.id);
-          });
-        });
-      },
-      applyCustomEquip(v, env) {
-        Object.keys(v || {}).forEach(tab => {
-          const host = env.doc.getElementById('equip-custom-' + tab);
-          if (!host) return;
-          const labels = host.querySelectorAll('label');
-          v[tab].forEach((row, i) => {
-            const w = labels[i]; if (!w) return;
-            w.setAttribute('data-cid', row.id);
-            const cb = w.querySelector('input[type=checkbox]'), tx = w.querySelector('input[type=text]');
-            if (cb) cb.checked = !!row.c;
-            if (tx) tx.value = row.t;
-          });
-        });
-      },
-      applyClState(v) { Object.assign(st.clState, v); },
-      applySigStrokes(v) {
-        Object.keys(st._sigStrokes).forEach(k => delete st._sigStrokes[k]);
-        Object.keys(v || {}).forEach(k => {
-          const x = v[k];
-          st._sigStrokes[k] = (x && !Array.isArray(x) && Array.isArray(x.s)) ? x.s : x;
-        });
-      },
-      applyBatData(v) { if (v.b1) st.batData.b1 = v.b1.map(Number); if (v.b2) st.batData.b2 = v.b2.map(Number); },
-      applyContractorTrades(v) { st.contractorTrades = JSON.parse(JSON.stringify(v)); },
-      applyAppendixLegacy(v) { if (Array.isArray(v)) st._appendixExclLegacy = new Set(v); },
-      applyAppendixState(v) {
-        st._appendixExcl.clear(); st._appendixIncl.clear();
-        Object.keys(v || {}).forEach(k => {
-          if (v[k].status === 'out') st._appendixExcl.add(k);
-          else if (v[k].status === 'in') st._appendixIncl.add(k);
-        });
-      }
-    }
-  };
-  function applyEquip(v, env, name) {
-    const list = env.doc.querySelectorAll('input[name="' + name + '"]');
-    Array.prototype.forEach.call(list, (cb, i) => {
-      const k = cb.value || ('pos' + i);
-      if (v && v[k]) cb.checked = v[k].status === 'yes';
-    });
-  }
-  function photoOut(p, extra) {
-    const o = {
-      d: p.d, n: p.n, id: p.id || '', caption: p.caption || '',
-      r2Key: p.r2Key || '', r2Status: p.r2Status || '', r2Url: p.r2Url || '',
-      mk: p.mk || null, _annotated: p._annotated || false,
-      _origBackupId: p._origBackupId || '', _isOrigBackup: p._isOrigBackup || false,
-      _mkTs: p._mkTs || 0, rotation: p.rotation || 0, deleted: p.deleted || false,
-      deletedDate: p.deletedDate || '', deletedBy: p.deletedBy || '',
-      delState: p.delState || '', delAt: p.delAt || ''
+  const doc = dom.window.document;
+  const holder = { ReportState: RS, DieselReportManifest: MAN };
+  /* Frozen clock + seeded generator so a minted id is reproducible. Id minting
+     is part of what has to be reproduced, not noise to paper over. */
+  const FakeDate = function () {};
+  FakeDate.now = () => FROZEN_NOW;
+  const FakeMath = Object.create(Math);
+  FakeMath.random = rnd;
+
+  /* The host's report globals, named exactly as the tool names them. This list
+     IS the contract: the engine can touch these and nothing else. */
+  const names = ['window', 'document', 'Date', 'Math',
+    'stdData', 'pldData', 'pumpCurvePoints', 'pldPumpCurvePoints', 'clState', 'customItems',
+    'contractors', 'deficiencies', 'generalDeficiencies', 'contractorSignRows', 'witnessSignRows',
+    'flowTestPhotos', 'flowTestPhotosPld', 'recordPhotos', 'sketchEntries', 'deletedItems',
+    'distribution', 'smState', 'smCapVis', 'annDsForce', 'batData', 'contractorTrades',
+    'npshPsi', 'npshPsiPld', 'formRevision', 'formDateModified',
+    '_appendixExcl', '_appendixIncl', '_sigStrokes', '_ttChosen', '_csHubMode',
+    'pitotCounts', '_photoOut', '_assignRowPreservePhotos', '_migrateClState',
+    'setPumpTestType', '_ttApplyGate', 'addPitotRow', 'calcPitotTotal'];
+  const values = [holder, doc, FakeDate, FakeMath,
+    st.stdData, st.pldData, st.pumpCurvePoints, st.pldPumpCurvePoints, st.clState, st.customItems,
+    st.contractors, st.deficiencies, st.generalDeficiencies, st.contractorSignRows, st.witnessSignRows,
+    st.flowTestPhotos, st.flowTestPhotosPld, st.recordPhotos, st.sketchEntries, st.deletedItems,
+    st.distribution, st.smState, st.smCapVis, st.annDsForce, st.batData, st.contractorTrades,
+    st.npshPsi, st.npshPsiPld, st.formRevision, st.formDateModified,
+    st._appendixExcl, st._appendixIncl, st._sigStrokes, st._ttChosen, false,
+    st.pitotCounts, hostPhotoOut, hostAssignRow, hostMigrateCl,
+    (v) => { st.testType = v; lightButton(doc, v); }, () => {},
+    makeAddPitotRow(doc, st), () => {}];
+
+  const env = new Function(...names, bindingsSrc + '\nreturn window.dieselStateEnv();')(...values);
+
+  /* The bindings write reassigned scalars back through set(); in the tool those
+     land on real globals, here they land on the shape's state so the probe can
+     read them back on the next collect. */
+  const innerSet = env.set;
+  env.set = (n, v) => { st[n] = v; innerSet(n, v); };
+  const innerGet = env.get;
+  env.get = (n) => (Object.prototype.hasOwnProperty.call(st, n) ? st[n] : innerGet(n));
+  return env;
+}
+
+/* A faithful stand-in for the tool's own addPitotRow: it APPENDS a numbered
+   row and bumps the count, which is what makes rebuilding-from-saved able to
+   restore more rows than the screen currently shows. */
+function makeAddPitotRow(doc, st) {
+  return function (tab, id) {
+    st.pitotCounts[tab] = (st.pitotCounts[tab] || 0) + 1;
+    const n = st.pitotCounts[tab];
+    const host = doc.getElementById('pitot-' + tab) || doc.body;
+    const mk = (elId, tag) => {
+      let e = doc.getElementById(elId);
+      if (!e) { e = doc.createElement(tag); e.id = elId; host.appendChild(e); }
+      return e;
     };
-    if (extra) Object.keys(extra).forEach(k => { o[k] = extra[k]; });
-    return o;
-  }
+    mk('pr-' + tab + '-' + n, 'div').setAttribute('data-pid', id || '');
+    mk('pp-' + tab + '-' + n, 'input');
+    mk('pf-' + tab + '-' + n, 'input');
+    mk('po-' + tab + '-' + n, 'input');
+  };
+}
+
+function lightButton(doc, v) {
+  doc.querySelectorAll('.pump-type-btns button').forEach(b => {
+    if (b.dataset.ptype === v) b.classList.add('on'); else b.classList.remove('on');
+  });
+}
+function hostAssignRow(live, incoming) { Object.assign(live, incoming); }
+function hostMigrateCl(loaded) { return loaded; }
+function hostPhotoOut(p, extra) {
+  const o = {
+    d: p.d, n: p.n, id: p.id || '', caption: p.caption || '',
+    r2Key: p.r2Key || '', r2Status: p.r2Status || '', r2Url: p.r2Url || '',
+    mk: p.mk || null, _annotated: p._annotated || false,
+    _origBackupId: p._origBackupId || '', _isOrigBackup: p._isOrigBackup || false,
+    _mkTs: p._mkTs || 0, rotation: p.rotation || 0, deleted: p.deleted || false,
+    deletedDate: p.deletedDate || '', deletedBy: p.deletedBy || '',
+    delState: p.delState || '', delAt: p.delAt || ''
+  };
+  if (extra) Object.keys(extra).forEach(k => { o[k] = extra[k]; });
+  return o;
 }
 
 function runManifest(shape, seed) {
