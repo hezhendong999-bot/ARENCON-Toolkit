@@ -574,7 +574,61 @@ def main():
                     break
         removed = removed - set(moved)
 
-    # ── PROTECTED SYMBOLS (S493) ──
+    # ── S686: THE MANIFEST STALENESS CHECK ───────────────────────────────
+    # WHAT HAPPENED. On 23 Aug a push whose checkout was ONE MINUTE older than
+    # the previous one appended its own block to tools/protected_symbols.txt
+    # and, in doing so, dropped Lane A's entire U1 block. For eleven hours the
+    # pin-drag law sat in the repo unprotected: capture, restore, refusal —
+    # all deletable with a clean "zero removals" report. The same push also
+    # dropped a precache line from sw.js. One stale checkout, two silent
+    # losses, in the two files whose only job is preventing silent losses.
+    #
+    # WHY THE EXISTING CHECKS DID NOT CATCH IT. They are sound — the live-base
+    # check above would have blocked it outright. It never ran, because the
+    # gate is invoked per FILE and nobody invoked it on the manifest. A
+    # protection that depends on remembering to ask for it is not a mechanism.
+    #
+    # SO THIS RUNS ON EVERY INVOCATION, whatever file is under the gate. Every
+    # push gates something; this rides along. If the checkout's manifest is
+    # missing anything live has, the lane is one append away from erasing it,
+    # and that is worth a block BEFORE the append rather than a forensic
+    # afterwards. A checkout that is AHEAD of live is not flagged — that is
+    # just an unpushed edit, and an approved removal legitimately shrinks the
+    # file. Only BEHIND is dangerous.
+    if not a.no_live:
+        import os
+        _mf_rel = 'tools/protected_symbols.txt'
+        _mf_local = None
+        for _c in (os.path.join(os.path.dirname(os.path.abspath(__file__)), 'protected_symbols.txt'),
+                   _mf_rel, 'protected_symbols.txt'):
+            if os.path.exists(_c):
+                _mf_local = _c
+                break
+        # Skip when the manifest IS the file under the gate: the live-base
+        # check above already proved that case, and re-reading the checkout
+        # copy here would compare it against itself.
+        _gated_rel = (a.path.strip().lstrip('./') or _repo_rel(a.new) or '')
+        if _mf_local and not _gated_rel.endswith('protected_symbols.txt'):
+            _mf_live, _mf_st = fetch_live(_mf_rel, a.ref)
+            if _mf_st == 'ok':
+                _live_lines = {l.strip() for l in _mf_live.split('\n') if l.strip()}
+                _local_txt = open(_mf_local, encoding='utf-8', errors='replace').read()
+                _local_lines = {l.strip() for l in _local_txt.split('\n') if l.strip()}
+                _behind = sorted(_live_lines - _local_lines)
+                if _behind:
+                    print(f"── {a.new}")
+                    print("\n   ✗✗ BLOCKED — your tools/protected_symbols.txt is BEHIND live.")
+                    print(f"   {len(_behind)} line(s) exist at live {a.ref} and are missing from")
+                    print(f"   {_mf_local}. Appending to this copy would delete them, and")
+                    print("   the features behind them would lose their protection silently.")
+                    print("\n   Missing (first 8):")
+                    for _b in _behind[:8]:
+                        print("     " + (_b[:88] + ('…' if len(_b) > 88 else '')))
+                    print("\n   Pull tools/protected_symbols.txt from live HEAD, re-apply your")
+                    print("   own additions on top of it, and run again.")
+                    return 1
+
+
     # Checked BEFORE the kill list is honoured: --kill has no power here.
     # A protected symbol present in the live file and absent from the edit is
     # an unconditional block, whatever the session believes about cleanup.
