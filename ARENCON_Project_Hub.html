@@ -1320,6 +1320,64 @@ body.dark-mode .detail-section{
   #detail-deleted-section{grid-column:2;grid-row:5}
   .detail-info-grid{grid-template-columns:1fr}
 }
+/* ═══════════════════════════════════════════════════════════════════════
+   S682c — DASHBOARD ON A PHONE
+   (Mark, 23 Aug 2026: eight stacked controls before a single project)
+
+   ROOT CAUSE: @media(max-width:480px){.dash-toolbar{flex-direction:column}}.
+   Stacking a flex row turns SEVEN controls into SEVEN full-width rows —
+   search, My/All, Active/Archived/Deleted, Cards/List, Sort, Select, New
+   Project — then the stats strip, then the band chips wrapping to two more.
+   On a 420px screen the board itself starts below the fold, so the first
+   thing an inspector sees on opening the Hub is a wall of filters.
+
+   FIX: a two-column grid instead. Controls that are already two-way
+   (My/All, Cards/List) pair up; the three-way state switch and the sort
+   keep a full row because they need the width. Seven rows become five,
+   and the chips become one horizontal scroller instead of two wrapped
+   rows. Nothing is hidden, nothing is moved out of reach, and no control
+   changes what it does.
+   ═══════════════════════════════════════════════════════════════════════ */
+@media(max-width:560px){
+  .dash-toolbar{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    align-items:stretch;
+    padding:10px 14px;
+  }
+  .dash-search{grid-column:1/-1;max-width:none;min-width:0}
+  /* the 18px spacer only means something when the two switches sit in a
+     row together; in a grid it would eat a whole cell */
+  .dash-state-gap{display:none}
+  #dash-toggle{grid-column:1}
+  #hub-view-toggle{grid-column:2}
+  #dash-state{grid-column:1/-1}
+  .dash-sort{grid-column:1/-1;min-width:0;width:100%}
+  .bulk-select-wrap{grid-column:1}
+  .dash-toolbar > .dash-btn.primary{grid-column:2}
+
+  /* segmented switches fill their cell and split it evenly */
+  .dash-toggle,.hub-view-toggle{width:100%;min-width:0}
+  .dash-toggle button,.hub-view-toggle button{flex:1 1 0;min-width:0;padding:7px 6px}
+  .bulk-select-wrap > .dash-btn{width:100%;justify-content:center}
+  .dash-toolbar > .dash-btn.primary{justify-content:center}
+
+  /* one scrolling row of chips instead of two wrapped rows */
+  .band-chips{
+    flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+    padding:2px 14px 8px;gap:6px;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  }
+  .band-chips::-webkit-scrollbar{height:0}
+  .band-chips > *{flex:0 0 auto}
+  .stats-strip{padding:8px 14px;gap:12px}
+}
+@media(max-width:560px) and (pointer:coarse){
+  .dash-toggle button,.hub-view-toggle button,.dash-sort,
+  .bulk-select-wrap > .dash-btn,.dash-toolbar > .dash-btn.primary{min-height:44px}
+  .band-chip,.tool-chip{min-height:36px}
+}
 </style>
 </head>
 <body>
