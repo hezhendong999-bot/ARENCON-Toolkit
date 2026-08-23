@@ -1015,3 +1015,12 @@ appendixHTML
 @ is a BORDER-BOX 11in less a rounding reserve — the content-height budget it replaced
 @ cost an inch off the bottom of every page in every report.
 paginate
+
+@ S686b — Phase 4 resident 5: the export panel. The distribution list is the record of
+@ who a commissioning report was issued to; it prints on the cover and saves with the
+@ report. Shared rules: nothing saved means everyone ticked, a saved distribution comes
+@ back exactly, a manually-pooled recipient survives a reopen, de-duplication folds case,
+@ and a recipient's colour is deterministic by name from the muted palette.
+exportPanelBodyHTML
+exportSelected
+exportAddRecipient

@@ -453,7 +453,150 @@ before = cases;
 }
 console.log('  ' + (cases - before) + ' pagination identity + page-rule assertions');
 
-/* ── 5: delegation wired, knowledge gone from the host ──────────────────── */
+/* ── 5: THE EXPORT PANEL — WHO THE REPORT GOES TO (S686b) ────────────────
+   The distribution list is printed on the cover and saved with the report, so
+   a rule that drifts here quietly changes who a commissioning report says it
+   was issued to. Proof is again byte identity of the emitted panel body
+   against the pre-extraction builder, across the cases that actually differ —
+   nothing saved, a saved subset, a manually-pooled recipient, no photos, some
+   photos excluded — plus the live-DOM behaviours run on both sides. */
+before = cases;
+{
+  const { JSDOM } = await import('jsdom');
+
+  /* The pre-extraction builder is the body of _exportModalOpen, which cannot be
+     lifted whole (it calls the dialog engine). Its MARKUP half is lifted as
+     text: the three group strings, then the innerHTML assembly. */
+  const cut = (a, b) => preSrc.slice(preSrc.indexOf(a), preSrc.indexOf(b, preSrc.indexOf(a)));
+  const preGroups = cut('  var ownerHtml = owner', '\n  D.panel({');
+  const preInner = cut('      w.innerHTML=\n', '      bd.appendChild(w);')
+    .replace('      w.innerHTML=\n         ', '  return ');
+  const preChip = liftFunction(preSrc, '_exmChip');
+  const preColor = liftFunction(preSrc, '_exmColorFor');
+  /* _exmEsc is lifted by line, not by liftFunction: it contains the regex
+     literal /"/g, and the brace-matcher reads that quote as the start of a
+     string and runs on past the function's end. */
+  const preEsc = preSrc.slice(preSrc.indexOf('function _exmEsc(s){'),
+                              preSrc.indexOf('\n', preSrc.indexOf('function _exmEsc(s){')));
+
+  const preBody = new Function('owner', 'ctrs', 'distribution', 'incl', 'ptot', `
+    var _EXM_OWNER_C = '#3E4C66', _EXM_OTHER_C = '#8A7689';
+    var _EXM_CTR_PALETTE = ['#2C6E8F','#5B7A52','#8A5A7A','#9C6B3E','#4A6B8A','#6E5A8A','#5A7D6E','#8A6B4A','#436B6B','#7A5A5A'];
+    ${preColor}
+    ${preEsc}
+    ${preChip}
+    var saved=(distribution&&distribution.length)?distribution.slice():null;
+    function on(n){ return saved ? (saved.indexOf(n)>=0) : true; }
+    var roleSet={}; if(owner) roleSet[owner.toLowerCase()]=1; ctrs.forEach(function(c){roleSet[c.toLowerCase()]=1;});
+    var others=(saved||[]).filter(function(n){ return !roleSet[(n||'').toLowerCase()]; });
+    ${preGroups}
+    ${preInner}
+  `);
+
+  const OWNER = 'Sprucewood Holdings Ltd.';
+  const CTRS = ['Vipond Fire Protection', 'ABC Fire & Safety', 'Metro Sprinkler Co.'];
+  const SCENARIOS = [
+    ['nothing saved — everyone ticked', OWNER, CTRS, [], 12, 12],
+    ['a saved subset comes back exactly', OWNER, CTRS, [OWNER, 'Metro Sprinkler Co.'], 9, 12],
+    ['a manually-pooled recipient survives', OWNER, CTRS, [OWNER, 'Base-building PM'], 12, 12],
+    ['no owner on the project yet', '', CTRS, [], 3, 3],
+    ['no contractors yet', OWNER, [], [], 1, 1],
+    ['no photos at all', OWNER, CTRS, [], 0, 0],
+    ['a single photo reads in the singular', OWNER, CTRS, [], 1, 1],
+    ['a name with an ampersand and a quote', 'O\'Brien & Sons <Ltd>', CTRS, [], 5, 12],
+    ['nobody selected at all', OWNER, CTRS, ['nobody-by-this-name'], 12, 12]
+  ];
+  for (const [label, owner, ctrs, saved, incl, ptot] of SCENARIOS) {
+    const h = preBody(owner, ctrs, saved, incl, ptot);
+    const m = E.exportPanelBodyHTML({ owner, contractors: ctrs, saved, photosIncluded: incl, photosTotal: ptot });
+    cases++;
+    if (h !== m) {
+      let at = 0; while (at < h.length && h[at] === m[at]) at++;
+      bad.push('export panel byte identity: ' + label + ' — first differing byte at ' + at +
+               '\n      pre : …' + h.slice(Math.max(0, at - 50), at + 50) +
+               '\n      eng : …' + m.slice(Math.max(0, at - 50), at + 50));
+    }
+  }
+
+  /* Presence — identity across nine empty strings would also be identity. */
+  const full = E.exportPanelBodyHTML({ owner: OWNER, contractors: CTRS, saved: [OWNER, 'Base-building PM'],
+                                       photosIncluded: 9, photosTotal: 12 });
+  agree('the owner is on the panel', true, full.indexOf(OWNER) !== -1);
+  agree('every contractor is on the panel', true,
+        CTRS.every(c => full.indexOf(c.replace(/&/g, '&amp;')) !== -1));
+  agree('a pooled recipient is on the panel and removable', true,
+        full.indexOf('Base-building PM') !== -1 && /exm-rm/.test(full));
+  agree('the photo sentence states the subset plainly', true, /9 of 12 photos will print/.test(full));
+  agree('one photo reads in the singular', true,
+        /All 1 photo will print/.test(E.exportPanelBodyHTML({ owner: OWNER, contractors: [], photosIncluded: 1, photosTotal: 1 })));
+  agree('a name carrying markup is escaped, not injected', true,
+        E.exportPanelBodyHTML({ owner: '<img onerror=x>', contractors: [] }).indexOf('<img onerror') === -1);
+
+  /* The selection rule, stated outright — this is the one that silently drops a
+     recipient from the next issue if it inverts. */
+  const ticked = (html) => Array.from(html.matchAll(/data-name="([^"]*)"/g))
+    .map(m => m[1]).filter(n => html.indexOf('exm-chip on" data-name="' + n) !== -1);
+  agree('with nothing saved, everyone is ticked', 4,
+        ticked(E.exportPanelBodyHTML({ owner: OWNER, contractors: CTRS, saved: [] })).length);
+  agree('with a subset saved, only the saved names are ticked',
+        [OWNER, 'Metro Sprinkler Co.'].sort(),
+        ticked(E.exportPanelBodyHTML({ owner: OWNER, contractors: CTRS, saved: [OWNER, 'Metro Sprinkler Co.'] })).sort());
+
+  agree('the same recipient is the same colour every time', true,
+        E.exportPanelBodyHTML({ owner: '', contractors: ['Vipond Fire Protection'] }) ===
+        E.exportPanelBodyHTML({ owner: '', contractors: ['Vipond Fire Protection'] }));
+  agree('different recipients are told apart by colour', true,
+        new Set(CTRS.map(c => (E.exportPanelBodyHTML({ owner: '', contractors: [c] })
+                                .match(/--c:(#[0-9A-Fa-f]{6})/) || [])[1])).size > 1);
+
+  /* Live-DOM behaviours: toggle, the distribution line, add, de-dupe. */
+  const dom = new JSDOM('<!doctype html><html><body><div id="r"></div></body></html>');
+  const root = dom.window.document.getElementById('r');
+  root.innerHTML = full;
+  E.exportLine(root);
+  agree('the distribution line lists exactly the ticked names — and only those',
+        [OWNER, 'Base-building PM'].join(', '), root.querySelector('#exm-dl').textContent);
+  const chip = root.querySelector('.exm-chip.on');
+  E.exportToggle(chip, root);
+  agree('un-ticking a recipient drops them from the line', false,
+        root.querySelector('#exm-dl').textContent.indexOf(OWNER) === 0);
+  agree('un-ticking clears the tick mark', '', chip.querySelector('.exm-dot').textContent);
+  E.exportToggle(chip, root);
+  agree('re-ticking puts them back', true,
+        root.querySelector('#exm-dl').textContent.indexOf(OWNER) === 0);
+
+  const inp = root.querySelector('#exm-newrec');
+  inp.value = '  Trane Canada  ';
+  E.exportAddRecipient(root);
+  agree('a new recipient is added, trimmed', true,
+        root.querySelector('#exm-dl').textContent.indexOf('Trane Canada') !== -1);
+  agree('the input is cleared after adding', '', inp.value);
+  const n1 = E.exportSelected(root).length;
+  inp.value = 'trane canada';
+  E.exportAddRecipient(root);
+  agree('the same name in lower case is not added twice', n1, E.exportSelected(root).length);
+  inp.value = 'TRANE CANADA';
+  E.exportAddRecipient(root);
+  agree('the same name in upper case is not added twice either', n1, E.exportSelected(root).length);
+  inp.value = '   ';
+  E.exportAddRecipient(root);
+  agree('blank input adds nothing', n1, E.exportSelected(root).length);
+
+  /* A pooled recipient added to a panel that started with none must reveal the
+     group it lives in, or it is invisible until reopen. */
+  const dom2 = new JSDOM('<!doctype html><html><body><div id="r2"></div></body></html>');
+  const root2 = dom2.window.document.getElementById('r2');
+  root2.innerHTML = E.exportPanelBodyHTML({ owner: OWNER, contractors: CTRS, saved: [] });
+  agree('with no pooled recipients the group starts hidden', 'none',
+        root2.querySelector('#exm-other-grp').style.display);
+  root2.querySelector('#exm-newrec').value = 'Construction PM';
+  E.exportAddRecipient(root2);
+  agree('adding the first pooled recipient reveals the group', '',
+        root2.querySelector('#exm-other-grp').style.display);
+}
+console.log('  ' + (cases - before) + ' export-panel identity + rule assertions');
+
+/* ── 6: delegation wired, knowledge gone from the host ──────────────────── */
 before = cases;
 {
   agree('eligibility delegates', true, /ReportPdf\.appendixEligible/.test(liveSrc));
@@ -464,6 +607,10 @@ before = cases;
   agree('the assembly markup is not re-written in the host appendix fn', false,
         /apx-subhead/.test(liftFunction(liveSrc, '_appendixHTML') || ''));
   agree('pagination delegates', true, /window\.ReportPdf\.paginate\(/.test(liveSrc));
+  agree('the export panel body delegates', true, /window\.ReportPdf\.exportPanelBodyHTML\(/.test(liveSrc));
+  agree('the panel content styles are not re-declared in the host', false, /exm-chip\{|_EXM_BODY_CSS/.test(liveSrc));
+  agree('the chip markup and the recipient palette are gone from the host', false,
+        /_exmChip|_exmColorFor|_EXM_CTR_PALETTE/.test(liveSrc));
   agree('the page-break rules are gone from the host', false,
         /_splitTable|_splitGeneric|_bandClone|PAGE_LIMIT|_makeCompactHeader/.test(liveSrc));
 }
