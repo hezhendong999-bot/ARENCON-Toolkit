@@ -1216,8 +1216,11 @@ function _realExportPDF() {
     w.document.head.appendChild(hideStyle);
   } catch(btnErr) { console.error('PDF btn error:', btnErr); }
   // ── PAGINATION ENGINE (Session 53) ──
-  // After images load, paginate content into pages with compact headers
-  setTimeout(function(){
+  // S688: the body is unchanged — only WHEN it runs has changed. It used to run
+  // on a 1200ms timer, which was a HOPE that every image had loaded. See
+  // _paginateWhenSettled below for why hoping was the root cause of the
+  // 1490.04 spill.
+  function _paginateNow(){
     try {
       var wd = w.document;
       var PAGE_H = 912; // usable height per page (8.5x11 @ 96dpi minus padding)
@@ -1617,6 +1620,44 @@ function _realExportPDF() {
         parent.insertBefore(pg, wd.getElementById('mobile-page-nav'));
       });
     } catch(pgErr){ console.warn('Pagination error:', pgErr); }
-  }, 1200);
+  }
+  // S688 — ROOT CAUSE of the 1490.04 spill: pagination measured a document
+  // whose geometry was not final. Deficiency and response photos print with
+  // height:auto — ZERO pixels tall until the image finishes loading — and the
+  // 1200ms timer ran pagination while they were still arriving. Pages were cut
+  // and locked to 11in against those short measurements; when the images then
+  // landed at full height, the content re-flowed inside pages that could no
+  // longer grow, and the excess painted off the sheet and over the next page's
+  // running header. It also silenced every overflow guard (S53 pull-to-fresh
+  // and S687 photo flow alike): a page that MEASURES short never trips them.
+  // The fix is at the mechanism: do not measure until every image has settled
+  // (loaded or errored — an errored image's final height is also final). The
+  // 1200ms floor stays for the rest of the window's setup; a 15s hard cap
+  // guarantees one hung image can never hold a report hostage. The console
+  // line is the field diagnostic: it states, on every export, how many images
+  // pagination actually waited for — the fact this bug hid for want of.
+  function _paginateWhenSettled(){
+    var imgs, pending;
+    try{
+      imgs = Array.prototype.slice.call(w.document.images || []);
+      pending = imgs.filter(function(im){ return !im.complete; });
+    }catch(_){ imgs = []; pending = []; }
+    try{ console.info('[pdf] paginate gate: ' + (imgs.length - pending.length) + '/' + imgs.length + ' images settled at the 1200ms mark'); }catch(_){}
+    if(!pending.length){ _paginateNow(); return; }
+    var fired = false, done = 0;
+    function _go(why){
+      if(fired) return; fired = true;
+      try{ console.info('[pdf] paginate gate released: ' + why); }catch(_){}
+      _paginateNow();
+    }
+    function _tick(){ done++; if(done >= pending.length) _go('all ' + pending.length + ' remaining images settled'); }
+    pending.forEach(function(im){
+      im.addEventListener('load', _tick);
+      im.addEventListener('error', _tick);
+      if(im.complete) _tick();   // settled between the filter and the listener — never wait on it
+    });
+    setTimeout(function(){ _go('15s cap — ' + (pending.length - done) + ' image(s) never settled'); }, 15000);
+  }
+  setTimeout(_paginateWhenSettled, 1200);
   } catch(err) { console.error('PDF error:', err); showToast('PDF error: '+err.message, 5000); }
 }

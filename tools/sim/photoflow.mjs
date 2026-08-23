@@ -32,8 +32,14 @@ const PRE_SRC = execSync('git show 08e1bb9:diesel-app/js/pdfExport.js', { cwd: R
 
 function liftPagination(src) {
   const a = src.indexOf('// ── PAGINATION ENGINE (Session 53) ──');
+  if (a < 0) return null;
+  /* Two shapes exist: the pre-S688 timer body ends '}, 1200);'; the S688 gate
+     ends 'setTimeout(_paginateWhenSettled, 1200);'. Lift whichever is present. */
+  const gate = 'setTimeout(_paginateWhenSettled, 1200);';
+  const g = src.indexOf(gate, a);
+  if (g >= 0) return src.slice(a, g + gate.length);
   const b = src.indexOf('}, 1200);', a);
-  if (a < 0 || b < 0) return null;
+  if (b < 0) return null;
   return src.slice(a, b + '}, 1200);'.length);
 }
 
@@ -145,6 +151,41 @@ function check(name, pass, detail) {
 
 /* ── 4: the fix is wired into the live file at the right spot ── */
 check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPhotoOverflow\(grp\);/.test(LIVE_SRC));
+
+/* ── 5: S688 — pagination WAITS for images to settle instead of hoping ──
+   jsdom does not load resources, so an <img src> stays complete=false forever:
+   exactly the shape of a still-loading photo. The gate must NOT paginate while
+   one exists (a real timer is used here, not the instant stub, so a premature
+   run has somewhere to be seen), and the hard cap must then release it —
+   a hung image can never hold a report hostage. */
+{
+  const win = makeDoc([2, 1]);
+  const holdout = win.document.createElement('img');
+  holdout.setAttribute('src', 'http://nowhere.invalid/never-loads.jpg');
+  win.document.querySelector('.page').appendChild(holdout);
+  check('an image that has not settled is really reported unsettled by the DOM', holdout.complete === false);
+
+  const block = liftPagination(LIVE_SRC);
+  check('the live block runs the settle gate, not the bare timer', /setTimeout\(_paginateWhenSettled, 1200\);/.test(block || ''));
+
+  const caps = [];
+  /* The marker that pagination RAN is the letter-height lock it stamps on every
+     finished sheet — a two-item document may legitimately make just one page. */
+  let paginated = () => (win.document.querySelector('#wrap .page') || {}).style?.height === '11in';
+  new Function('w', 'proj', '_pdfInstNum', 'formRevision', 'setTimeout', 'console', 'Array', 'Date', 'Math', block)(
+    { document: win.document },
+    { client: 'C', addr: 'A', projname: 'P', projno: '1490.04', revision: 'A02' },
+    1, 'A01',
+    (fn, ms) => { if (ms >= 15000) { caps.push(fn); } else { fn(); } },   // run the 1200ms floor now; HOLD the cap
+    { warn: () => {}, error: () => {}, info: () => {}, log: () => {} },
+    Array, Date, Math
+  );
+  check('with an unsettled image, pagination has NOT run yet', !paginated(),
+        'pages were cut against a document whose geometry was not final');
+  check('the 15s cap was armed', caps.length === 1);
+  if (caps.length === 1) caps[0]();
+  check('the cap releases the gate and the report still paginates', paginated());
+}
 
 console.log('');
 if (results.every(Boolean)) console.log('PASS — oversized photo groups flow; everything that fit before is untouched');
