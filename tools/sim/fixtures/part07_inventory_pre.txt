@@ -9,102 +9,104 @@ var _pgSelected = new Set();
 // for the gallery badge. Falls back to the raw key if it can't resolve.
 function _clItemNum(id){ return _CLENG.itemNum(id); }
 function _collectAllPhotos(opts){
-  /* S683 — THE WALK IS DIESEL'S; WHO IS ALLOWED IN IS NOT.
-     Every source below knows its own corner of a report and what to call what
-     it finds — the badges, the labels, the section keys are this tool's
-     personality and Electric's will differ. What is NOT ours is the rule
-     deciding whether a photograph appears at all. That moved to
-     lib/data/photoInventory.js, and it reaches this walk through `emit`:
-     a source cannot forget to apply the filter because a source never sees it.
-
-     The two ways that rule goes wrong are both on the record. Hard-code it
-     live-only (S367) and the Recently Deleted list is permanently empty while
-     Restore can never find a photograph — nothing errors, the photos are just
-     invisible. Loosen the default and soft-deleted photos and internal backup
-     duplicates leak into an issued client PDF. */
-  var _src = function(p){ return _photoSrc(p); };
-  return window.PhotoInventory.collect([
-    // 1. Flow test photos (3-point) — S355: badge by category tag
-    { name:'flowtest', each:function(emit){
-      (flowTestPhotos||[]).forEach(function(p,i){
-        var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
-        emit(p,{type:'flowtest', cat:'flow', badge:'3\u00b7'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (3-pt)', section:'flowtest', idx:i});
-      });
-    }},
-    // 2. Flow test photos (PLD) — S355: badge by category tag
-    { name:'flowtest-pld', each:function(emit){
-      (flowTestPhotosPld||[]).forEach(function(p,i){
-        var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
-        emit(p,{type:'flowtest-pld', cat:'flow', badge:'7\u00b7'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (PLD)', section:'flowtestpld', idx:i});
-      });
-    }},
-    // 3. Checklist item photos
-    { name:'checklist', each:function(emit){
-      Object.keys(clState||{}).forEach(function(id){
-        var st = clState[id];
-        if(!st || !st.photos) return;
-        st.photos.forEach(function(p,pi){
-          emit(p,{type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi});
-        });
-      });
-    }},
-    // 4. Deficiency photos (per contractor), and their response photos
-    { name:'deficiency', each:function(emit){
-      Object.keys(deficiencies||{}).forEach(function(ctr){
-        (deficiencies[ctr]||[]).forEach(function(d,di){
-          (d.photos||[]).forEach(function(p,pi){
-            emit(p,{type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi});
-          });
-          (d.responses||[]).forEach(function(r,ri){
-            (r.photos||[]).forEach(function(p,pi){
-              emit(p,{type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi});
-            });
-          });
-        });
-      });
-    }},
-    // 5. General deficiency photos
-    { name:'general-defic', each:function(emit){
-      (generalDeficiencies||[]).forEach(function(d,di){
-        (d.photos||[]).forEach(function(p,pi){
-          emit(p,{type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi});
-        });
-      });
-    }},
-    // 6. Site records (pump / placard / site)
-    { name:'record', each:function(emit){
-      (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
-        // S339: short, distinct badges — 3-pt photos are plain; 7-pt (PLD) photos
-        // carry a "PLD" tag so the gallery tells the two pumps apart at a glance.
-        var _k=p.kind||'site', kl, badge;
-        if(_k==='pump'){ kl='General Pump Photos'; badge='3\u00b7Pump'; }
-        else if(_k==='pump-pld'){ kl='General Pump Photos (PLD)'; badge='7\u00b7Pump'; }
-        else if(_k==='placard'){ kl='Pump Placard & PLD Placard'; badge='3\u00b7Placard'; }
-        else if(_k==='placard-pld'){ kl='Pump Placard & PLD Placard'; badge='7\u00b7Placard'; }
-        else { kl='Site'; badge='Site'; }
-        emit(p,{type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i});
-      });
-    }},
-    // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
-    { name:'gauge-std', each:function(emit){
-      (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
-        (row && row.photos ? row.photos : []).forEach(function(p,pi){
-          emit(p,{type:'gauge', cat:'flow', badge:('3\u00b7'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('\u00b7'+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' \u00b7 '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi});
-        });
-      });
-    }},
-    { name:'gauge-pld', each:function(emit){
-      (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
-        (row && row.photos ? row.photos : []).forEach(function(p,pi){
-          emit(p,{type:'gauge-pld', cat:'flow', badge:('7\u00b7'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('\u00b7'+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='pld'?'\u00b7PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' \u00b7 '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' \u00b7 without PLD':p.mode==='pld'?' \u00b7 with PLD':''), section:'gauge_pld_'+ri, idx:pi});
-        });
-      });
-    }}
-  ], {
-    includeDeleted: !!(opts && opts.includeDeleted),
-    includeBackups: !!(opts && opts.includeBackups),
-    src: _src
+  var all = [];
+  // S341 (Bug 2 fix): by DEFAULT this returns LIVE photos only — ~28 callers
+  // (gallery view, badge filenames, reassign, counts, PDF appendix) rely on that.
+  // The deletion-management consumers (Recently Deleted list, Restore, Purge,
+  // auto-purge) pass {includeDeleted:true} to get the FULL walk including
+  // soft-deleted + original-backup rows. S367 had hard-coded the live-only filter
+  // here, which silently starved the trash gatherer → Recently Deleted was always
+  // empty and Restore could never find a photo. The flag restores the S354
+  // contract ("_collectAllPhotos stays the full walk") for the consumers that need it.
+  var _includeDeleted = !!(opts && opts.includeDeleted);
+  var _includeBackups = !!(opts && opts.includeBackups);
+  // S367: a photo is "live" (eligible to appear in the gallery/appendix) only
+  // if it is NOT soft-deleted (S337 `deleted` flag) and NOT an internal
+  // original-backup placeholder (`_isOrigBackup`, kept only to restore markup).
+  // Every on-screen renderer already skips these; the appendix must too, or
+  // deleted placards and backup duplicates leak into the client PDF.
+  // S372 (never-bake): the GALLERY now shows clean-original backups as their own
+  // Site Record tiles (FRT S363 parity — mark a photo → see the marked one + a
+  // clean copy). Callers that want them pass includeBackups:true (gallery only).
+  // The PDF appendix never sets it, and _appendixEligible already excludes site
+  // records, so client reports never gain backup duplicates.
+  function _live(p){
+    if(_includeDeleted) return !!p;
+    if(!p || p.deleted) return false;
+    if(p._isOrigBackup) return _includeBackups;
+    return true;
+  }
+  // 1. Flow test photos (3-point) — S355: badge by category tag
+  (flowTestPhotos||[]).forEach(function(p,i){
+    if(!_live(p)) return;
+    var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
+    all.push({photo:p, type:'flowtest', cat:'flow', badge:'3·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (3-pt)', section:'flowtest', idx:i, src:_photoSrc(p)});
   });
+  // 2. Flow test photos (PLD) — S355: badge by category tag
+  (flowTestPhotosPld||[]).forEach(function(p,i){
+    if(!_live(p)) return;
+    var sh=(typeof _floweqShort==='function')?_floweqShort((typeof _floweqTag==='function')?_floweqTag(p):'flow_chart'):'Flow';
+    all.push({photo:p, type:'flowtest-pld', cat:'flow', badge:'7·'+sh, label:_floweqLabel?_floweqLabel(_floweqTag(p)):'Flow Test (PLD)', section:'flowtestpld', idx:i, src:_photoSrc(p)});
+  });
+  // 3. Checklist item photos
+  Object.keys(clState||{}).forEach(function(id){
+    var st = clState[id];
+    if(!st || !st.photos) return;
+    st.photos.forEach(function(p,pi){
+      if(!_live(p)) return;
+      all.push({photo:p, type:'checklist', cat:'checklist', badge:_clItemNum(id), label:'Checklist '+_clItemNum(id), section:'cl_'+id, idx:pi, src:_photoSrc(p)});
+    });
+  });
+  // 4. Deficiency photos (per contractor)
+  Object.keys(deficiencies||{}).forEach(function(ctr){
+    (deficiencies[ctr]||[]).forEach(function(d,di){
+      (d.photos||[]).forEach(function(p,pi){
+        if(!_live(p)) return;
+        all.push({photo:p, type:'deficiency', cat:'deficiency', badge:'D'+(di+1), label:ctr+' #'+(di+1), section:'def_'+ctr+'_'+di, idx:pi, src:_photoSrc(p)});
+      });
+      // Response photos
+      (d.responses||[]).forEach(function(r,ri){
+        (r.photos||[]).forEach(function(p,pi){
+          if(!_live(p)) return;
+          all.push({photo:p, type:'response', cat:'deficiency', badge:'D'+(di+1)+'R', label:ctr+' #'+(di+1)+' Response', section:'resp_'+ctr+'_'+di+'_'+ri, idx:pi, src:_photoSrc(p)});
+        });
+      });
+    });
+  });
+  // 5. General deficiency photos
+  (generalDeficiencies||[]).forEach(function(d,di){
+    (d.photos||[]).forEach(function(p,pi){
+      if(!_live(p)) return;
+      all.push({photo:p, type:'general-defic', cat:'general', badge:'G'+(di+1), label:'General #'+(di+1), section:'gdef_'+di, idx:pi, src:_photoSrc(p)});
+    });
+  });
+  // 6. Site records (pump / placard / site)
+  (typeof recordPhotos==='undefined'?[]:recordPhotos).forEach(function(p,i){
+    if(!_live(p)) return;
+    // S339: short, distinct badges — 3-pt photos are plain; 7-pt (PLD) photos
+    // carry a "PLD" tag so the gallery tells the two pumps apart at a glance.
+    var _k=p.kind||'site', kl, badge;
+    if(_k==='pump'){ kl='General Pump Photos'; badge='3·Pump'; }
+    else if(_k==='pump-pld'){ kl='General Pump Photos (PLD)'; badge='7·Pump'; }
+    else if(_k==='placard'){ kl='Pump Placard & PLD Placard'; badge='3·Placard'; }
+    else if(_k==='placard-pld'){ kl='Pump Placard & PLD Placard'; badge='7·Placard'; }
+    else { kl='Site'; badge='Site'; }
+    all.push({photo:p, type:'record', cat:'records', badge:badge, label:'Record: '+kl, section:'rec_'+_k, idx:i, src:_photoSrc(p)});
+  });
+  // 7. Per-flow-point gauge photos (3-Point + 7-Point rows)
+  (typeof stdData==='undefined'?[]:stdData).forEach(function(row,ri){
+    (row && row.photos ? row.photos : []).forEach(function(p,pi){
+      if(!_live(p)) return;
+      all.push({photo:p, type:'gauge', cat:'flow', badge:('3·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')), label:'Gauge (3-pt) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):''), section:'gauge_std_'+ri, idx:pi, src:_photoSrc(p)});
+    });
+  });
+  (typeof pldData==='undefined'?[]:pldData).forEach(function(row,ri){
+    (row && row.photos ? row.photos : []).forEach(function(p,pi){
+      if(!_live(p)) return;
+      all.push({photo:p, type:'gauge-pld', cat:'flow', badge:('7·'+(row.pct||(ri+''))+(p.tag&&_GAUGE_TAG_SHORT[p.tag]?('·'+_GAUGE_TAG_SHORT[p.tag]):'')+(p.mode==='pld'?'·PLD':'')), label:'Gauge (PLD) '+(row.pct||'')+(p.tag&&_GAUGE_TAG_LABEL[p.tag]?(' · '+_GAUGE_TAG_LABEL[p.tag]):'')+(p.mode==='direct'?' · without PLD':p.mode==='pld'?' · with PLD':''), section:'gauge_pld_'+ri, idx:pi, src:_photoSrc(p)});
+    });
+  });
+  return all;
 }
 
 // ── Gallery state ──

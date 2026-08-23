@@ -964,3 +964,11 @@ PhotoDate
 timestampOf
 dateForNewPhoto
 parseExifDate
+
+@ S683 — unification Phase 3, third cut: which photographs are visible. PhotoInventory
+@ owns the rule, and sources reach the list only through emit, so the filter cannot be
+@ skipped. It fails both ways and both have happened: hard-code it live-only and
+@ Recently Deleted is permanently empty while Restore can never find a photo (S367);
+@ loosen the default and a soft-deleted placard appears in an issued client PDF.
+PhotoInventory
+isVisible
