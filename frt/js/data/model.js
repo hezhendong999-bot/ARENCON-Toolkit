@@ -8,6 +8,22 @@
 
 import { IDB } from './idb.js';
 
+/* ── U4 — THE SHARED PHOTO-DELETION LAW ───────────────────────────────────
+   lib/data/photoLifecycle.js owns whether a photo is deleted, how a delete is
+   recorded, and how a restore is recorded. It is a classic script (Diesel
+   loads it the same way), so it arrives on window rather than as an import.
+
+   NO FALLBACK, DELIBERATELY. A local "if the law is missing, do it the old
+   way" branch is a second implementation of the exact thing this removes, and
+   it would be the copy nobody maintains. If the script is absent the delete
+   refuses and says so — a refused delete is recoverable, a delete recorded by
+   a divergent second rule is not. */
+function _PL() {
+  var pl = (typeof window !== 'undefined') && window.PhotoLifecycle;
+  if (!pl) { try { console.error('[Model] PhotoLifecycle is not loaded — photo deletes refused'); } catch (e) {} }
+  return pl || null;
+}
+
 // ── S391: hostname migration walk (files.arencon.app) ────────────────────
 // Old records froze the previous worker hostname into r2Url. On every load
 // funnel (setProject / applyMerged) we recursively swap ONLY the host on any
@@ -2625,8 +2641,11 @@ export var Model = {
     var photo = pool.find(function(p) { return p && p.id === photoId; });
     if (!photo) return false;
     if (photo.deleted) return false;
-    photo.deleted = true;
-    photo.deletedDate = new Date().toISOString();
+    // U4: a person tapped Delete, so this is FORCED — the phantom guard exists
+    // to stop programmatic deletes of a just-captured photo, never a deliberate one.
+    var _pl = _PL();
+    if (!_pl) return false;
+    if (!_pl.markDeleted(photo, { force: true }).ok) return false;
     (f.defic.observations || []).forEach(function(o) {
       if (Array.isArray(o.photoSelection)) {
         if (o.photoSelection.indexOf(photoId) !== -1) {
@@ -2743,8 +2762,11 @@ export var Model = {
     if (!photo) return false;
     if (!photo.deleted) return false;
     if (photo.purged) return false;
-    delete photo.deleted;
-    delete photo.deletedDate;
+    // U4: a restore is a DECISION and is recorded as one. Between two devices an
+    // absent flag and a deliberate restore used to look identical.
+    var _pl = _PL();
+    if (!_pl) return false;
+    _pl.markLive(photo);
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'restore-pool', deficId: deficId, photoId: photoId });
@@ -2774,8 +2796,9 @@ export var Model = {
       if (p) { found = p; srcPool = pool; break; }
     }
     if (!found || !found.deleted) return { ok: false, fallback: false };
-    delete found.deleted;
-    delete found.deletedDate;
+    var _plF = _PL();              // U4: same law as every other restore
+    if (!_plF) return { ok: false, fallback: false };
+    _plF.markLive(found);
     if (srcPool) {
       var idx = srcPool.indexOf(found);
       if (idx >= 0) srcPool.splice(idx, 1);
@@ -4263,8 +4286,16 @@ export var Model = {
       if (orphans.length) {
         touched = true;
         if (orphanMode === 'delete') {
-          res.orphansDeleted += orphans.length;
-          if (!dryRun) orphans.forEach(function(p) { p.deleted = true; });
+          // U4 — THE REAL EXPOSURE THIS CLOSES. This is a CLEANUP PASS, not a
+          // person: it is exactly the caller the phantom guard exists for, so
+          // it is NOT forced. A photo captured seconds ago can no longer be
+          // swept away by an integrity run that has not yet seen it referenced.
+          // The count reports what actually happened, not what was attempted —
+          // a refused delete counted as done is how a wipe hides in a summary.
+          if (!dryRun) {
+            var _plO = _PL();
+            orphans.forEach(function(p) { if (_plO && _plO.markDeleted(p).ok) res.orphansDeleted++; });
+          } else { res.orphansDeleted += orphans.length; }
         } else {
           // RE-HOME to the pin's first obs. If that obs is default-mode
           // (photoSelection == null), it already shows the whole pool — so the
@@ -4288,8 +4319,11 @@ export var Model = {
           } else {
             // No obs at all (legacy 0-obs pin) — can't re-home; soft-delete so
             // it stops tripping the orphan check. Counted as deleted, truthful.
-            res.orphansDeleted += orphans.length;
-            if (!dryRun) orphans.forEach(function(p) { p.deleted = true; });
+            // U4: programmatic, so unforced — the phantom guard applies here too.
+            if (!dryRun) {
+              var _plL = _PL();
+              orphans.forEach(function(p) { if (_plL && _plL.markDeleted(p).ok) res.orphansDeleted++; });
+            } else { res.orphansDeleted += orphans.length; }
           }
         }
       }
@@ -4500,8 +4534,10 @@ export var Model = {
     if (photoIdx < 0 || photoIdx >= _project.photos.length) return null;
     var photo = _project.photos[photoIdx];
     if (!photo || photo.deleted) return null;
-    photo.deleted = true;
-    photo.deletedDate = new Date().toISOString();
+    // U4: deliberate, so forced — see removePoolPhoto.
+    var _pl = _PL();
+    if (!_pl) return null;
+    if (!_pl.markDeleted(photo, { force: true }).ok) return null;
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'remove-site', photoIdx: photoIdx });
@@ -4516,8 +4552,9 @@ export var Model = {
     var photo = _project.photos[photoIdx];
     if (!photo || !photo.deleted) return false;
     if (photo.purged) return false;
-    delete photo.deleted;
-    delete photo.deletedDate;
+    var _pl = _PL();               // U4: restore is recorded, not merely un-flagged
+    if (!_pl) return false;
+    _pl.markLive(photo);
     _dirty = true;
     _queueSave();
     this._notify('photo', { action: 'restore-site', photoIdx: photoIdx });

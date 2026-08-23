@@ -962,7 +962,12 @@ function ensurePdfJs(cb){
 <script src="../lib/ui/markupPolyline.js?fn=3"></script>
 <script src="../lib/ui/markupText.js"></script>
 <script src="js/viewer/markupEngine.js?v=33"></script>
-<script src="../lib/ui/lightbox.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
+<script src="../lib/ui/lightbox.js?v=1"></script>
+<!-- U4: the shared photo-deletion law (lib/data/photoLifecycle.js). Classic
+     script, same pattern as the lightbox shell above — the module is written
+     for both tools and Diesel loads it the same way. It must load BEFORE
+     app.js so the model has it at first delete. -->
+<script src="../lib/data/photoLifecycle.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,
