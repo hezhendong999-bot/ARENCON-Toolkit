@@ -982,3 +982,13 @@ PhotoRetention
 expiredAmong
 removalOrder
 isExpired
+
+@ S684b — unification Phase 3, fifth cut: both ends of the AI photo-scan. VisionPrep
+@ owns the image the service will accept (an R2-refetched blob can carry a media type
+@ that 400s with no explanation; undecodable bytes are marked unreadable, never sent —
+@ S502/S509c) and the JSON salvage walk (last candidate first, keyed by what the caller
+@ says a real answer must contain). groupByDay in PhotoDate is the gallery's day fold.
+VisionPrep
+salvageJson
+downscaleForVision
+groupByDay

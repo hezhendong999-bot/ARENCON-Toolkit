@@ -412,7 +412,16 @@ function _pgRenderTrashHtml(deleted){
 // three can never disagree about layout order. S294 (Mark): date grouping ONLY —
 // the pinned Site Records section is gone; record photos (incl. "(original)"
 // markup backups) land in the same date folder as everything else from that day.
-function _pgGroupView(view){ return window.PhotoDate.groupByDay(view); }
+function _pgGroupView(view){
+  var groups={};
+  view.forEach(function(a){
+    var g=_pgDayKey(a.photo); var key=g.key, label=g.label, ts=g.ts;
+    if(!groups[key]) groups[key]={key:key,label:label,ts:ts,items:[]};
+    groups[key].items.push(a);
+  });
+  return Object.keys(groups).map(function(k){return groups[k];})
+    .sort(function(x,y){ return y.ts - x.ts; });
+}
 
 // ── Site Records capture (pump / placard / site) ──
 var _REC_KINDS = [
@@ -638,12 +647,31 @@ function _placardPhotoData(p, cb){
 // out of it client-side and proceed — no worker change needed. Returns the parsed
 // object (with at least a nameplate or a rated field), or null if nothing usable.
 function _salvagePlacardJson(payload){
-  /* S684b — the salvage walk is shared; WHAT MAKES A PLACARD RESULT REAL is
-     Diesel's. A parse that carries none of these keys is prose that happened
-     to be valid JSON, and the shared walk skips it. */
-  return window.VisionPrep.salvageJson(payload, {
-    requiredKeys: ['nameplate','rated_flow_gpm','rated_pressure_psi','rated_speed_rpm']
-  });
+  if(!payload) return null;
+  var raw = (typeof payload === 'string') ? payload : (payload.raw || payload.detail || payload.message || '');
+  if(!raw || typeof raw !== 'string') return null;
+  var candidates = [];
+  // 1) fenced ```json ... ``` (or plain ``` ... ```) block — take the LAST one,
+  //    since the model often shows a draft then a final.
+  var fence = /```(?:json)?\s*([\s\S]*?)```/gi, m;
+  while((m = fence.exec(raw))) candidates.push(m[1]);
+  // 2) fallback: the widest {...} span in the text.
+  if(!candidates.length){
+    var a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+    if(a >= 0 && b > a) candidates.push(raw.slice(a, b+1));
+  }
+  for(var i = candidates.length - 1; i >= 0; i--){
+    var txt = candidates[i].trim();
+    try{
+      var obj = JSON.parse(txt);
+      // sanity: must look like a placard result
+      if(obj && typeof obj === 'object' &&
+         ('nameplate' in obj || 'rated_flow_gpm' in obj || 'rated_pressure_psi' in obj || 'rated_speed_rpm' in obj)){
+        return obj;
+      }
+    }catch(_e){ /* try the next candidate */ }
+  }
+  return null;
 }
 // S369: a large placard image (e.g. a full-res 3pt photo recovered from backup)
 // makes the vision API reject the request with HTTP 400. Downscale every image
@@ -652,12 +680,43 @@ function _salvagePlacardJson(payload){
 // payload is within limits. Resolves to a {data,media_type} object; on any
 // failure it returns the original unchanged (never blocks the scan).
 function _downscaleForVision(img){
-  /* S684b — the vision-input rules moved to lib/data/visionPrep.js: normalise
-     the media type (an R2-fetched blob can resolve to a type the service
-     rejects with a bare 400), cap at 1568px, and NEVER send bytes the browser
-     could not decode — mark them unreadable so the failure is said in words
-     (S502/S509c). Electric's nameplate scan inherits all of it. */
-  return window.VisionPrep.downscaleForVision(img);
+  // Vision API accepts ONLY image/jpeg|png|gif|webp. A photo whose media_type is
+  // 'image/jpg' (note: NOT a real MIME type) or 'application/octet-stream' — which
+  // is exactly what an R2-fetched blob can resolve to — is rejected by the worker
+  // with a bare HTTP 400. This is why a reloaded 3pt placard (bytes from R2, bad
+  // media_type) 400'd at 1 image / 90KB while a freshly-captured 7pt (clean
+  // image/jpeg from the camera) passed. Normalize the type; re-encode if needed.
+  function _validType(t){ return /^image\/(jpeg|png|gif|webp)$/i.test(t||''); }
+  return new Promise(function(resolve){
+    try{
+      if(!img || !img.data){ resolve(img); return; }
+      var MAX=1568;
+      var im=new Image();
+      im.onload=function(){
+        try{
+          var w=im.naturalWidth||im.width, h=im.naturalHeight||im.height;
+          if(!w||!h){ resolve({__unreadable:true}); return; }   // S509c: decoded to nothing — same as a decode failure
+          var scale=Math.min(1, MAX/Math.max(w,h));
+          // skip re-encoding ONLY if already small AND already a VALID image type
+          if(scale>=1 && _validType(img.media_type)){ resolve(img); return; }
+          var cw=Math.max(1,Math.round(w*scale)), ch=Math.max(1,Math.round(h*scale));
+          var cv=document.createElement('canvas'); cv.width=cw; cv.height=ch;
+          var cx=cv.getContext('2d'); cx.drawImage(im,0,0,cw,ch);
+          var du=cv.toDataURL('image/jpeg',0.85);
+          var mm=/^data:([^;]+);base64,(.*)$/.exec(du);
+          if(mm){ resolve({ data:mm[2], media_type:mm[1] }); }
+          else { resolve(img); }
+        }catch(_e){ resolve(img); }
+      };
+      // S509c: a photo the browser cannot decode used to resolve with its ORIGINAL
+      // bytes, which were then posted to the vision service — 400 upstream, 502 from
+      // the proxy, and a cryptic on-screen error the inspector could do nothing with
+      // (the S502 case: a soft-deleted PNG sitting in the 3-pt placard slot). Garbage
+      // in is never worth sending: mark it unreadable and let the caller say so.
+      im.onerror=function(){ resolve({__unreadable:true}); };
+      im.src='data:'+(_validType(img.media_type)?img.media_type:'image/jpeg')+';base64,'+img.data;
+    }catch(_e){ resolve(img); }
+  });
 }
 // ── AI-scan auth pre-flight helpers (S395) ──
 // Decode a Supabase access JWT's exp claim locally (no network). Returns true if
