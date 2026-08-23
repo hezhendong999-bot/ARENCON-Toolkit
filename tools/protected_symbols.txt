@@ -992,3 +992,12 @@ VisionPrep
 salvageJson
 downscaleForVision
 groupByDay
+
+@ S685 — unification Phase 4 opens: the shared report-PDF engine. appendixEligible is
+@ the mechanism deciding which KINDS of photograph may appear in a client PDF appendix
+@ (the S316 scope itself stays with each tool as data — no site records, checklist or
+@ deficiency photos in Diesel's). sizeChartsForPrint carries the 308-dpi print numbers
+@ AND the restore closure — skip the restore and every chart sits broken after export.
+ReportPdf
+appendixEligible
+sizeChartsForPrint
