@@ -11114,14 +11114,13 @@ function initHubHeader(){
      exist because those pills were written as pale-background + saturated-
      text and have NO dark-mode override anywhere — at 16px on the #1d1b24
      bar the saturated purple is nearly the bar itself. */
-  const AVATAR_ROLE_BADGE = {
-    super_admin: { text:'SA', colour:'#7C3AED', colourDark:'#C4B5FD', title:'Super Admin' },
-    admin:       { text:'A',  colour:'#1D4ED8', colourDark:'#93C5FD', title:'Admin' }
-  };
+  /* S683b — the Hub REPORTS its role and nothing else. The colours and the
+     SA/A letters moved into headerEngine2._roleBadgeFor, which is now the only
+     place in the toolkit that decides what a role looks like. Keeping a copy
+     here is how the Hub and FRT would end up disagreeing. */
   function paintAvatarRoleBadge(){
     try {
-      const rb = AVATAR_ROLE_BADGE[(_profile && _profile.role) || ''] || null;
-      ctl.setAccount({ roleBadge: rb });
+      ctl.setAccount({ role: (_profile && _profile.role) || null });
     } catch(e){ console.warn('[Hub] avatar role badge failed:', e); }
   }
   window.__hubPaintAvatarRoleBadge = paintAvatarRoleBadge;
