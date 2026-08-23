@@ -380,6 +380,31 @@ function _queueSave() {
 
 function _saveToIDB() {
   if (!_project) return Promise.resolve();
+  /* S686 — A COMPLETED SAVE ABSORBS THE PENDING ONE.
+     Two paths write this report: the 800ms debounce after an edit, and the
+     15-second background sweep. The sweep asks whether anything changed; the
+     debounce never did. So whenever the sweep landed inside that 800ms window,
+     the debounce fired straight after and wrote the identical bytes again —
+     and every write deep-copies the whole report first, which on a report with
+     hundreds of photos is the most expensive thing the tool does. Twice per
+     edit, on a tablet, while an inspector is typing.
+
+     THE OBVIOUS FIX IS A TRAP AND IS NOT WHAT THIS IS. Making the debounced
+     save check the dirty flag the way the sweep does would lose data: of the
+     90 places that schedule a save, 89 mark the report changed first, but
+     applyMerged does NOT — it lands merged cloud state and relies on this
+     write happening unconditionally. Gate it on dirty and the merged state
+     never reaches the device; it lives in memory until the next edit, and an
+     app closed before then reverts that tablet to its pre-sync state. That is
+     the 4380.24 family.
+
+     Inverting it is safe: the pending timer is cancelled BY a save, rather
+     than a save deciding whether to run. Every mutation path re-arms the timer
+     after it mutates, and the snapshot below is taken from whatever is current
+     at this instant — so work can never be stranded by the cancellation. The
+     clear happens before the snapshot, in the same synchronous tick, so
+     nothing can slip between the two. */
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; }
   _project.modified = new Date().toISOString();
   // S115 P11: strip blob: URLs from dataUrl before persisting. Blob URLs are
   // session-scoped — on page reload they become invalid. If we leave them
