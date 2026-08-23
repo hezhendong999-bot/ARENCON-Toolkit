@@ -17,6 +17,7 @@ import { toast } from '../shared/toast.js';
 import { showConfirm } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from '../ui/photoPicker.js'; // S215: shared photo-selection picker (B + C)
 import { Auth } from '../shared/auth.js'; // S331o: gate the perf HUD to super-admin (Mark) only
+import { PinDrag } from './pinDrag.js'; // U1: the ONE pin-write law — validate, capture, restore, commit, record
 
 // ── WebGL pins (Phase 5 polish → S81 Option B: now Canvas 2D) ────────────
 // Name kept for API compatibility; pinsGL.js is Canvas 2D as of v2.0.
@@ -2979,15 +2980,15 @@ var _PinPan = (function() {
     if (r.w <= 0 || r.h <= 0) return false;
     var fx = (tipx - r.x) / r.w;
     var fy = (tipy - r.y) / r.h;
-    // Small tolerance: a fingertip may legitimately sit a hair past the edge
-    // while dragging to the boundary. Anything beyond that is a bad rect.
-    var TOL = 0.02;
-    if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
+    // U1: the tolerance, the refusal and the clamp are the shared law now. This
+    // is a live drag FRAME, so it is a preview: written when valid, silent
+    // either way. A refusal is recorded here because on this surface a refused
+    // frame is the evidence — the drawing viewer records at the end instead,
+    // where it has a single decision to record.
+    if (!PinDrag.preview('pin-editor-map', st.d, fx, fy)) {
       _pinWriteBreadcrumb('REFUSED', fx, fy, r);
       return false;
     }
-    st.d.pinX = Math.max(0, Math.min(1, fx));
-    st.d.pinY = Math.max(0, Math.min(1, fy));
     return true;
   }
 
@@ -2996,21 +2997,18 @@ var _PinPan = (function() {
   // of this bug. Kept in memory (last 20) and reachable on the tablet, where
   // there is no console: window._frtPinWrites().
   function _pinWriteBreadcrumb(verdict, fx, fy, r) {
+    // U1: one log stream, written by the shared law. The geometry facts below
+    // are this surface's own — they are the whole point of the breadcrumb and
+    // stay verbatim.
     try {
-      if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
-      window._frtPinWriteLog.push({
-        at: new Date().toISOString(),
-        verdict: verdict,
+      PinDrag.logWrite('pin-editor-map', verdict, fx, fy, {
         host: (st.canvas.parentElement && st.canvas.parentElement.id) || '?',
-        computed: { x: Math.round(fx * 1e4) / 1e4, y: Math.round(fy * 1e4) / 1e4 },
         rect: { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) },
         box: { w: st.boxW, h: st.boxH },
         scale: Math.round(st.scale * 100) / 100,
         liveCanvas: st.canvas ? { w: st.canvas.clientWidth, h: st.canvas.clientHeight } : null,
         deficId: st.d && st.d.id
       });
-      if (window._frtPinWriteLog.length > 20) window._frtPinWriteLog.shift();
-      console.warn('[PinPan] pin write ' + verdict, window._frtPinWriteLog[window._frtPinWriteLog.length - 1]);
     } catch (e) {}
   }
 
@@ -3056,6 +3054,10 @@ var _PinPan = (function() {
       }
       if (wasArmed) _pinWriteBreadcrumb('DISARMED (' + why + ')', -1, -1,
         { x: 0, y: 0, w: st.boxW, h: st.boxH });
+      // U1 — INVARIANT 2. The drag frames have already moved the pin in the
+      // report; an interruption is not a placement, so it goes back. Without
+      // this the next automatic save made the interrupted position permanent.
+      if (wasArmed) PinDrag.restore('pin-editor-map', why || 'interrupted');
     } catch (e) {}
     try { draw(); } catch (e) {}
   }
@@ -3084,6 +3086,14 @@ var _PinPan = (function() {
       // to stay a pin drag, which is why "zooming sometimes moved the pin".
       if (st.holdTimer) { clearTimeout(st.holdTimer); st.holdTimer = null; }
       st.holdOK = false;
+      // U1 — the S568-S571 doctrine, applied here for the first time: a pinch
+      // arriving mid-drag KEEPS a deliberate placement (every frame was already
+      // validated) and never discards it. A drag that had not yet moved has
+      // nothing to keep, so its capture is simply released.
+      if (st.mode === 'pin') {
+        if (st.moved) PinDrag.commitPreviewed('pin-editor-map', st.d, { via: 'pinch mid-drag' });
+        else PinDrag.clear('pin-editor-map');
+      }
       var pi = pinchInfo(e);
       st.mode = 'pinch';
       st.pinchDist = pi.dist;
@@ -3125,6 +3135,10 @@ var _PinPan = (function() {
         st.holdOK = true;
         st.mode = 'pin';
         st.holdTimer = null;
+        // U1 — INVARIANT 2, which this surface never had. The true position is
+        // captured the moment the drag arms, so an interrupted gesture can put
+        // the pin back instead of leaving it under wherever the finger was.
+        PinDrag.capture('pin-editor-map', st.d);
         try { if (navigator.vibrate) navigator.vibrate(15); } catch (_e) {}
         draw();   // the pin repaints in its armed state
       }, 500);
@@ -3207,6 +3221,11 @@ var _PinPan = (function() {
       return;
     }
     if (st.mode === 'pin' && st.moved) {
+      // U1: the gesture ended cleanly — record ONE decision (the frames were
+      // validated but deliberately unrecorded) and close the capture so nothing
+      // can restore over a placement the inspector meant.
+      PinDrag.commitPreviewed('pin-editor-map', st.d,
+        { host: (st.canvas.parentElement && st.canvas.parentElement.id) || '?' });
       // Persist the new real pin location.
       Model.saveNow();
       // S327 (B3): do NOT full-render the deficiency list here — that innerHTML
@@ -3234,6 +3253,9 @@ var _PinPan = (function() {
       }
     }
     if (st.mode === 'pan') st.canvas.parentElement.classList.remove('dragging');
+    // U1: the gesture is over either way. A capture left standing could be
+    // restored by an unrelated interruption later and move a pin nobody touched.
+    PinDrag.clear('pin-editor-map');
     st.mode = null;
   }
   function onWheel(e) {
@@ -4391,35 +4413,33 @@ document.addEventListener('click', function(e) {
 //      Clamping was the mechanism that turned errors into believable saved
 //      coordinates (six writes at exactly 0.000/1.000 in the history).
 function _pinDragCapture(deficId) {
+  // U1: the capture lives in the shared law (pinDrag.js). The resolver re-finds
+  // the record by id at restore time, so a cloud merge mid-drag cannot leave the
+  // restore writing to an orphaned object.
   var f = Model.findDeficiency(deficId);
-  _pinDragOrig = (f && f.defic.pinX != null)
-    ? { deficId: deficId, x: f.defic.pinX, y: f.defic.pinY } : null;
+  PinDrag.capture('drawing-viewer', f && f.defic, function (id) {
+    var g = Model.findDeficiency(id);
+    return g && g.defic;
+  });
+  _pinDragOrig = PinDrag.held('drawing-viewer') ? { deficId: deficId } : null;
 }
 var _pinDragOrig = null;
 var _pinDragLastFx = 0.5, _pinDragLastFy = 0.5;  // S570: last unclamped frame fraction
 function _pinDragRestore(reason) {
-  if (!_pinDragOrig) return;
-  var f = Model.findDeficiency(_pinDragOrig.deficId);
-  if (f) { f.defic.pinX = _pinDragOrig.x; f.defic.pinY = _pinDragOrig.y; }
-  _pinViewerWriteLog('RESTORED (' + reason + ')', _pinDragOrig.x, _pinDragOrig.y);
+  // U1: restore + its record are the shared law; this host only repaints.
+  if (!PinDrag.restore('drawing-viewer', reason)) return;
   _pinDragOrig = null;
   _renderPins();
 }
 // Validated commit: fraction computed WITHOUT clamping first; refused if the
 // answer is off the sheet. Returns true only when the write was accepted.
 function _pinCommit(deficId, px, py, natW, natH) {
-  var fx = px / natW, fy = py / natH;
-  var TOL = 0.02;
-  if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
-    _pinViewerWriteLog('REFUSED off-sheet', fx, fy);
-    _pinDragRestore('off-sheet commit');
-    return false;
-  }
+  // U1: one validated write through the shared law. A refusal restores and
+  // repaints here, exactly as before — the host owns the paint, not the verdict.
   var f = Model.findDeficiency(deficId);
   if (!f) return false;
-  f.defic.pinX = Math.max(0, Math.min(1, fx));
-  f.defic.pinY = Math.max(0, Math.min(1, fy));
-  _pinViewerWriteLog('COMMIT', f.defic.pinX, f.defic.pinY);
+  var ok = PinDrag.commit('drawing-viewer', f.defic, px / natW, py / natH, _pinWriteContext());
+  if (!ok) { _pinDragOrig = null; _renderPins(); return false; }
   _pinDragOrig = null;
   return true;
 }
@@ -4437,36 +4457,23 @@ function _pinCommit(deficId, px, py, natW, natH) {
    (fingertip tolerance) clamps to the boundary deliberately, beyond
    tolerance REFUSES, writes nothing, and logs what it believed. */
 function _pinPlaceValidate(fx, fy, why) {
-  var TOL = 0.02;
-  if (fx < -TOL || fx > 1 + TOL || fy < -TOL || fy > 1 + TOL) {
-    try {
-      if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
-      window._frtPinWriteLog.push({
-        at: new Date().toISOString(),
-        surface: 'placement',
-        verdict: 'REFUSED ' + why + ' (off-sheet)',
-        computed: { x: Math.round(fx * 1e4) / 1e4, y: Math.round(fy * 1e4) / 1e4 },
-        scale: (typeof _scale === 'number') ? Math.round(_scale * 100) / 100 : null
-      });
-    } catch (eL) {}
-    try { console.warn('[Viewer] ' + why + ' REFUSED off-sheet at', fx.toFixed(3), fy.toFixed(3)); } catch (eW) {}
-    return null;
-  }
-  return { x: Math.max(0, Math.min(1, fx)), y: Math.max(0, Math.min(1, fy)) };
+  // U1: placement judges a position without owning a drag — nothing to restore,
+  // same verdict, same record, one implementation.
+  return PinDrag.validateLogged('placement', fx, fy, why);
+}
+
+// What this surface believed its geometry was at the moment of a write. The
+// law records the verdict; the host contributes the facts only it knows.
+function _pinWriteContext() {
+  try {
+    var img = document.getElementById('dv-image');
+    return { scale: _scale, natW: _getDrawingNaturalW(img), natH: _getDrawingNaturalH(img) };
+  } catch (e) { return null; }
 }
 
 function _pinViewerWriteLog(verdict, x, y) {
-  try {
-    if (!window._frtPinWriteLog) window._frtPinWriteLog = [];
-    window._frtPinWriteLog.push({
-      at: new Date().toISOString(), surface: 'drawing-viewer', verdict: verdict,
-      x: Math.round(x * 1e4) / 1e4, y: Math.round(y * 1e4) / 1e4,
-      scale: _scale, natW: _getDrawingNaturalW(document.getElementById('dv-image')),
-      natH: _getDrawingNaturalH(document.getElementById('dv-image'))
-    });
-    if (window._frtPinWriteLog.length > 40) window._frtPinWriteLog.shift();
-    if (verdict !== 'COMMIT') console.warn('[Viewer] pin ' + verdict, window._frtPinWriteLog[window._frtPinWriteLog.length - 1]);
-  } catch (e) {}
+  // U1: one log stream, one record shape, written by the shared law.
+  PinDrag.logWrite('drawing-viewer', verdict, x, y, _pinWriteContext());
 }
 var _pinDragging = false;
 var _pinDragDeficId = null;
@@ -4561,12 +4568,14 @@ document.addEventListener('touchmove', function(e) {
   // at that instant, garbage still never saves and the pin restores instead.
   // Zoom freely; re-hold to nudge further.
   if (_pinDragging && e.touches.length > 1) {
-    var _tol = 0.02;
-    var _fxOk = _pinDragLastFx >= -_tol && _pinDragLastFx <= 1 + _tol
-             && _pinDragLastFy >= -_tol && _pinDragLastFy <= 1 + _tol;
-    if (_fxOk) {
-      _pinViewerWriteLog('COMMIT (pinch ended drag, placement kept)',
-        Math.max(0, Math.min(1, _pinDragLastFx)), Math.max(0, Math.min(1, _pinDragLastFy)));
+    // U1: same verdict as every other pin write, from the shared law. The pin
+    // already holds the previewed position, so a kept placement is recorded
+    // and the capture released — leaving it standing would let a later
+    // interruption restore over a placement the inspector meant.
+    var _okP = PinDrag.validate(_pinDragLastFx, _pinDragLastFy);
+    if (_okP) {
+      _pinViewerWriteLog('COMMIT (pinch ended drag, placement kept)', _okP.x, _okP.y);
+      PinDrag.clear('drawing-viewer');
       _pinDragOrig = null;
       Model._notify('deficiency', { action: 'pin-move', deficId: _pinDragDeficId });
       Model.saveNow();
@@ -4652,6 +4661,10 @@ document.addEventListener('touchend', function(e) {
   _pinDragDeficId = null;
   _pinDragMarker = null;
   _pinDragEndTime = Date.now();
+  // U1: the gesture is over. If the drawing's geometry was unreadable above,
+  // the commit never ran and the capture would otherwise stand — a later
+  // interruption could then restore it onto a pin nobody was touching.
+  PinDrag.clear('drawing-viewer');
   _lastActiveId = null;
   _hideTooltip();
   _renderPins();
@@ -4825,6 +4838,7 @@ document.addEventListener('mouseup', function(e) {
   _pinMouseDragDeficId = null;
   _pinMouseDragMarker = null;
   _pinDragEndTime = Date.now();
+  PinDrag.clear('drawing-viewer');   // U1: gesture over — never leave a capture standing (touchend parity)
   _lastActiveId = null;   // S81 Bug #2: clear active state so pin re-renders in idle color (touchend parity)
   _hideTooltip();         // S81 Bug #2: hide tooltip after drag release (touchend parity)
   _renderPins();
