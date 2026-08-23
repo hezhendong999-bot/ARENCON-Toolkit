@@ -91,6 +91,7 @@ body.dark-mode .login-box{background:var(--card);}body.dark-mode .login-field in
 <div class="sb-item admin-only" data-page="admin" onclick="navigateTo('admin')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Admin Panel<span class="badge">!</span></div>
 </div>
 <div class="sb-footer">
+<button class="sb-dark" id="btn-help" onclick="window.openHelp&&openHelp()">? Help &amp; guide</button>
 <button class="sb-dark" id="dark-toggle" onclick="toggleDarkMode()">&#9790; Dark Mode</button>
 <button class="sb-logout" onclick="doExportJSON()">&#8595; Export Data</button>
 <button class="sb-logout" onclick="doLogout()">&#8594; Sign Out</button>
@@ -236,4 +237,36 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape'){closeSideba
 document.addEventListener('DOMContentLoaded',function(){var d=document.getElementById('new-date');if(d)d.value=new Date().toISOString().slice(0,10);setTimeout(function(){var e=document.getElementById('login-email');if(e)e.focus();},500);});
 window.addEventListener('resize',function(){if(CP==='orgchart')renderOrgLines();});
 </script><script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
+<script type="module">
+/* ═══ S679-U2 — shared Help (rollout completion). One engine, one sealed
+   dialog, identical to FRT/Diesel/Electric/Hub/portal. No card set is
+   registered for this tool yet — help content ships only after Owner
+   review — so the panel shows the engine's coming-soon state. When the
+   reviewed card set lands, its import replaces the coming-soon branch and
+   nothing else changes. */
+try {
+  const { Dlg } = await import('./lib/ui/dialogEngine.js');
+  window.Dlg = window.Dlg || Dlg;
+  const { hasCards, comingSoonHtml, mountHelp } = await import('./lib/ui/helpEngine.js');
+  window.openHelp = function () {
+    const D = window.Dlg;
+    if (!D || !D.panel) { try { console.error('[help] dialog engine not loaded'); } catch (e) {} return; }
+    D.panel({
+      title: 'Help & guide', icon: '?', accent: 'slate', width: 880,
+      build: function (bd) {
+        try {   /* S505e: the engine's shadow root blocks host CSS — link inside */
+          var sr = bd.getRootNode();
+          if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')) {
+            var lk = document.createElement('link');
+            lk.rel = 'stylesheet'; lk.href = 'lib/ui/helpPanel.css?v=508a';
+            lk.setAttribute('data-help-css', '1'); sr.appendChild(lk);
+          }
+        } catch (e) {}
+        if (hasCards('intranet')) { try { mountHelp(bd, { scope: 'intranet' }); } catch (e) {} }
+        else { bd.innerHTML = comingSoonHtml('ARENCON Intranet'); }
+      }
+    });
+  };
+} catch (e) { try { console.warn('[help] shared help unavailable:', e && e.message); } catch (_) {} }
+</script>
 </body></html>

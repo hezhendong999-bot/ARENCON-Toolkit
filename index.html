@@ -280,10 +280,40 @@ render();
 try {
   const { buildHeader2 } = await import('./lib/ui/headerEngine2.js');
   const { portalHeaderConfig } = await import('./lib/ui/portalHeaderConfig.js');
+  /* ═══ S679-U2 — shared Help on the portal (rollout completion). One engine,
+     one sealed dialog, same as FRT/Diesel/Electric/Hub. No portal card set is
+     registered yet — content ships only after Owner review — so the panel
+     shows the engine's own coming-soon state, never an empty guide. */
+  const { Dlg } = await import('./lib/ui/dialogEngine.js');
+  window.Dlg = window.Dlg || Dlg;
+  const { hasCards, comingSoonHtml, mountHelp } = await import('./lib/ui/helpEngine.js');
+  function openHelp() {
+    const D = window.Dlg;
+    if (!D || !D.panel) { try { console.error('[help] dialog engine not loaded'); } catch (e) {} return; }
+    D.panel({
+      title: 'Help & guide',
+      icon: '?', accent: 'slate', width: 880,
+      build: function (bd) {
+        try {   /* S505e: engine shadow root blocks host CSS — link the panel's sheet inside */
+          var sr = bd.getRootNode();
+          if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')) {
+            var lk = document.createElement('link');
+            lk.rel = 'stylesheet';
+            lk.href = '/lib/ui/helpPanel.css?v=508a';
+            lk.setAttribute('data-help-css', '1');
+            sr.appendChild(lk);
+          }
+        } catch (e) {}
+        if (hasCards('portal')) { try { mountHelp(bd, { scope: 'portal' }); } catch (e) {} }
+        else { bd.innerHTML = comingSoonHtml('Toolkit Portal'); }
+      }
+    });
+  }
   const mount = document.getElementById('portal-header');
   if (mount) {
     const cfg = portalHeaderConfig({
       logoSrc: LOGO_SRC,
+      onHelp: openHelp,
       onToggleTheme: () => {
         _theme = (_theme === 'light') ? 'dark' : 'light';
         applyTheme(_theme);

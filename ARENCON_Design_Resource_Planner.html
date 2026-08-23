@@ -394,6 +394,7 @@ body.dark-mode .bulk-bar{background:#1E293B;border-color:#334155;}
       <button class="hdr-menu-item" onclick="document.getElementById('loadInput').click();toggleMenu()">⬆ Load JSON</button>
       <button class="hdr-menu-item" onclick="exportReport();toggleMenu()">📄 Report</button>
       <div style="height:1px;background:var(--border);margin:2px 0;"></div>
+      <button class="hdr-menu-item" onclick="window.openHelp&&openHelp();toggleMenu()">? Help &amp; guide</button>
       <button class="hdr-menu-item" onclick="toggleDark();toggleMenu()">🌙 Dark Mode</button>
       <button class="hdr-menu-item" onclick="doSignOut()">↪ Sign Out</button>
     </div>
@@ -2303,5 +2304,37 @@ init();
 
 </script>
 <script>/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */</script>
+<script type="module">
+/* ═══ S679-U2 — shared Help (rollout completion). One engine, one sealed
+   dialog, identical to FRT/Diesel/Electric/Hub/portal. No card set is
+   registered for this tool yet — help content ships only after Owner
+   review — so the panel shows the engine's coming-soon state. When the
+   reviewed card set lands, its import replaces the coming-soon branch and
+   nothing else changes. */
+try {
+  const { Dlg } = await import('./lib/ui/dialogEngine.js');
+  window.Dlg = window.Dlg || Dlg;
+  const { hasCards, comingSoonHtml, mountHelp } = await import('./lib/ui/helpEngine.js');
+  window.openHelp = function () {
+    const D = window.Dlg;
+    if (!D || !D.panel) { try { console.error('[help] dialog engine not loaded'); } catch (e) {} return; }
+    D.panel({
+      title: 'Help & guide', icon: '?', accent: 'slate', width: 880,
+      build: function (bd) {
+        try {   /* S505e: the engine's shadow root blocks host CSS — link inside */
+          var sr = bd.getRootNode();
+          if (sr && sr.querySelector && !sr.querySelector('link[data-help-css]')) {
+            var lk = document.createElement('link');
+            lk.rel = 'stylesheet'; lk.href = 'lib/ui/helpPanel.css?v=508a';
+            lk.setAttribute('data-help-css', '1'); sr.appendChild(lk);
+          }
+        } catch (e) {}
+        if (hasCards('drp')) { try { mountHelp(bd, { scope: 'drp' }); } catch (e) {} }
+        else { bd.innerHTML = comingSoonHtml('Design Resource Planner'); }
+      }
+    });
+  };
+} catch (e) { try { console.warn('[help] shared help unavailable:', e && e.message); } catch (_) {} }
+</script>
 </body>
 </html>
