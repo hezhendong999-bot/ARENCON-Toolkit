@@ -1361,6 +1361,51 @@ function _realExportPDF() {
           return tb;
         }
         var tb = _shell(false);
+        // S687 — root cause of the 1490.04 spill: an item carrying enough evidence
+        // photos (24 on item 1.1) makes item+photos taller than a whole page. The
+        // placement below keeps a group atomic — right for 2 photos, impossible
+        // for 24: a group taller than a page fits NOWHERE, so it bled off the
+        // sheet and printed over the next page's running header. The group IS
+        // divisible at photo boundaries, so: keep the item row with as many
+        // photos as the page holds, flow the rest onto continuation pages in
+        // their own rows under the "(cont.)" band. Measurement-driven — photos
+        // are pulled back one at a time against the live page height — so it
+        // assumes nothing about photo size, photos-per-row, or CSS. Only a group
+        // that has ALREADY overflowed a fresh page enters here; every group that
+        // fits is placed exactly as before this fix.
+        function _flowPhotoOverflow(grp){
+          var boxes = grp.filter(function(r){ return r.classList && r.classList.contains('ph-keep'); })
+                         .map(function(r){ return r.querySelector('.nd-photos'); })
+                         .filter(Boolean);
+          if(!boxes.length) return;            // nothing divisible — rides its page, as before
+          var proto = null, carry = [];
+          for(var b=boxes.length-1; b>=0 && _overflow(); b--){
+            var box = boxes[b];
+            if(!proto) proto = box.closest('tr');
+            while(_overflow() && box.lastElementChild){
+              carry.unshift(box.lastElementChild);
+              box.removeChild(box.lastElementChild);
+            }
+            if(!box.children.length){          // an emptied photo row is dead weight
+              var tr = box.closest('tr');
+              if(tr && tr.parentNode) tr.parentNode.removeChild(tr);
+            }
+          }
+          while(carry.length){
+            tb = _shell(true);                 // fresh page: "(cont.)" band + re-stamped thead
+            var row = proto.cloneNode(true);
+            var cbox = row.querySelector('.nd-photos');
+            while(cbox.firstChild) cbox.removeChild(cbox.firstChild);
+            tb.appendChild(row);
+            while(carry.length){
+              cbox.appendChild(carry.shift());
+              if(_overflow()){
+                if(cbox.children.length > 1){ carry.unshift(cbox.lastElementChild); cbox.removeChild(cbox.lastElementChild); }
+                break;                         // one photo can never overflow forever
+              }
+            }
+          }
+        }
         groups.forEach(function(grp){
           var firstOnPage = (tb.rows.length === 0);
           grp.forEach(function(r){ tb.appendChild(r); });   // place the whole group
@@ -1369,6 +1414,7 @@ function _realExportPDF() {
             tb = _shell(true);                                // continue on a fresh page
             grp.forEach(function(r){ tb.appendChild(r); });
           }
+          if(_overflow()) _flowPhotoOverflow(grp);            // S687: taller than any page — divide at photo boundaries
         });
       }
       // Split a non-table tall body at its direct children. If a child is
