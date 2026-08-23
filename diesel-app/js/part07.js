@@ -273,12 +273,11 @@ function _pgVisible(){
 // Deleted photos for the trash view — same collected records, only the deleted ones,
 // newest-deleted first.
 function _pgGatherDeleted(){
-  return _collectAllPhotos({includeDeleted:true}).filter(function(a){ return _isPhotoDeleted(a.photo); })
-    .sort(function(x,y){
-      var tx = (x.photo.delAt||x.photo.deletedDate) ? new Date(x.photo.delAt||x.photo.deletedDate).getTime() : 0;
-      var ty = (y.photo.delAt||y.photo.deletedDate) ? new Date(y.photo.delAt||y.photo.deletedDate).getTime() : 0;
-      return ty - tx;
-    });
+  /* S684 — newest deletion first, so the photo somebody just removed by
+     mistake is the one at the top when they come looking for it. */
+  return window.PhotoRetention.trashOrder(
+    _collectAllPhotos({includeDeleted:true}).filter(function(a){ return _isPhotoDeleted(a.photo); })
+  );
 }
 // Whole days remaining before auto-purge (>=0). No date → full retention (defensive).
 function _pgTrashDaysLeft(iso){ return window.PhotoLifecycle.trashDaysLeft(iso, _TRASH_RETENTION_DAYS); }
@@ -337,23 +336,20 @@ function _pgPurgePhoto(pid){
 // DESCENDING idx per source array so splices stay index-valid (same discipline as
 // _pgDeleteSelected). Leaves R2 in place (the orphan purge / sweep reclaims later).
 function _pgPurgeExpired(){
+  /* S684 — THE ONLY IRREVERSIBLE THING THIS TOOL DOES.
+     What may be destroyed, and the order it must be destroyed in, now live in
+     lib/data/photoRetention.js. The order is the part that bites: photos are
+     removed from arrays by position, so removing a low index first shifts
+     every later one down and the next removal lands on a photograph nobody
+     selected — permanently — while the one that was meant to go survives.
+     expiredAmong() returns the eligible set ALREADY in removal order, so a
+     caller cannot get the list without the ordering that makes using it safe. */
   var pid = (typeof _r2FolderId!=='undefined' && _r2FolderId) ? _r2FolderId : '_local';
   if(_pgPurgedForProject === pid) return 0;
   _pgPurgedForProject = pid;
-  var cutoff = Date.now() - _TRASH_RETENTION_DAYS * 86400000;
-  var expired = _collectAllPhotos({includeDeleted:true}).filter(function(a){
-    var p = a.photo;
-    if(!p || !p.deleted) return false;
-    var t = (p.delAt||p.deletedDate) ? new Date(p.delAt||p.deletedDate).getTime() : 0;
-    return t > 0 && t < cutoff;
-  });
+  var expired = window.PhotoRetention.expiredAmong(
+    _collectAllPhotos({includeDeleted:true}), { retentionDays: _TRASH_RETENTION_DAYS });
   if(!expired.length) return 0;
-  // descending idx within each (type|section) bucket — see _pgDeleteSelected note
-  expired.sort(function(a,b){
-    var ka=(a.type||'')+'|'+(a.section||''), kb=(b.type||'')+'|'+(b.section||'');
-    if(ka!==kb) return ka<kb?-1:1;
-    return (b.idx||0)-(a.idx||0);
-  });
   expired.forEach(function(item){ try{ _pgRemovePhoto(item); }catch(e){ console.warn('[purge-expired]', e); } });
   if(typeof saveState==='function') saveState();
   if(typeof debounceAutosave==='function') debounceAutosave();

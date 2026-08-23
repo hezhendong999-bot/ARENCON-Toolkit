@@ -972,3 +972,13 @@ parseExifDate
 @ loosen the default and a soft-deleted placard appears in an issued client PDF.
 PhotoInventory
 isVisible
+
+@ S684 — unification Phase 3, fourth cut: retention. The ONLY irreversible path in the
+@ toolkit. expiredAmong returns the eligible set already in removal order because photos
+@ come out of arrays by position — remove a low index first and every later one shifts,
+@ so the next removal destroys a photograph nobody selected while the one that was meant
+@ to go survives. A deleted photo with no readable timestamp is never purged, on purpose.
+PhotoRetention
+expiredAmong
+removalOrder
+isExpired
