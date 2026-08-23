@@ -1007,23 +1007,7 @@ sizeChartsForPrint
 @ changed byte for the same inputs is a changed client deliverable and goes red.
 appendixHTML
 
-@ S686 — Phase 4 resident 4: pagination. Where the pages of a client report break.
-@ The Owner-locked rules live here now: letter-size every sheet, a section band never
-@ orphaned (band + first block measured together), a tall section splits with a
-@ "(cont.)" band and its own table header re-stamped, a checklist row never separated
-@ from its photo rows, an uncuttable block rides one sheet whole, and the page budget
-@ is a BORDER-BOX 11in less a rounding reserve — the content-height budget it replaced
-@ cost an inch off the bottom of every page in every report.
-paginate
 
-@ S686b — Phase 4 resident 5: the export panel. The distribution list is the record of
-@ who a commissioning report was issued to; it prints on the cover and saves with the
-@ report. Shared rules: nothing saved means everyone ticked, a saved distribution comes
-@ back exactly, a manually-pooled recipient survives a reopen, de-duplication folds case,
-@ and a recipient's colour is deterministic by name from the muted palette.
-exportPanelBodyHTML
-exportSelected
-exportAddRecipient
 
 @ U1 (S686, Mark: "complete U1") — ONE PIN-DRAG LAW. A pin coordinate is report data:
 @ it is what a drawing says about where a problem is, read months later by people who
