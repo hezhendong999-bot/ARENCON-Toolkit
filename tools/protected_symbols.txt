@@ -1007,27 +1007,11 @@ sizeChartsForPrint
 @ changed byte for the same inputs is a changed client deliverable and goes red.
 appendixHTML
 
-@ U1 (S686, Mark: "complete U1") — ONE PIN-DRAG LAW. A pin coordinate is report data:
-@ it is what a drawing says about where a problem is, read months later by people who
-@ were never on site. Three surfaces move pins (finger on the drawing, mouse on the
-@ drawing, the small map inside the pin card) and each carried its own copy of the
-@ rules — three tolerance constants, two evidence logs. frt/js/viewer/pinDrag.js is now
-@ the only implementation; the hosts call it and own only their gestures and paint.
-@ THE DEFECT IT CLOSED: the pin-card map wrote the pin on every drag frame and captured
-@ nothing, so an interrupted drag — second finger, app backgrounded for the camera,
-@ editor closing — kept the position the finger happened to be over, and the next
-@ automatic save made it permanent. No gesture was ever completed. The drawing viewer
-@ has restored in that case since S569; this surface never did. capture/restore/preview/
-@ commit/commitPreviewed are the invariants in code: intent is proven not inferred, a
-@ gesture is a preview until it ends cleanly, an impossible answer is REFUSED not
-@ clamped (clamping is why six pins sit at exactly 0.000/1.000 in the history).
-@ Removing any of these returns a surface to writing pins by its own rules.
-@ NOTE the preview clamp difference is deliberate and NOT a drift to "fix": the big
-@ viewer lets a pin stick to the sheet edge during a drag, the pin-card map stops
-@ following past the edge. Both END validated through the same law.
-capture
-restore
-preview
-commitPreviewed
-validateLogged
-_pinWriteContext
+@ S686 — Phase 4 resident 4: pagination. Where the pages of a client report break.
+@ The Owner-locked rules live here now: letter-size every sheet, a section band never
+@ orphaned (band + first block measured together), a tall section splits with a
+@ "(cont.)" band and its own table header re-stamped, a checklist row never separated
+@ from its photo rows, an uncuttable block rides one sheet whole, and the page budget
+@ is a BORDER-BOX 11in less a rounding reserve — the content-height budget it replaced
+@ cost an inch off the bottom of every page in every report.
+paginate

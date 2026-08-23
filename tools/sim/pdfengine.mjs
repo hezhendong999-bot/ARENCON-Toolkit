@@ -243,7 +243,217 @@ before = cases;
 }
 console.log('  ' + (cases - before) + ' appendix byte-identity + presence assertions');
 
-/* ── 4: delegation wired, knowledge gone from the host ──────────────────── */
+/* ── 4: PAGINATION — WHERE THE PAGES BREAK (S686) ────────────────────────
+   The pre-extraction paginator lives in the fixture as a `setTimeout` body
+   inside `_realExportPDF`, so it cannot be lifted by name. It is lifted as a
+   TEXT BLOCK and run with a synchronous `setTimeout` stub, against a jsdom
+   document given a FAKE LAYOUT — jsdom has no layout engine and reports every
+   offsetHeight as 0, which would make every page fit forever and prove
+   nothing. Heights are declared per element with data-h and summed up the
+   tree, which is exactly the measurement the paginator makes.
+
+   Proof is BYTE IDENTITY of the finished document — same content in, same
+   pages out, character for character — PLUS presence assertions, because two
+   identical failures (both sides producing nothing) would pass identity alone.
+   That is the S685b lesson, applied. */
+before = cases;
+{
+  const { JSDOM } = await import('jsdom');
+
+  const PAGE_HTML = `
+  <div id="wrap">
+    <div class="page" style="padding:0.5in;">
+      <div class="cover" data-h="420">COVER</div>
+      <div class="dash" data-h="180">DASHBOARD</div>
+
+      <div class="sh" data-h="38">1. Pre-Commissioning</div>
+      <div class="sb flush">
+        <table>
+          <thead><tr data-h="34"><th>Item</th><th>Result</th></tr></thead>
+          <tbody>
+            ${Array.from({ length: 14 }, (_, n) => `
+              <tr data-h="58"><td>Item ${n + 1}</td><td>Yes</td></tr>
+              ${n % 4 === 0 ? `<tr class="ph-keep" data-h="150"><td colspan="2">photo for item ${n + 1}</td></tr>` : ''}`).join('')}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="sh" data-h="38">2. Visual Inspection</div>
+      <div class="sb">
+        <div class="chartbox" data-h="620">CHART IMAGE</div>
+        <table>
+          <thead><tr data-h="34"><th>Check</th></tr></thead>
+          <tbody>${Array.from({ length: 9 }, (_, n) => `<tr data-h="66"><td>Visual ${n + 1}</td></tr>`).join('')}</tbody>
+        </table>
+      </div>
+
+      <div class="sh" data-h="38">6. Deficiencies</div>
+      <div class="sb" data-h="360">Deficiency summary</div>
+      <div class="nosplit keep-prev" data-h="420">VERDICT BOX</div>
+
+      <div class="sh" data-h="38">Photo Appendix</div>
+      <div class="apx-band" data-h="26">band</div>
+      <div class="apx-subhead" data-subhead="Gauge &amp; RPM Photos" data-h="44">Gauge &amp; RPM Photos</div>
+      ${Array.from({ length: 7 }, (_, n) => `<div class="apx-keep" data-h="300"><img src="p${n}.jpg"></div>`).join('')}
+
+      <!-- built the way the exporter builds them: the sub-header is glued to its
+           first card inside one apx-keep block; the sketches wrapper carries the
+           S372.5 band, which is the nested-.sh case S372.4's unwrap exists for. -->
+      <div id="flow-test-photos-print">
+        <div class="apx-keep" data-h="360"><div class="apx-subhead" data-subhead="Flow Test Charts">Flow Test Charts</div><div><img src="ft0.jpg"></div></div>
+        <div data-h="250"><img src="ft1.jpg"></div>
+      </div>
+      <div id="sketches-print">
+        <div class="sh apx-band" data-h="38">Photo Appendix</div>
+        <div class="apx-subhead" data-subhead="Site Sketches &amp; Photo Markups" data-h="44">Site Sketches &amp; Photo Markups</div>
+        <div data-h="400"><img src="sk.jpg"></div>
+      </div>
+    </div>
+    <div id="mobile-page-nav">nav</div>
+  </div>`;
+
+  /* A layout model: declared height, or the sum of the children's. This is the
+     only quantity the paginator reads, so modelling it is modelling the page. */
+  function makeDoc() {
+    const dom = new JSDOM(`<!doctype html><html><body>${PAGE_HTML}</body></html>`);
+    const win = dom.window;
+    Object.defineProperty(win.HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() {
+        const d = this.getAttribute && this.getAttribute('data-h');
+        if (d) return Number(d);
+        let sum = 0;
+        for (const k of this.children) sum += k.offsetHeight;
+        return sum;
+      }
+    });
+    return win;
+  }
+
+  const PROJ = { client: 'Sprucewood Holdings', addr: '1490 Sprucewood Rd, Mississauga',
+                 projname: 'Sprucewood Tower B', projno: '1490.04', revision: 'Rev 2' };
+  const INST = 3, FORMREV = 'Rev 1';
+  const DATESTR = new Date().toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  /* The pre-extraction paginator, lifted as text and run synchronously. */
+  const preBlockStart = preSrc.indexOf('// \u2500\u2500 PAGINATION ENGINE (Session 53) \u2500\u2500');
+  const preBlock = preBlockStart < 0 ? null
+    : preSrc.slice(preBlockStart, preSrc.indexOf('}, 1200);', preBlockStart) + '}, 1200);'.length);
+  if (!preBlock) { bad.push('could not lift the pre-extraction pagination block from the fixture'); cases++; }
+
+  const preWarnings = [];
+  function runPre(win) {
+    const scope = {
+      w: { document: win.document },
+      proj: PROJ, _pdfInstNum: INST, formRevision: FORMREV,
+      setTimeout: (fn) => fn(),          // run it here, not in 1.2 seconds
+      /* The pre code swallows its own failures into console.warn. Capture them:
+         a silently-broken baseline would compare equal to a silently-broken
+         engine and prove nothing. */
+      console: { warn: (...a) => preWarnings.push(a.join(' ')), error: (...a) => preWarnings.push(a.join(' ')), log: () => {} },
+      Array, Date, Math
+    };
+    new Function(...Object.keys(scope), preBlock)(...Object.values(scope));
+  }
+
+  function runEngine(win) {
+    const wd = win.document;
+    const origPage = wd.querySelector('.page');
+    const projName = (PROJ.projname || '').replace(/</g, '&lt;');
+    E.paginate({
+      doc: wd,
+      page: origPage,
+      unwrap: ['flow-test-photos-print', 'sketches-print'],
+      header: {
+        client: (PROJ.client || '').replace(/</g, '&lt;'),
+        addr: (PROJ.addr || '').replace(/</g, '&lt;'),
+        title: 'Diesel Fire Pump Commissioning Report #' + INST + (projName ? ' - ' + projName : ''),
+        projNo: PROJ.projno || '',
+        rev: (PROJ.revision || FORMREV || ''),
+        date: DATESTR
+      },
+      anchorId: 'mobile-page-nav'
+    });
+  }
+
+  const hostWin = makeDoc(); runPre(hostWin);
+  const engWin = makeDoc(); runEngine(engWin);
+  const hostOut = hostWin.document.getElementById('wrap').innerHTML;
+  const engOut = engWin.document.getElementById('wrap').innerHTML;
+
+  agree('the pre-extraction baseline ran without swallowing an error', [], preWarnings);
+  cases++;
+  if (hostOut !== engOut) {
+    let at = 0; while (at < hostOut.length && hostOut[at] === engOut[at]) at++;
+    bad.push('pagination byte identity \u2014 first differing byte at ' + at +
+             '\n      pre : \u2026' + hostOut.slice(Math.max(0, at - 60), at + 60) +
+             '\n      eng : \u2026' + engOut.slice(Math.max(0, at - 60), at + 60));
+  }
+
+  /* Presence \u2014 identity is worthless if both sides did nothing. */
+  const pages = Array.from(engWin.document.querySelectorAll('#wrap .page'));
+  const hostPages = Array.from(hostWin.document.querySelectorAll('#wrap .page'));
+  agree('the report actually paginated (more than one sheet)', true, pages.length > 1);
+  agree('both sides produced the same number of sheets', hostPages.length, pages.length);
+  agree('every sheet is locked to letter height', true,
+        pages.every(p => p.style.height === '11in' && p.style.minHeight === '11in'));
+  agree('continuation pages carry the running header', true,
+        pages.slice(1).every(p => !!p.querySelector('.compact-header')));
+  agree('the running header carries the project number and page number', true,
+        /1490\.04 Rev 2&nbsp;&nbsp;Page 2/.test(pages[1].innerHTML));
+
+  /* The Owner-locked rules, asserted on the finished document rather than
+     inferred from the code. */
+  /* Band-at-the-foot-of-a-sheet is CHARACTERISED, not asserted away. The
+     keep-with-next rule holds everywhere except one path: a `nosplit keep-prev`
+     block (the verdict box) that pulls its predecessor onto a fresh page can
+     leave the section band behind on the old one. That is the pre-extraction
+     behaviour, reproduced exactly — a question for the Owner, never a fix
+     smuggled inside an extraction. */
+  const bandTail = (doc) => Array.from(doc.querySelectorAll('#wrap .page'))
+    .map((p, i) => (p.lastElementChild && p.lastElementChild.classList
+                    && p.lastElementChild.classList.contains('sh')) ? i + 1 : 0).filter(Boolean);
+  agree('bands left at a page foot are the same on both sides',
+        bandTail(hostWin.document), bandTail(engWin.document));
+  agree('a split section re-stamps its band as (cont.)', true,
+        pages.some(p => /\(cont\.\)/.test(p.textContent)));
+  agree('a split table re-stamps its own header row on the new sheet', true,
+        pages.filter(p => p.querySelector('table')).every(p => !!p.querySelector('thead')));
+  agree('a checklist row is never separated from its photo row', true,
+        pages.every(p => {
+          const rows = Array.from(p.querySelectorAll('tr'));
+          const first = rows.find(r => !r.querySelector('th'));
+          return !(first && first.classList.contains('ph-keep'));
+        }));
+  agree('the verdict box rides one sheet whole', 1,
+        pages.filter(p => /VERDICT BOX/.test(p.textContent)).length);
+  agree('the chart image rides one sheet whole', 1,
+        pages.filter(p => /CHART IMAGE/.test(p.textContent)).length);
+  /* S372.4: a band nested inside a print wrapper is invisible to the unit
+     grouper, so its photos print under the PREVIOUS section's heading. The
+     unwrap promotes the wrapper's children, and the proof is that the band is
+     now a DIRECT child of a finished page. */
+  agree('a band nested in a print wrapper was promoted to a direct page child', true,
+        pages.some(p => Array.from(p.children).some(c => c.classList && c.classList.contains('apx-band'))));
+  agree('no wrapper div survived into the finished report', false,
+        !!engWin.document.getElementById('flow-test-photos-print'));
+  agree('an appendix sub-section continued across a break gets its own (cont.) header', true,
+        pages.some(p => {
+          const s = p.querySelector('.apx-subhead');
+          return !!s && /\(cont\.\)/.test(s.textContent);
+        }));
+  agree('the offscreen measuring stage is cleaned up', 0,
+        engWin.document.body.querySelectorAll('div[style*="-99999px"]').length);
+  agree('no sheet exceeds the page budget', true,
+        pages.every(p => {
+          /* height is locked to 11in for display; measure the content instead */
+          let sum = 0; for (const k of p.children) sum += k.offsetHeight;
+          return sum <= (11 * 96) - 16;
+        }));
+}
+console.log('  ' + (cases - before) + ' pagination identity + page-rule assertions');
+
+/* ── 5: delegation wired, knowledge gone from the host ──────────────────── */
 before = cases;
 {
   agree('eligibility delegates', true, /ReportPdf\.appendixEligible/.test(liveSrc));
@@ -253,6 +463,9 @@ before = cases;
   agree('the appendix assembly delegates', true, /ReportPdf\.appendixHTML/.test(liveSrc));
   agree('the assembly markup is not re-written in the host appendix fn', false,
         /apx-subhead/.test(liftFunction(liveSrc, '_appendixHTML') || ''));
+  agree('pagination delegates', true, /window\.ReportPdf\.paginate\(/.test(liveSrc));
+  agree('the page-break rules are gone from the host', false,
+        /_splitTable|_splitGeneric|_bandClone|PAGE_LIMIT|_makeCompactHeader/.test(liveSrc));
 }
 console.log('  ' + (cases - before) + ' delegation checks');
 
