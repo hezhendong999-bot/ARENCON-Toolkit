@@ -1238,11 +1238,11 @@ body.dark-mode .detail-section{
   box-shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.22);
 }
 .detail-section h3{
-  font-size:calc(12.5px + var(--ts));
-  letter-spacing:.08em;
-  text-transform:uppercase;
+  font-size:calc(13px + var(--ts));
   color:var(--steel);
-  gap:10px;
+  gap:9px;
+  min-width:0;
+  flex:1 1 auto;
 }
 /* section number chip — replaces the emoji in the four section headings */
 .sn{
@@ -1268,12 +1268,41 @@ body.dark-mode .detail-section{
   /* the report name stops being truncated and wraps instead */
   .rrow{align-items:flex-start;flex-wrap:wrap}
   .rtitle{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
-  .rctl{flex:1 1 100%;margin-top:9px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px}
-  .rctl .ri-status-sel{display:block;min-height:44px;width:100%}
-  .ri-act-btn{min-height:44px;border:1px solid var(--border);border-radius:8px}
+  /* S682b: the actions are SECONDARY to the row. Sizing them as a 44px grid
+     made the pencil read as "edit this report" rather than "rename". They sit
+     quietly at the end of the meta line, at the scale of the status pill.
+     The status <select> stays HIDDEN on phones — line 626 hid it deliberately
+     and S682 re-enabled it by accident. Report status belongs to the tool. */
+  .rctl{margin-left:auto;gap:6px;flex:0 0 auto;align-self:center}
+  .ri-act-btn{min-height:30px;min-width:30px;padding:4px 7px;font-size:calc(11px + var(--ts))}
   .btn-new{min-height:44px;margin-left:0;width:100%;justify-content:center}
   .rghead{gap:7px}
   .rg-name{flex:1 1 auto;min-width:0}
+
+  /* ── S682b, from Mark's 23 Aug screenshots ──────────────────────────
+     The project title is the whole point of the page and it was the one
+     thing being cut off: #detail-title carries inline nowrap+ellipsis, so
+     "1490.04 · Attic Space Spri…" told an inspector nothing. It wraps now.
+     Everything else here is type scale: 24px headline, 14px info values and
+     a 9px-18px Edit button are desktop sizes that dominate a 390px screen. */
+  #detail-title{
+    white-space:normal !important;
+    overflow:visible !important;
+    text-overflow:clip !important;
+    font-size:19px;line-height:1.2;
+  }
+  .detail-header{margin-bottom:16px}
+  .detail-sub{font-size:calc(12px + var(--ts))}
+  /* compact, and it must never wrap to two lines beside the heading */
+  .detail-section-header .btn-action{
+    padding:5px 10px;font-size:calc(11px + var(--ts));
+    white-space:nowrap;flex-shrink:0;margin-right:8px;
+  }
+  #detail-fold-all-btn{padding:4px 9px;font-size:calc(10.5px + var(--ts))}
+  .dii-value{font-size:calc(12.5px + var(--ts))}
+  .dii-label{font-size:calc(9.5px + var(--ts))}
+  .detail-info-grid{gap:9px}
+  .sn{font-size:calc(9.5px + var(--ts));padding:1px 6px}
 }
 
 /* ── 3. desktop ── */
