@@ -299,6 +299,13 @@ def main():
                          'live HEAD. Every protected-symbol check reads --old, so '
                          'skipping this makes protection inherit whatever staleness '
                          '--old carries. Visible in the transcript on purpose.')
+    ap.add_argument('--drop', default='',
+                    help='S687: comma-separated repo paths this push deliberately '
+                         'stops loading, so they leave the offline precache on '
+                         'purpose. Forwarded to gen_precache. Same law as --kill: '
+                         'removals are allowed, silent removals are not. A path '
+                         'that is absent from your checkout can never be declared '
+                         'here — that is being behind, and it always blocks.')
     ap.add_argument('--ref', default='main', help='ref to verify --old against')
     ap.add_argument('--path', default='',
                     help='repo-relative path of the file being gated, e.g. '
@@ -760,8 +767,11 @@ def main():
         gen = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            'gen_precache.py')
         if os.path.exists(gen):
-            r = subprocess.run([sys.executable, gen, '--check', '--live',
-                                '--sw', os.path.abspath(a.new)],
+            _pc_args = [sys.executable, gen, '--check', '--live',
+                        '--sw', os.path.abspath(a.new)]
+            if a.drop:
+                _pc_args += ['--drop', a.drop]
+            r = subprocess.run(_pc_args,
                                capture_output=True, text=True,
                                cwd=os.path.dirname(os.path.dirname(gen)))
             print('   ── precache check (gen_precache --check --live) ──')

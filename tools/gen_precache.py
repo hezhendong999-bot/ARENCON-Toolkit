@@ -260,17 +260,146 @@ def live_missing(sw_path):
     return []
 
 
+def live_dropped(sw_path, declared):
+    """S687 — THE DEEP HALF OF THE LIVE CHECK.
+
+    live_missing() above asks the LIVE SHELLS what they load. A shell only
+    names its own direct scripts: on 23 Aug the six shells referenced 80 paths
+    while the real precache carried 167. Everything a MODULE imports — more
+    than half the tool — was invisible to it. That is exactly how
+    frt/js/viewer/pinDrag.js left the precache for ten hours (f3cbd145): it is
+    imported by viewer.js, never by index.html, so no shell ever named it, the
+    local derive was legitimately correct for that stale tree, and every gate
+    passed green while a tablet that went offline first would have opened a
+    broken drawing viewer.
+
+    Walking the live import graph would mean fetching ~170 files from live on
+    every push in every lane. Unnecessary: the LIVE sw.js ALREADY CONTAINS that
+    graph, machine-derived by whoever pushed last. So compare against it. Two
+    extra requests; the whole graph covered.
+
+    A path the live precache carries and this push does not is one of three
+    things, told apart mechanically — never by judgement:
+      - gone from live main entirely : a real deletion. Ignore, and say so.
+      - at live main, ABSENT here    : YOUR CHECKOUT IS BEHIND. Block. This is
+                                       the pinDrag case, and the two S497 ones.
+      - at live main, present here,
+        nothing here loads it        : either a deliberate un-referencing, or a
+                                       stale copy of whatever loads it. Declare
+                                       it with --drop. Same law --kill follows
+                                       in gate.py: removals are not forbidden,
+                                       SILENT removals are.
+
+    No token is a BLOCK, not a skip. The whole S686 lesson is that a
+    protection someone has to remember to enable is not a mechanism — and
+    every push that gates sw.js has a token by definition.
+    """
+    import json, urllib.request, base64
+    tok = os.environ.get('PAT') or os.environ.get('GITHUB_TOKEN') or ''
+    if not tok:
+        print('[gen_precache] BLOCKED — no PAT in environment, so the live')
+        print('               precache cannot be read. A stale checkout is')
+        print('               undetectable without it. Export PAT and re-gate.')
+        return ['<no-token>']
+    repo = 'hezhendong999-bot/ARENCON-Toolkit'
+
+    def api(url):
+        req = urllib.request.Request(url, headers={
+            'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json'})
+        try:
+            with urllib.request.urlopen(req, timeout=25) as r:
+                return json.load(r)
+        except Exception as e:
+            print('[gen_precache] live read failed: %s' % e)
+            return None
+
+    j = api('https://api.github.com/repos/%s/contents/sw.js?ref=main' % repo)
+    if not j or 'content' not in j:
+        print('[gen_precache] BLOCKED — could not read sw.js at live main.')
+        return ['<live-sw-unreadable>']
+    live_listed = current_list(base64.b64decode(j['content']).decode('utf-8', 'replace'))
+    if live_listed is None:
+        print('[gen_precache] BLOCKED — live sw.js has no GENERATED markers, so')
+        print('               there is nothing to compare against. Investigate')
+        print('               before pushing; do not overwrite it blind.')
+        return ['<live-sw-unmarked>']
+
+    mine = set(current_list(open(sw_path, encoding='utf-8').read()) or [])
+    missing = sorted(p for p in set(live_listed) - mine if p != './')
+    if not missing:
+        print('[gen_precache] deep live check OK — all %d live precache path(s) '
+              'still covered.' % len(live_listed))
+        return []
+
+    t = api('https://api.github.com/repos/%s/git/trees/main?recursive=1' % repo)
+    live_paths = set()
+    truncated = True
+    if t and 'tree' in t:
+        live_paths = set(b['path'] for b in t['tree'] if b.get('type') == 'blob')
+        truncated = bool(t.get('truncated'))
+    if truncated:
+        # Rare, but a truncated tree would read as "deleted at live" for every
+        # path it omitted — silently allowing exactly what this check exists to
+        # stop. Ask per path instead; there are only a handful by here.
+        print('[gen_precache] live tree truncated — verifying %d path(s) individually.'
+              % len(missing))
+        live_paths = set()
+        for p in missing:
+            if api('https://api.github.com/repos/%s/contents/%s?ref=main' % (repo, p)):
+                live_paths.add(p)
+
+    behind, undeclared, gone, ok_drop = [], [], [], []
+    for p in missing:
+        if p not in live_paths:
+            gone.append(p)
+        elif not os.path.exists(os.path.join(ROOT, p)):
+            behind.append(p)
+        elif p in declared:
+            ok_drop.append(p)
+        else:
+            undeclared.append(p)
+
+    for p in gone:
+        print('[gen_precache] deleted at live, correctly absent: %s' % p)
+    for p in ok_drop:
+        print('[gen_precache] drop DECLARED via --drop: %s' % p)
+
+    if behind:
+        print('[gen_precache] BLOCKED BY DEEP LIVE CHECK — your push would remove')
+        print('               file(s) from the offline cache that exist at live')
+        print('               main and are NOT in your checkout. You are behind.')
+        print('               A tablet offline before fetching them opens broken.')
+        print('               Pull, re-run --write, re-gate:')
+        for p in behind:
+            print('  in live precache, not in your tree : %s' % p)
+    if undeclared:
+        print('[gen_precache] BLOCKED — file(s) present here but no longer loaded')
+        print('               by anything here. Either you meant to un-reference')
+        print('               them, or your copy of whatever loads them is stale.')
+        print('               If deliberate, declare it:')
+        print('               --drop "%s"' % ','.join(undeclared))
+        for p in undeclared:
+            print('  dropped without declaration : %s' % p)
+    return behind + undeclared
+
+
 def main():
     args = sys.argv[1:]
     mode = '--check'
     sw_path = SW
     live = False
+    declared = set()
     while args:
         a = args.pop(0)
         if a in ('--check', '--write'):
             mode = a
         elif a == '--live':
             live = True
+        elif a == '--drop':
+            # S687: deliberate un-referencing, declared. One comma-separated
+            # string, the same shape gate.py's --kill takes, so there is one
+            # convention to remember rather than two.
+            declared |= set(x.strip() for x in args.pop(0).split(',') if x.strip())
         elif a == '--sw':
             # The gate passes the lane's WORKING COPY here, so the check runs
             # against the exact bytes about to be pushed — not the repo's copy,
@@ -298,8 +427,16 @@ def main():
             print('[gen_precache] Run: python3 tools/gen_precache.py --write')
             return 1
         print('[gen_precache] OK — %d entries, sw.js matches derived list.' % len(derived))
-        if live and live_missing(sw_path):
-            return 1
+        if live:
+            # Two independent questions, both asked. live_missing catches a
+            # LIVE precache that is itself broken (a shell loads something the
+            # deployed sw.js never cached). live_dropped catches THIS PUSH
+            # removing something the live precache already carries. Neither
+            # subsumes the other; a failure of either blocks.
+            shell_bad = live_missing(sw_path)
+            deep_bad = live_dropped(sw_path, declared)
+            if shell_bad or deep_bad:
+                return 1
         return 0
 
     if mode == '--write':
