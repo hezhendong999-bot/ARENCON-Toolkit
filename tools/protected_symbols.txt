@@ -1001,3 +1001,8 @@ groupByDay
 ReportPdf
 appendixEligible
 sizeChartsForPrint
+
+@ S685b — Phase 4 resident 3: the photo-appendix assembly, moved verbatim into the
+@ engine. Its output is pinned BYTE-IDENTICAL to the pre-extraction exporter — one
+@ changed byte for the same inputs is a changed client deliverable and goes red.
+appendixHTML

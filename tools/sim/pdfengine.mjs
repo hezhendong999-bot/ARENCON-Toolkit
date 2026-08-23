@@ -163,13 +163,96 @@ before = cases;
 }
 console.log('  ' + (cases - before) + ' sizing/restore assertions');
 
-/* ── 3: delegation wired, knowledge gone from the host ──────────────────── */
+/* ── 3: THE APPENDIX ASSEMBLY — BYTE IDENTITY (S685b) ────────────────────
+   The phase's acceptance is a page-for-page identical Diesel PDF. For an HTML
+   assembly the strongest proof available is byte identity: the same entries
+   must produce the same string, character for character, out of the engine as
+   out of the pre-extraction exporter. One changed byte here is a changed
+   client deliverable. */
+before = cases;
+{
+  const preApx = liftFunction(preSrc, '_appendixHTML');
+  const entries = [];
+  const mkE = (type, kind, n, extra) => ({
+    type, cat: 'x', badge: 'B', label: 'L ' + n, section: 's_' + n, idx: entries.length,
+    src: 'data:image/jpeg;base64,SRC' + n,
+    photo: Object.assign({ id: 'ph_17558000000' + n + '_x', n: 'photo' + n + '.jpg', kind }, extra || {})
+  });
+  entries.push(
+    mkE('flowtest', undefined, 1), mkE('flowtest-pld', undefined, 2),
+    mkE('record', 'pump', 3), mkE('record', 'pump-pld', 4),
+    mkE('record', 'placard', 5), mkE('record', 'placard-pld', 6),
+    mkE('gauge', undefined, 7, { tag: 'suction' }), mkE('gauge', undefined, 8, { tag: 'discharge' }),
+    mkE('gauge-pld', undefined, 9, { tag: 'suction', mode: 'pld' }),
+    mkE('gauge', undefined, 10, {}), mkE('record', 'site', 11),
+    mkE('checklist', undefined, 12), mkE('deficiency', undefined, 13)
+  );
+  const GR = ['suction', 'discharge', 'rpm'];
+  const EXCLUDE = new Set(['s_5|0']);   // one user exclusion, arbitrary but fixed
+  const hostKey = (it) => it.section + '|0';
+
+  const runPre = (list) => {
+    let emitted = false;
+    const scope = {
+      _collectAllPhotos: () => list,
+      _appendixEligible: (it) => E.appendixEligible(it, DIESEL_SCOPE),
+      _appendixExcl: EXCLUDE,
+      _ppxKey: hostKey,
+      _GAUGE_READINGS: GR,
+      _lnk: (p, cell) => '<a x="' + (p && p.id) + '">' + cell + '</a>',
+      window: { get _apxBandEmitted() { return emitted; }, set _apxBandEmitted(v) { emitted = v; } },
+      Math, Object, Array, String
+    };
+    const out = new Function(...Object.keys(scope), preApx + '\nreturn _appendixHTML();')(...Object.values(scope));
+    return { out, emitted };
+  };
+  const runEngine = (list) => {
+    let emitted = false;
+    const out = E.appendixHTML({
+      collect: () => list,
+      eligible: (it) => E.appendixEligible(it, DIESEL_SCOPE),
+      isExcluded: (k) => EXCLUDE.has(k),
+      key: hostKey,
+      gaugeReadings: GR,
+      link: (p, cell) => '<a x="' + (p && p.id) + '">' + cell + '</a>',
+      onEmitted: () => { emitted = true; }
+    });
+    return { out, emitted };
+  };
+
+  for (const [label, list] of [
+    ['a full mixed report', entries],
+    ['gauges only', entries.filter(e => e.type.indexOf('gauge') === 0)],
+    ['nothing eligible', entries.filter(e => e.type === 'checklist')],
+    ['empty report', []]
+  ]) {
+    const h = runPre(list), m = runEngine(list);
+    cases++;
+    if (h.out !== m.out) {
+      let at = 0; while (at < h.out.length && h.out[at] === m.out[at]) at++;
+      bad.push('appendix byte identity: ' + label + ' — first differing byte at ' + at +
+               '\n      pre : …' + h.out.slice(Math.max(0, at - 40), at + 40) +
+               '\n      eng : …' + m.out.slice(Math.max(0, at - 40), at + 40));
+    }
+    agree('the band-emitted signal agrees: ' + label, h.emitted, m.emitted);
+  }
+  const h = runPre(entries), m = runEngine(entries);
+  agree('the excluded photo is genuinely absent', false, m.out.indexOf('SRC5') !== -1);
+  agree('an ineligible type is genuinely absent', false, m.out.indexOf('SRC12') !== -1);
+  agree('an eligible one is genuinely present', true, m.out.indexOf('SRC3') !== -1);
+}
+console.log('  ' + (cases - before) + ' appendix byte-identity + presence assertions');
+
+/* ── 4: delegation wired, knowledge gone from the host ──────────────────── */
 before = cases;
 {
   agree('eligibility delegates', true, /ReportPdf\.appendixEligible/.test(liveSrc));
   agree('sizing delegates', true, /ReportPdf\.sizeChartsForPrint/.test(liveSrc));
   agree('the print constants are not re-written in the host', false, /PRINT_STAGE_W/.test(liveSrc));
   agree('the Owner scope stays with Diesel, as data', true, /'placard'/.test(liftFunction(liveSrc, '_appendixEligible') || ''));
+  agree('the appendix assembly delegates', true, /ReportPdf\.appendixHTML/.test(liveSrc));
+  agree('the assembly markup is not re-written in the host appendix fn', false,
+        /apx-subhead/.test(liftFunction(liveSrc, '_appendixHTML') || ''));
 }
 console.log('  ' + (cases - before) + ' delegation checks');
 
