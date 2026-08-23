@@ -1354,7 +1354,14 @@ body.dark-mode .detail-section{
      two lines, which is why these read as enormous. 34px, 11.5px type and
      nowrap — still a comfortable target, a third less height. */
   .dash-toolbar{
-    display:flex;flex-wrap:wrap;align-items:center;
+    /* flex-direction MUST be reset here. The ≤480px block above sets
+       flex-direction:column and S682d never overrode it, so the toolbar
+       stayed a COLUMN: align-items:center then centred every control, and
+       flex:1 1 130px on the sort became a 130px HEIGHT instead of a width —
+       the tall empty box around "Sort". Declaring display:flex again does
+       not reset direction; only flex-direction does. */
+    display:flex;flex-direction:row;flex-wrap:wrap;
+    align-items:center;justify-content:flex-start;
     gap:6px;padding:8px 12px;
   }
   .dash-search{flex:1 1 100%;max-width:none;min-width:0;padding:7px 12px 7px 34px;
