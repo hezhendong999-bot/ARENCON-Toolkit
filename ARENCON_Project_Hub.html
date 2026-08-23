@@ -1199,6 +1199,98 @@ body.text-l{--ts:4px;}
 /* Text size toggle button */
 .text-size-toggle{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.25);color:white;padding:4px 12px;border-radius:6px;cursor:pointer;font-size:calc(13px + var(--ts));font-weight:700;font-family:Calibri,sans-serif;transition:all .15s;min-height:32px;display:inline-flex;align-items:center;gap:4px;}
 .text-size-toggle:hover{background:rgba(255,255,255,.25);border-color:rgba(255,255,255,.4);}
+/* ═══════════════════════════════════════════════════════════════════════
+   S682 — HUB PAGE: PHONE LAYOUT + BOLD CHROME + DESKTOP TWO-COLUMN
+   (Mark-approved as direction "C", 22 Aug 2026)
+
+   Three separate problems, three separate width bands, no overlap:
+
+   1. PHONE (≤560px). #project-detail spent 24px and every .detail-section
+      another 22px, so a 390px screen gave content under 300px. The tool
+      strip is a wrapping flex row — with six tools it reflows ragged, which
+      is the wrapping Mark photographed. .rtitle carries white-space:nowrap
+      with an ellipsis, which is the truncation in the same screenshots.
+      .btn-new and .tw are min-height 30px, under the 44/48 touch floor.
+
+   2. CHROME. Every .detail-section carried a 3px burgundy left border —
+      four panels branded at once, against the standing rule that burgundy
+      marks primary actions and active states ONLY. Panels become hairline;
+      burgundy stays on .btn-new and .rrow's per-tool accent.
+
+   3. DESKTOP (≥1100px). The page is a 920px column on a 2560px monitor:
+      Reports take a wide left column, the reference panels a right rail.
+
+   NOT touched here: .rgroup/.rrow/.rtitle sizing and the per-tool --tc
+   accent — S495 already made reports the primary element and it is right.
+   The legacy .ri-row/.ri-title/.ri-act-btn rules above are DEAD (nothing
+   has rendered them since S495) and are deliberately left alone rather
+   than restyled.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── 2. chrome: panels go hairline, burgundy leaves the chrome ── */
+.detail-section{
+  border:1px solid var(--border);
+  border-left:1px solid var(--border);
+  border-radius:16px;
+  box-shadow:0 1px 2px rgba(0,0,0,.04),0 8px 24px rgba(0,0,0,.04);
+}
+body.dark-mode .detail-section{
+  box-shadow:0 1px 2px rgba(0,0,0,.35),0 8px 24px rgba(0,0,0,.22);
+}
+.detail-section h3{
+  font-size:calc(12.5px + var(--ts));
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--steel);
+  gap:10px;
+}
+/* section number chip — replaces the emoji in the four section headings */
+.sn{
+  font-family:Consolas,'Courier New',monospace;
+  font-size:calc(10px + var(--ts));font-weight:700;
+  color:var(--silver);border:1px solid var(--border);
+  border-radius:6px;padding:2px 7px;letter-spacing:.04em;flex-shrink:0;
+}
+.detail-info-item .dii-label{
+  letter-spacing:.06em;text-transform:uppercase;color:var(--silver);
+}
+/* the tool strip reads as a settings row, not a decorated box */
+.tool-strip{border-style:solid;border-radius:12px}
+
+/* ── 1. phone ── */
+@media(max-width:560px){
+  #project-detail{padding:14px}
+  .detail-section{padding:14px}
+  /* fixed columns cannot reflow ragged; a 7th tool adds a row, not chaos */
+  .tool-strip{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:stretch}
+  .tool-strip .ts-lbl{grid-column:1/-1;margin-bottom:2px}
+  .tw{min-height:44px;justify-content:space-between;padding:6px 10px}
+  /* the report name stops being truncated and wraps instead */
+  .rrow{align-items:flex-start;flex-wrap:wrap}
+  .rtitle{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.3}
+  .rctl{flex:1 1 100%;margin-top:9px;display:grid;grid-template-columns:2fr 1fr 1fr;gap:6px}
+  .rctl .ri-status-sel{display:block;min-height:44px;width:100%}
+  .ri-act-btn{min-height:44px;border:1px solid var(--border);border-radius:8px}
+  .btn-new{min-height:44px;margin-left:0;width:100%;justify-content:center}
+  .rghead{gap:7px}
+  .rg-name{flex:1 1 auto;min-width:0}
+}
+
+/* ── 3. desktop ── */
+@media(min-width:1100px){
+  #project-detail{
+    max-width:1400px;
+    display:grid;gap:16px;align-content:start;
+    grid-template-columns:minmax(0,1.55fr) minmax(330px,.85fr);
+  }
+  .detail-back{grid-column:1/-1;margin-bottom:2px}
+  .detail-header{grid-column:1/-1;margin-bottom:6px}
+  #detail-tools-section{grid-column:1;grid-row:3/span 3;margin-bottom:0}
+  #detail-info-section{grid-column:2;grid-row:3}
+  #detail-gallery-section{grid-column:2;grid-row:4}
+  #detail-deleted-section{grid-column:2;grid-row:5}
+  .detail-info-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
@@ -1471,7 +1563,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section" id="detail-info-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-info-section')">
-        <h3>📋 Project Info</h3>
+        <h3><span class="sn">01</span>Project Info</h3>
         <button class="btn-action" id="btn-edit-proj" onclick="event.stopPropagation();openEditProjectModal()" style="margin-left:auto;margin-right:10px;padding:4px 12px;font-size:calc(12px + var(--ts))">✏️ Edit Project</button>
         <span class="detail-fold-arrow" id="fold-arrow-detail-info-section">▾</span>
       </div>
@@ -1481,7 +1573,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section" id="detail-tools-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-tools-section')">
-        <h3>🚀 Tools &amp; Reports</h3>
+        <h3><span class="sn">02</span>Tools &amp; Reports</h3>
         <span class="detail-fold-arrow" id="fold-arrow-detail-tools-section">▾</span>
       </div>
       <div class="detail-section-body" id="body-detail-tools-section">
@@ -1494,7 +1586,7 @@ body.text-l{--ts:4px;}
          recovery surface nobody needs 99% of the time. -->
     <div class="detail-section" id="detail-deleted-section" style="display:none">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-deleted-section')">
-        <h3>🗑️ Deleted Reports <span id="deleted-reports-count" class="rg-cnt"></span></h3>
+        <h3><span class="sn">04</span>Deleted Reports <span id="deleted-reports-count" class="rg-cnt"></span></h3>
         <span class="detail-fold-arrow" id="fold-arrow-detail-deleted-section">▾</span>
       </div>
       <div class="detail-section-body collapsed" id="body-detail-deleted-section">
@@ -1503,7 +1595,7 @@ body.text-l{--ts:4px;}
     </div>
     <div class="detail-section" id="detail-gallery-section">
       <div class="detail-section-header" onclick="toggleDetailSection('detail-gallery-section')">
-        <h3>📸 Project Photos</h3>
+        <h3><span class="sn">03</span>Project Photos</h3>
         <span class="detail-fold-arrow" id="fold-arrow-detail-gallery-section">▾</span>
       </div>
       <div class="detail-section-body" id="body-detail-gallery-section">
