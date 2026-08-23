@@ -1339,44 +1339,49 @@ body.dark-mode .detail-section{
    changes what it does.
    ═══════════════════════════════════════════════════════════════════════ */
 @media(max-width:560px){
-  .dash-toolbar{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    align-items:stretch;
-    padding:10px 14px;
-  }
-  .dash-search{grid-column:1/-1;max-width:none;min-width:0}
-  /* the 18px spacer only means something when the two switches sit in a
-     row together; in a grid it would eat a whole cell */
-  .dash-state-gap{display:none}
-  #dash-toggle{grid-column:1}
-  #hub-view-toggle{grid-column:2}
-  #dash-state{grid-column:1/-1}
-  .dash-sort{grid-column:1/-1;min-width:0;width:100%}
-  .bulk-select-wrap{grid-column:1}
-  .dash-toolbar > .dash-btn.primary{grid-column:2}
+  /* S682d CORRECTION. S682c used an explicit-column grid, but the controls
+     sit in DOM order and auto-placement cannot go backwards: the full-width
+     state switch landed between them, so nothing could sit beside My/All or
+     to the left of Cards/List. Six ragged rows with two empty cells — worse
+     than the stacking it replaced.
 
-  /* segmented switches fill their cell and split it evenly */
-  .dash-toggle,.hub-view-toggle{width:100%;min-width:0}
-  .dash-toggle button,.hub-view-toggle button{flex:1 1 0;min-width:0;padding:7px 6px}
-  .bulk-select-wrap > .dash-btn{width:100%;justify-content:center}
-  .dash-toolbar > .dash-btn.primary{justify-content:center}
+     Flex packing instead. Every control keeps its natural width, stays on
+     one line, and simply flows: My/All + Cards/List share a row, the state
+     switch + Select the next, Sort + New Project the last. Four rows, no
+     empty cells, and no control has to know where the others are.
+
+     SIZE: 44px targets plus half-width cells made "My Projects" wrap onto
+     two lines, which is why these read as enormous. 34px, 11.5px type and
+     nowrap — still a comfortable target, a third less height. */
+  .dash-toolbar{
+    display:flex;flex-wrap:wrap;align-items:center;
+    gap:6px;padding:8px 12px;
+  }
+  .dash-search{flex:1 1 100%;max-width:none;min-width:0;padding:7px 12px 7px 34px;
+    font-size:calc(13px + var(--ts));min-height:38px}
+  .dash-state-gap{display:none}
+  .dash-toggle,.hub-view-toggle{flex:0 1 auto;min-width:0}
+  .dash-toggle button,.hub-view-toggle button{
+    padding:6px 9px;font-size:calc(11.5px + var(--ts));
+    white-space:nowrap;min-height:34px;
+  }
+  .bulk-select-wrap{flex:0 1 auto}
+  .dash-sort{flex:1 1 130px;min-width:0;padding:6px 10px;
+    font-size:calc(11.5px + var(--ts));min-height:34px}
+  .dash-toolbar .dash-btn{
+    padding:6px 12px;font-size:calc(11.5px + var(--ts));
+    white-space:nowrap;min-height:34px;
+  }
 
   /* one scrolling row of chips instead of two wrapped rows */
   .band-chips{
     flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
-    padding:2px 14px 8px;gap:6px;
+    padding:2px 12px 8px;gap:6px;
     scrollbar-width:none;-webkit-overflow-scrolling:touch;
   }
   .band-chips::-webkit-scrollbar{height:0}
   .band-chips > *{flex:0 0 auto}
-  .stats-strip{padding:8px 14px;gap:12px}
-}
-@media(max-width:560px) and (pointer:coarse){
-  .dash-toggle button,.hub-view-toggle button,.dash-sort,
-  .bulk-select-wrap > .dash-btn,.dash-toolbar > .dash-btn.primary{min-height:44px}
-  .band-chip,.tool-chip{min-height:36px}
+  .stats-strip{padding:6px 12px;gap:12px;font-size:calc(11.5px + var(--ts))}
 }
 </style>
 </head>
@@ -11065,16 +11070,31 @@ function initHubHeader(){
   function paintRoleBadge(){
     const st = window._hubHdrState || {};
     if (!st.signedIn || !st.role){ try { ctl.setR2Badge({ visible:false }); } catch(e){} return; }
+    /* S682d (Mark, screenshot): the badge was fed String(role).toUpperCase(),
+       so a super admin sent "SUPER ADMIN" into a fixed header slot and it was
+       clipped to "SUP" — a truncated word tells nobody anything, and on a
+       420px header it was competing with the logo, the presence dot, the
+       drawer button and the avatar for room that does not exist.
+       TWO host-side changes: the badge carries a SHORT CODE, and below 760px
+       it does not appear at all. Nothing is lost by hiding it — the full role
+       is spelled out on the avatar's Account panel, one tap away. The engine
+       is sealed and its slot is not this lane's to widen. */
+    if (window.innerWidth < 760){ try { ctl.setR2Badge({ visible:false }); } catch(e){} return; }
+    const ROLE_SHORT = { 'Super Admin':'SUPER', 'Admin':'ADMIN',
+                         'Inspector':'INSP', 'Viewer':'VIEW' };
     const dark = document.body.classList.contains('dark-mode');
     try {
       ctl.setR2Badge({
         visible: true,
-        text: String(st.role).toUpperCase(),
+        text: ROLE_SHORT[st.role] || String(st.role).toUpperCase(),
         bg:    dark ? 'rgba(70,150,200,.20)' : '#D6E8F4',
         color: dark ? '#7FB8DD'              : '#226699'
       });
     } catch(e){ console.warn('[Hub] role badge paint failed:', e); }
   }
+  /* the badge must re-evaluate when the window crosses 760px, or someone who
+     narrows a desktop window keeps a clipped badge until they reload */
+  window.addEventListener('resize', function(){ try { paintRoleBadge(); } catch(e){} });
   window.__hubPaintRoleBadge = paintRoleBadge;
 
   /* Signed-out until told otherwise: Admin, Profile, Logout and the user chip
