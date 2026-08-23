@@ -352,10 +352,10 @@ def live_dropped(sw_path, declared):
     for p in missing:
         if p not in live_paths:
             gone.append(p)
-        elif not os.path.exists(os.path.join(ROOT, p)):
-            behind.append(p)
         elif p in declared:
             ok_drop.append(p)
+        elif not os.path.exists(os.path.join(ROOT, p)):
+            behind.append(p)
         else:
             undeclared.append(p)
 
@@ -369,7 +369,11 @@ def live_dropped(sw_path, declared):
         print('               file(s) from the offline cache that exist at live')
         print('               main and are NOT in your checkout. You are behind.')
         print('               A tablet offline before fetching them opens broken.')
-        print('               Pull, re-run --write, re-gate:')
+        print('               Pull, re-run --write, re-gate.')
+        print('               If instead you DELETED these on purpose, a tree')
+        print('               cannot tell that apart from being behind — both')
+        print('               look like "absent here". Say so: --drop "%s"'
+              % ','.join(behind))
         for p in behind:
             print('  in live precache, not in your tree : %s' % p)
     if undeclared:
