@@ -11099,6 +11099,32 @@ function initHubHeader(){
       });
     } catch(e){ console.warn('[Hub] role badge paint failed:', e); }
   }
+
+  /* S683 (Mark) — the SAME role, shown a second way: a corner badge on the
+     account avatar. Elevated accounts only.
+
+     This is not a duplicate of the header badge above. That one is a wide
+     word in a fixed slot and hides below 760px; this one is 16px, lives on
+     the avatar, and survives any width — which is exactly where Mark asked
+     for it after "SUPER ADMIN" clipped to "SUP" on his phone.
+
+     COLOURS ARE THE HUB'S OWN, not new ones: #7C3AED / #1D4ED8 are lifted
+     from .role-super / .role-admin in this stylesheet, so a role is the same
+     colour on the avatar as on its pill in the admin panel. The dark values
+     exist because those pills were written as pale-background + saturated-
+     text and have NO dark-mode override anywhere — at 16px on the #1d1b24
+     bar the saturated purple is nearly the bar itself. */
+  const AVATAR_ROLE_BADGE = {
+    super_admin: { text:'SA', colour:'#7C3AED', colourDark:'#C4B5FD', title:'Super Admin' },
+    admin:       { text:'A',  colour:'#1D4ED8', colourDark:'#93C5FD', title:'Admin' }
+  };
+  function paintAvatarRoleBadge(){
+    try {
+      const rb = AVATAR_ROLE_BADGE[(_profile && _profile.role) || ''] || null;
+      ctl.setAccount({ roleBadge: rb });
+    } catch(e){ console.warn('[Hub] avatar role badge failed:', e); }
+  }
+  window.__hubPaintAvatarRoleBadge = paintAvatarRoleBadge;
   /* the badge must re-evaluate when the window crosses 760px, or someone who
      narrows a desktop window keeps a clipped badge until they reload */
   window.addEventListener('resize', function(){ try { paintRoleBadge(); } catch(e){} });
@@ -11121,6 +11147,7 @@ function initHubHeader(){
            chip at 140px and would ellipsis "Name . Super Admin" mid-word. */
         ctl.setControlIcon('user', '\u{1F464} ' + (st.name || 'User'));
         paintRoleBadge();
+        paintAvatarRoleBadge();
       } else {
         ctl.setR2Badge({ visible:false });
       }
