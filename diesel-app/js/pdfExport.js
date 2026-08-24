@@ -457,6 +457,12 @@ function _ensureChartsForExport(){
   };
 }
 function _exportPDFGo() {
+  /* S690b — every export STATES THE BUILD THAT PRODUCED IT. Three rounds of
+     signature-section fixes were judged against exports that, by the console
+     timestamps, almost certainly ran code from before the fixes existed — and
+     nothing in the export could prove it either way. A fix cannot be verified
+     against an artifact of unknown origin. One line closes that forever. */
+  try{ console.info('[pdf] export running ' + (typeof DIESEL_BUILD!=='undefined' ? DIESEL_BUILD : 'UNKNOWN BUILD')); }catch(_){}
   window._apxBandEmitted = false;   // S372.5: reset per-export; _appendixHTML / flow-test / sketch set it true when the Photo Appendix band is emitted
   try{ window.__lnkStats = {seen:0, wrapped:0, noMap:0, noToken:0}; }catch(_){}   // S521: reset link-wrap counters per export
   /* S512: mint opaque photo links BEFORE the report HTML is built, so _lnk() has
