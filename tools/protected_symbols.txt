@@ -1033,3 +1033,31 @@ preview
 commitPreviewed
 validateLogged
 _pinWriteContext
+
+@ ────────────────────────────────────────────────────────────────────────────
+@ U4 PURGE HALF (S687, Mark: "A") — FRT ON THE SHARED RETENTION LAW.
+@ Destroying a photograph is the only thing this toolkit does that cannot be
+@ undone. The question "may this be destroyed yet" now has ONE answer for the
+@ whole toolkit (lib/data/photoRetention.js) instead of one per tool.
+@
+@ _PR is the accessor, and it deliberately has NO FALLBACK: no law loaded means
+@ no sweep runs. A photo kept too long costs storage; a photo destroyed early
+@ costs evidence that cannot be re-taken.
+@
+@ _makePurgedTombstone (already listed above) is the REMOVAL, and it is
+@ deliberately NOT shared. FRT converts the record to a tombstone in place and
+@ keeps id and R2 key; removing it erases the deletion signal and every other
+@ device holding that photo re-adds it on the next sync (S43x resurrection).
+@ Anyone "finishing the unification" by adopting the shared splice is causing
+@ photo resurrection, and frt/tests/sim/retentionlaw.mjs check 8 fails if they
+@ do. That failure is correct.
+@
+@ _trashDaysRemaining and _TRASH_RETENTION_DAYS are the countdown the inspector
+@ reads. They must keep deriving from the same law the sweep acts on — a
+@ countdown that disagrees with the sweep tells someone a photo is safe for
+@ another fortnight on the morning it is destroyed.
+@ ────────────────────────────────────────────────────────────────────────────
+_PR
+purgeExpiredPhotos
+_trashDaysRemaining
+_TRASH_RETENTION_DAYS

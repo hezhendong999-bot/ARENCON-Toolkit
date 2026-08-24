@@ -24,6 +24,29 @@ function _PL() {
   return pl || null;
 }
 
+/* ── U4 PURGE HALF — THE SHARED RETENTION LAW ─────────────────────────────
+   lib/data/photoRetention.js owns ONE question that FRT used to answer for
+   itself: may this deleted photograph be destroyed for good yet?
+
+   Same no-fallback rule as _PL, and here it matters more. Destruction is the
+   only thing in this tool that cannot be undone: the photograph is gone from
+   the device and there is nothing to restore from. If the law is absent the
+   housekeeping sweep does nothing at all — a photo kept too long costs
+   storage, a photo destroyed too early costs evidence.
+
+   WHAT IS NOT ADOPTED, AND MUST NOT BE. The shared module also publishes
+   removalOrder/expiredAmong, which exist because Diesel REMOVES a purged
+   photo from its array by position. FRT does not and must not: it converts
+   the record to a tombstone in place, keeping the id and the R2 key, because
+   removing the record erases the deletion signal and every other device that
+   still holds the photo re-adds it on the next sync (S43x photo
+   resurrection). Storage stays per-tool by law; only the question is shared. */
+function _PR() {
+  var pr = (typeof window !== 'undefined') && window.PhotoRetention;
+  if (!pr) { try { console.error('[Model] PhotoRetention is not loaded — expiry sweep skipped'); } catch (e) {} }
+  return pr || null;
+}
+
 // ── S391: hostname migration walk (files.arencon.app) ────────────────────
 // Old records froze the previous worker hostname into r2Url. On every load
 // funnel (setProject / applyMerged) we recursively swap ONLY the host on any
@@ -4620,18 +4643,33 @@ export var Model = {
     return true;
   },
 
-  // S265 stage 2: 30-day auto-purge. Permanently removes soft-deleted photos
-  // (both site + defic pool) whose deletedDate is older than retentionDays.
-  // Called once on project load. Returns the count purged. Leaves R2 in place.
+  // S687 (U4 purge half): WHICH photos have expired is no longer FRT's own
+  // question — lib/data/photoRetention.js answers it for the whole toolkit.
+  // Permanently tombstones soft-deleted photos (site + defic pool) whose
+  // deletion is older than the retention window. Called once on project load.
+  // Returns the count. Leaves R2 in place.
+  //
+  // Two things stay local on purpose:
+  //   • the `purged` pre-filter. The shared law does not know about FRT's
+  //     tombstones, so without it every already-purged record would qualify
+  //     again on every single load, re-saving the whole report each time.
+  //   • the removal itself (_makePurgedTombstone). See _PR — FRT never takes
+  //     a photo out of its array, or other devices resurrect it.
+  //
+  // Reading `delAt || deletedDate` through the shared law is the point of the
+  // change: FRT read only the legacy spelling, so the day the legacy mirror
+  // is retired, nothing here would ever have expired again and the trash
+  // would have filled up silently forever.
   purgeExpiredPhotos: function(retentionDays) {
     if (!_project) return 0;
     var self = this;
-    var cutoff = Date.now() - (retentionDays || 30) * 86400000;
+    var _pr = _PR();
+    if (!_pr) return 0;
+    var opts = { retentionDays: (retentionDays == null) ? _pr.DEFAULT_RETENTION_DAYS : retentionDays };
     var purged = 0;
     var isExpired = function(p) {
-      if (!p || !p.deleted || p.purged) return false;
-      var t = p.deletedDate ? new Date(p.deletedDate).getTime() : 0;
-      return t > 0 && t < cutoff;
+      if (!p || p.purged) return false;
+      return _pr.isExpired(p, opts);
     };
     // site photos
     if (Array.isArray(_project.photos)) {

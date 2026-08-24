@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=735">
+<link rel="stylesheet" href="css/frt.css?v=736">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -967,7 +967,13 @@ function ensurePdfJs(cb){
      script, same pattern as the lightbox shell above — the module is written
      for both tools and Diesel loads it the same way. It must load BEFORE
      app.js so the model has it at first delete. -->
-<script src="../lib/data/photoLifecycle.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
+<script src="../lib/data/photoLifecycle.js?v=1"></script>
+<!-- S687 (U4 purge half): the shared RETENTION law — how long a deleted
+     photograph is kept and when it may be destroyed for good. Classic script
+     like the deletion law above, and it must load BEFORE app.js: without it
+     the housekeeping sweep refuses to run at all, which is the safe direction
+     for the one operation in this tool that cannot be undone. -->
+<script src="../lib/data/photoRetention.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,

@@ -37,7 +37,13 @@ var _filterMode = 'all';
 //   'trash' = Recently Deleted — soft-deleted DEFIC pool photos (site photos
 //             join in stage 2). Display-only countdown; restore via restorePoolPhoto.
 var _photoTab = 'all';
-var _TRASH_RETENTION_DAYS = 90;
+// S687: ONE retention number for the whole toolkit, read from the shared law
+// rather than typed here a second time. FRT and the shared law both said 90;
+// two copies of a number that must agree is how they stop agreeing. Falls back
+// to 90 only so the panel still renders a sensible countdown if the script has
+// not arrived — the destructive sweep itself refuses outright without it.
+var _TRASH_RETENTION_DAYS = (typeof window !== 'undefined' && window.PhotoRetention)
+  ? window.PhotoRetention.DEFAULT_RETENTION_DAYS : 90;
 // S265 stage 2: project id this session has already auto-purged (run-once guard).
 var _purgedForProjectId = null;
 var _selectedUids = new Set();
@@ -154,23 +160,28 @@ function _gatherDeletedRecords() {
       }
     });
   });
+  // S687: newest deletion first, ordered by the shared law's reading of WHEN
+  // the delete happened. Same rule Diesel's trash uses, and it reads the
+  // canonical time with the legacy spelling as fallback — sorting on the
+  // legacy field alone put anything written without it at the bottom forever.
   out.sort(function(a, b) {
-    var ta = a.deletedDate ? new Date(a.deletedDate).getTime() : 0;
-    var tb = b.deletedDate ? new Date(b.deletedDate).getTime() : 0;
+    var pr = (typeof window !== 'undefined') && window.PhotoRetention;
+    var ta = pr ? pr.deletedAt(a.ph) : (a.deletedDate ? new Date(a.deletedDate).getTime() : 0);
+    var tb = pr ? pr.deletedAt(b.ph) : (b.deletedDate ? new Date(b.deletedDate).getTime() : 0);
     return tb - ta; // newest deleted first
   });
   return out;
 }
 
-// Days remaining before 30-day auto-purge (display-only this stage). Returns
-// a whole number of days >= 0. No deletedDate → full retention (defensive).
-function _trashDaysRemaining(deletedDateIso) {
-  if (!deletedDateIso) return _TRASH_RETENTION_DAYS;
-  var deleted = new Date(deletedDateIso).getTime();
-  if (!deleted) return _TRASH_RETENTION_DAYS;
-  var elapsedMs = Date.now() - deleted;
-  var elapsedDays = Math.floor(elapsedMs / 86400000);
-  return Math.max(0, _TRASH_RETENTION_DAYS - elapsedDays);
+// S687: days remaining before the sweep destroys it. The arithmetic moved to
+// lib/data/photoRetention.js so the number the inspector reads and the number
+// the sweep acts on can never drift apart. Takes the PHOTO now, not an ISO
+// string, because the shared law reads the canonical deletion time with the
+// legacy spelling as fallback — a string caller can only hand over one of them.
+function _trashDaysRemaining(photo) {
+  var pr = (typeof window !== 'undefined') && window.PhotoRetention;
+  if (!pr) return _TRASH_RETENTION_DAYS;
+  return pr.daysLeft(photo, { retentionDays: _TRASH_RETENTION_DAYS });
 }
 
 // S265 Photo-Trash: build the Recently Deleted list HTML. Each item: thumbnail,
@@ -204,7 +215,7 @@ function _renderTrashHtml(deletedRecords) {
   h += '<div class="ph-trash-grid">';
   deletedRecords.forEach(function(r) {
     var uid = _trashUid(r);
-    var days = _trashDaysRemaining(r.deletedDate);
+    var days = _trashDaysRemaining(r.ph);
     var daysCls = days <= 5 ? 'ph-trash-days urgent' : 'ph-trash-days';
     var selected = _trashSelected.has(uid);
     var routeAttrs = (r.kind === 'site')
@@ -1930,7 +1941,15 @@ function _doReassign(destVal, selItems) {
       // Snapshot the binary BEFORE we narrow the obs (removePhotoFromObs never
       // touches the pool entry, so srcRec stays live — but clone defensively).
       var rec = Object.assign({}, srcRec);
-      delete rec.deleted; delete rec.deletedDate;
+      // S687: the copy starts life LIVE, said through the shared law. This
+      // hand-cleared two of the four fields a delete writes; the canonical two
+      // rode along on the clone. Not reachable today (the gallery never offers
+      // a deleted photo to move), but a record that says deleted canonically
+      // and live legacily shows up in neither the gallery nor the trash.
+      try {
+        if (window.PhotoLifecycle) window.PhotoLifecycle.markLive(rec);
+        else { delete rec.deleted; delete rec.deletedDate; }
+      } catch (e) { delete rec.deleted; delete rec.deletedDate; }
       // Drop ONLY this obs's reference. removePhotoFromObs handles both
       // custom-state (filter the ID out of photoSelection) and default-state
       // (narrow to "all pool except this") obs, and deliberately leaves the
