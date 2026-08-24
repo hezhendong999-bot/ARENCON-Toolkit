@@ -1051,7 +1051,15 @@ function _realExportPDF() {
              what a reader needs to see, not what the array happens to hold.
              A row with any field filled, or any signature drawn or uploaded,
              still prints exactly as before. */
-          if(!src && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;
+                    /* S690 — the S689 guard asked the WRONG QUESTION. _sigPrintSrc ends in
+             `return c ? c.toDataURL() : ''`, and a BLANK canvas returns a
+             perfectly valid data URL, so `src` was truthy for every card whose
+             pad had been rendered, and the blank cards printed anyway. The
+             question is not "is there a source?" but "IS THERE INK?" — an
+             uploaded image, or vector strokes actually recorded for this pad. */
+          const _ink = (upload && upload.src && upload.style.display!=='none')
+                    || !!(window._sigStrokes && (window._sigStrokes['sig-canvas-c-' + idx] || []).length);
+          if(!_ink && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;
           csHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
             + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Contractor Signature</div>'
             + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -1060,7 +1068,7 @@ function _realExportPDF() {
             + '<tr><td style="font-weight:bold;color:#666;padding:3px 6px;">Company</td><td>'+(row.company||'—')+'</td>'
             + '<td style="font-weight:bold;color:#666;padding:3px 6px;">Date</td><td>'+(row.date||'—')+'</td></tr>'
             + '</table>'
-            + (src ? '<div style="margin-top:6px;"><div style="font-size:8pt;color:#666;margin-bottom:2px;">Signature:</div><img src="'+src+'" style="height:45px;border-bottom:1.5px solid #333;display:block;"></div>'
+            + ((src && _ink) ? '<div style="margin-top:6px;"><div style="font-size:8pt;color:#666;margin-bottom:2px;">Signature:</div><img src="'+src+'" style="height:45px;border-bottom:1.5px solid #333;display:block;"></div>'
                    : '<div style="height:40px;border-bottom:1.5px solid #333;width:240px;margin-top:8px;"></div>')
             + '</div>';
         });
@@ -1076,7 +1084,15 @@ function _realExportPDF() {
             const canvas = document.getElementById('sig-canvas-c-' + idx);
             const upload = document.getElementById('sig-upload-img-' + idx);
             const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
-            if(!src && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;   // S689: same rule as contractor cards
+                      /* S690 — the S689 guard asked the WRONG QUESTION. _sigPrintSrc ends in
+             `return c ? c.toDataURL() : ''`, and a BLANK canvas returns a
+             perfectly valid data URL, so `src` was truthy for every card whose
+             pad had been rendered, and the blank cards printed anyway. The
+             question is not "is there a source?" but "IS THERE INK?" — an
+             uploaded image, or vector strokes actually recorded for this pad. */
+          const _ink = (upload && upload.src && upload.style.display!=='none')
+                    || !!(window._sigStrokes && (window._sigStrokes['sig-canvas-c-' + idx] || []).length);
+            if(!_ink && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;   // S689: same rule as contractor cards
             wsHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
               + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Witness Signature</div>'
               + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -1085,7 +1101,7 @@ function _realExportPDF() {
               + '<tr><td style="font-weight:bold;color:#666;padding:3px 6px;">Company</td><td>'+(row.company||'—')+'</td>'
               + '<td style="font-weight:bold;color:#666;padding:3px 6px;">Date</td><td>'+(row.date||'—')+'</td></tr>'
               + '</table>'
-              + (src ? '<div style="margin-top:6px;"><div style="font-size:8pt;color:#666;margin-bottom:2px;">Signature:</div><img src="'+src+'" style="height:45px;border-bottom:1.5px solid #333;display:block;"></div>'
+              + ((src && _ink) ? '<div style="margin-top:6px;"><div style="font-size:8pt;color:#666;margin-bottom:2px;">Signature:</div><img src="'+src+'" style="height:45px;border-bottom:1.5px solid #333;display:block;"></div>'
                      : '<div style="height:40px;border-bottom:1.5px solid #333;width:240px;margin-top:8px;"></div>')
               + '</div>';
           });

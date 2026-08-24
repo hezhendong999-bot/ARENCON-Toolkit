@@ -199,10 +199,16 @@ check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPho
 
 /* ── 7: S689 — an empty signature card never reaches paper ── */
 {
-  const guard = /if\(!src && !\(row\.name\|\|''\) && !\(row\.company\|\|''\) && !\(row\.title\|\|''\) && !\(row\.date\|\|''\)\) return;/g;
+  /* S690: the guard must test INK, not `src`. _sigPrintSrc returns a valid data
+     URL for a BLANK canvas, so a src-based test passes for every rendered pad —
+     which is exactly why the S689 guard printed the blank cards anyway. */
+  const guard = /if\(!_ink && !\(row\.name\|\|''\)/g;
   const hits = (LIVE_SRC.match(guard) || []).length;
-  check('the blank-signature guard exists on BOTH contractor and witness cards', hits === 2,
+  check('the blank-signature guard tests INK, on BOTH contractor and witness cards', hits === 2,
         'found ' + hits + ' of 2');
+  check('no signature guard still tests the src data-URL', !/if\(!src && !\(row\.name/.test(LIVE_SRC));
+  check('a card with text but no ink prints the ruled line, not a blank image',
+        (LIVE_SRC.match(/\+ \(\(src && _ink\) \?/g) || []).length === 2);
   check('deficiency photos print in a fixed box, not height:auto',
         !/max-width:250px;height:auto/.test(LIVE_SRC) && /width:250px;height:188px/.test(LIVE_SRC));
   check('response photos print in a fixed box, not height:auto',
