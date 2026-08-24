@@ -896,7 +896,7 @@ function _realExportPDF() {
         out += '<div style="font-size:8pt;color:#555;margin-top:2px;">Date: '+(d.date||'---')+'</div>';
         if (d.photos && d.photos.length) {
           out += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
-          d.photos.forEach(p => { out += _lnk(p, '<img src="'+_phSrc(p)+'" style="width:100%;max-width:250px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'); });
+          d.photos.forEach(p => { out += _lnk(p, '<img src="'+_phSrc(p)+'" style="width:250px;height:188px;object-fit:contain;background:#F7F7F7;border:1px solid #DDD;border-radius:3px;">'); });
           out += '</div>';
         }
         // Unified responses timeline
@@ -915,7 +915,7 @@ function _realExportPDF() {
             out += '<div style="font-size:8.5pt;padding:5px;background:white;border:1px solid #EEE;border-radius:3px;">'+(cr.comment||'(No comment)')+'</div>';
             if (cr.photos && cr.photos.length) {
               out += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
-              cr.photos.forEach(function(p){ out += _lnk(p, '<img src="'+(_phSrc(p)||p)+'" style="width:100%;max-width:220px;height:auto;object-fit:contain;border:1px solid #DDD;border-radius:3px;">'); });
+              cr.photos.forEach(function(p){ out += _lnk(p, '<img src="'+(_phSrc(p)||p)+'" style="width:220px;height:165px;object-fit:contain;background:#F7F7F7;border:1px solid #DDD;border-radius:3px;">'); });
               out += '</div>';
             }
             out += '</div>';
@@ -1043,6 +1043,15 @@ function _realExportPDF() {
           const canvas = document.getElementById('sig-canvas-c-' + idx);
           const upload = document.getElementById('sig-upload-img-' + idx);
           const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
+          /* S689 — a signature card with NOTHING in it is not a signature block,
+             it is noise on a client deliverable. An append bug between the Aug 3
+             and Aug 21 builds left 698 blank rows in 1490.04, and merge has no
+             tombstone for sign rows, so the data cannot be cleaned durably from
+             either end. The guard belongs here regardless: the report prints
+             what a reader needs to see, not what the array happens to hold.
+             A row with any field filled, or any signature drawn or uploaded,
+             still prints exactly as before. */
+          if(!src && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;
           csHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
             + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Contractor Signature</div>'
             + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -1067,6 +1076,7 @@ function _realExportPDF() {
             const canvas = document.getElementById('sig-canvas-c-' + idx);
             const upload = document.getElementById('sig-upload-img-' + idx);
             const src = (upload && upload.src && upload.style.display!=='none') ? upload.src : _sigPrintSrc(canvas ? canvas.id : '');
+            if(!src && !(row.name||'') && !(row.company||'') && !(row.title||'') && !(row.date||'')) return;   // S689: same rule as contractor cards
             wsHtml += '<div style="padding:10px;border:1px solid #ddd;border-radius:6px;margin-bottom:8px;">'
               + '<div style="font-size:9pt;font-weight:700;color:#2C4770;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px;">Witness Signature</div>'
               + '<table style="width:100%;font-size:8.5pt;border-collapse:collapse;table-layout:fixed;"><colgroup><col style="width:15%"><col style="width:35%"><col style="width:15%"><col style="width:35%"></colgroup>'
@@ -1525,15 +1535,32 @@ function _realExportPDF() {
           // page with it so the two are never separated by a page break.
           var isNoSplit = bn.classList && (bn.classList.contains('nosplit') || bn.classList.contains('apx-keep'));
           if(isNoSplit){
-            var prevNode = null;
+            var prevNode = null, bandNode = null;
             if(bn.classList.contains('keep-prev')){
               var lc = curPage.lastElementChild;
               // only pull a preceding content block, never the section band
               if(lc && !(lc.classList && lc.classList.contains('sh')) && curPage.children.length > 1){
                 prevNode = lc; curPage.removeChild(prevNode);
               }
+              /* S689 — ROOT CAUSE of the blank "Deficiency Summary" page. Pulling
+                 the body left its BAND behind, so the heading printed alone at
+                 the foot of one sheet and its content started on the next. The
+                 band exists to sit above the thing it titles; a heading with
+                 nothing under it is precisely what the keep-together rule is
+                 for. So after the body is pulled, if the band is now the last
+                 thing on the page, it travels too. Characterised in S686 and
+                 left alone then because an extraction is no place to change
+                 layout; this is that place. */
+              if(prevNode){
+                var bandTail = curPage.lastElementChild;
+                if(bandTail && bandTail.classList && bandTail.classList.contains('sh') && curPage.children.length > 1){
+                  curPage.removeChild(bandTail);
+                  bandNode = bandTail;
+                }
+              }
             }
             if(curPage.children.length > 1) _push();
+            if(bandNode) curPage.appendChild(bandNode);
             if(prevNode) curPage.appendChild(prevNode);
             curPage.appendChild(bn);
             // if the pair STILL overflows the fresh page, the sb is genuinely

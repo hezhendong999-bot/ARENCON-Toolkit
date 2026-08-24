@@ -187,6 +187,28 @@ check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPho
   check('the cap releases the gate and the report still paginates', paginated());
 }
 
+
+/* ── 6: NOT PROVEN BY TEST — the band-travel fix (S689) ───────────────────
+   The keep-prev band fix below in pdfExport.js is verified by READING, not by
+   this probe. A modelled fixture for it did not reproduce the page split at all
+   (a 1278px page stayed whole), which means the model — not the fix — is wrong,
+   and a test I do not understand is worth less than no test: a green light I
+   cannot explain is how S686 shipped a broken report. Recorded here so the gap
+   is visible rather than silently absent. Acceptance for that fix is the
+   Owner's export. */
+
+/* ── 7: S689 — an empty signature card never reaches paper ── */
+{
+  const guard = /if\(!src && !\(row\.name\|\|''\) && !\(row\.company\|\|''\) && !\(row\.title\|\|''\) && !\(row\.date\|\|''\)\) return;/g;
+  const hits = (LIVE_SRC.match(guard) || []).length;
+  check('the blank-signature guard exists on BOTH contractor and witness cards', hits === 2,
+        'found ' + hits + ' of 2');
+  check('deficiency photos print in a fixed box, not height:auto',
+        !/max-width:250px;height:auto/.test(LIVE_SRC) && /width:250px;height:188px/.test(LIVE_SRC));
+  check('response photos print in a fixed box, not height:auto',
+        !/max-width:220px;height:auto/.test(LIVE_SRC) && /width:220px;height:165px/.test(LIVE_SRC));
+}
+
 console.log('');
 if (results.every(Boolean)) console.log('PASS — oversized photo groups flow; everything that fit before is untouched');
 else { console.log('FAIL — the fix does not hold'); process.exit(1); }
