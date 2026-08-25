@@ -127,12 +127,23 @@ function _exportModalToggle(el){
   el.querySelector('.exm-dot').textContent = el.classList.contains('on')?'\u2713':'';
   _exportModalLine();
 }
+/* S691 — ONE recipient-matching rule, reachable from every call site. It was
+   first written inside the modal builder, where the add-recipient path could not
+   see it and would have silently fallen back to exact matching — a second rule
+   wearing the first one's name. Company names are typed by hand across sessions
+   and devices and will differ by punctuation, case and spacing forever, so the
+   COMPARISON is normalised while everything DISPLAYED stays exactly as typed. */
+function _recipKey(n){
+  return String(n||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/[.,;:]+$/,'').trim();
+}
 function _exportAddRecipient(){
   var inp=_exmQ('#exm-newrec'); if(!inp) return;
   var n=(inp.value||'').trim(); if(!n) return;
   var pool=_exmQ('#exm-other'); if(!pool) return;
-  // de-dupe against existing chips
-  var dup=false; _exmQA('.exm-chip').forEach(function(c){ if((c.getAttribute('data-name')||'').toLowerCase()===n.toLowerCase()) dup=true; });
+  // de-dupe against existing chips — S691: same normalised key as the classifier,
+  // or typing a name that differs only by a full stop creates a twin chip
+  var _k=_recipKey(n);
+  var dup=false; _exmQA('.exm-chip').forEach(function(c){ if(_recipKey(c.getAttribute('data-name')||'')===_k) dup=true; });
   if(dup){ inp.value=''; return; }
   var grp=_exmQ('#exm-other-grp'); if(grp) grp.style.display='';
   pool.insertAdjacentHTML('beforeend',_exmChip(n,'on',true));
@@ -185,10 +196,23 @@ function _exportModalOpen(){
   var ctrs=_exportContractorNames();
   // pre-select set: saved distribution[] if present, else owner + all contractors
   var saved=(distribution&&distribution.length)?distribution.slice():null;
-  function on(n){ return saved ? (saved.indexOf(n)>=0) : true; }
+  /* S691 — the owner was appearing a second time under "Other recipients". The
+     saved distribution held "Iron Mountain Canada Corp." and the owner field
+     holds "Iron Mountain Canada Corp" — one trailing full stop apart. Matching
+     was exact, so the owner failed to match himself, got classified as a
+     manually-pooled recipient, and printed twice on the distribution line of a
+     client report. Company names are typed by hand across sessions and devices;
+     they will differ by punctuation, case and spacing forever. So the COMPARISON
+     is normalised (case, whitespace, trailing punctuation) while everything
+     DISPLAYED stays exactly as typed — the report shows the name as entered. */
+  function on(n){
+    if(!saved) return true;
+    var k=_recipKey(n);
+    return saved.some(function(s){ return _recipKey(s)===k; });
+  }
   // 'other' recipients = saved names that are neither owner nor a contractor
-  var roleSet={}; if(owner) roleSet[owner.toLowerCase()]=1; ctrs.forEach(function(c){roleSet[c.toLowerCase()]=1;});
-  var others=(saved||[]).filter(function(n){ return !roleSet[(n||'').toLowerCase()]; });
+  var roleSet={}; if(owner) roleSet[_recipKey(owner)]=1; ctrs.forEach(function(c){roleSet[_recipKey(c)]=1;});
+  var others=(saved||[]).filter(function(n){ return !roleSet[_recipKey(n)]; });
 
   // report-photo count (appendix-eligible, minus current exclusions)
   var elig=(typeof _collectAllPhotos==='function')?_collectAllPhotos().filter(_appendixEligible):[];
@@ -1116,7 +1140,13 @@ function _realExportPDF() {
       }
       // Flow test photos
       const ftPrint = wd.getElementById('flow-test-photos-print');
-      if (ftPrint && flowTestPhotos && flowTestPhotos.length > 0) {
+      /* S691 — a DELETED flow-test photo was still printing. Its file is gone
+         (the nightly retention job purges it), so the report drew a grey frame
+         around nothing under "Flow Test Charts". The pointer survives because
+         merge has no tombstone for this array, so the report must filter it:
+         print what exists, never a frame around a hole. */
+      const _ftLive = (flowTestPhotos||[]).filter(function(p){ return p && String(p.deleted)!=='true'; });
+      if (ftPrint && _ftLive.length > 0) {
         // S372.5: if the appendix had no eligible photos, no "Photo Appendix" band
         // was emitted — add it here so flow-test charts sit under their own section
         // (and the paginator doesn't fold them into Signature).
@@ -1130,9 +1160,9 @@ function _realExportPDF() {
           + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Flow Test Charts</span></div>';
         var _ftCard = function(p){ return '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'+_lnk(p, '<img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>'; };
         // first block = subhead + first chart (atomic); rest = 3-up rows that split freely
-        ftHtml += '<div class="apx-keep">'+_ftSub+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(flowTestPhotos[0])+'</div></div>';
-        for(var _fi=1; _fi<flowTestPhotos.length; _fi+=3){
-          var _grp = flowTestPhotos.slice(_fi,_fi+3).map(_ftCard).join('');
+        ftHtml += '<div class="apx-keep">'+_ftSub+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(_ftLive[0])+'</div></div>';
+        for(var _fi=1; _fi<_ftLive.length; _fi+=3){
+          var _grp = _ftLive.slice(_fi,_fi+3).map(_ftCard).join('');
           ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">'+_grp+'</div>';
         }
         ftPrint.innerHTML = ftHtml;
