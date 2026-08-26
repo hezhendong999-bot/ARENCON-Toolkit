@@ -1061,3 +1061,35 @@ _PR
 purgeExpiredPhotos
 _trashDaysRemaining
 _TRASH_RETENTION_DAYS
+
+@ ────────────────────────────────────────────────────────────────────────────
+@ THE AUTHORITY MARK (S692, Mark: "A" — "I need a commercial grade solution").
+@ On 25 Aug 2026 three correct repairs to 7155.34 were each put back within
+@ minutes by a device holding a cached copy. Nothing was broken: every guard in
+@ lib/data/sync.js exists to stop a report SHRINKING, and an authorised
+@ correction is byte-for-byte indistinguishable from the corruption they were
+@ built to prevent. There was simply no way to TELL them.
+@
+@ authority_rev is a server-owned counter per report row; a Postgres trigger
+@ refuses any client attempt to write it. When the cloud's mark exceeds the one
+@ this device accepted, the cloud copy is taken WHOLE — no guards, no per-item
+@ merge — at BOTH doors: the ordinary pull and the 412 conflict path. Removing
+@ the gate at either door restores the 25 Aug loop; the conflict door is the
+@ one that actually did the damage, because a device mid-save never reaches the
+@ pull door at all.
+@
+@ _setAsideLocalCopy is what makes the takeover safe rather than a second kind
+@ of data loss: the outgoing copy is written to IDB before it is replaced, so a
+@ WRONG correction is always recoverable from the device that held the work.
+@ Never "simplify" the takeover by dropping it.
+@
+@ reloadFromCloud is the escape hatch that had to exist. Until S692 the only
+@ way to make a device let go of a superseded copy was clearing site data —
+@ which no commercial app asks of its users and which also destroys every other
+@ project cached on that machine. Mark named this directly. It must stay
+@ reachable from the menu, and it must stay behind a confirm.
+@ ────────────────────────────────────────────────────────────────────────────
+_authSeen
+_setAsideLocalCopy
+reloadFromCloud
+_reloadFromCloud

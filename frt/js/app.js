@@ -1281,6 +1281,67 @@ function _repaintAfterPull(){
   try { switchTab(_currentTab); } catch (e) { console.warn('[FRT v2] repaint after pull failed:', e && e.message); }
 }
 
+/* ═══ S692 — RELOAD FROM CLOUD (host side). ════════════════════════════════
+   Mark, 25 Aug: "I do not ever want a device with old cache to overwrite the
+   new work" / "No commercial app requires clearing data/cache."
+
+   This is the in-app answer. It throws away what THIS device holds for THIS
+   report and takes the cloud copy whole. The engine sets the outgoing copy
+   aside in browser storage first, so nothing is unrecoverable — but it is
+   still destructive from the person's point of view, so it confirms first,
+   one tap, through the app's own modal (never a browser confirm). */
+function _reloadFromCloud(){
+  if (!_hubMode || !_projectId) {
+    showAlert('Reload from Cloud', 'This report is open without a cloud project, so there is no cloud copy to take.');
+    return;
+  }
+  showConfirm('Reload from cloud?',
+    'This device will throw away its own copy of this report and take the cloud version.\n\n' +
+    'Anything typed here that has not reached the cloud will be gone from the screen. ' +
+    'A copy is kept in this browser\u2019s storage for recovery.\n\nContinue?').then(function(yes){
+    if (!yes) return;
+    if (!SyncEngine.reloadFromCloud) {
+      showAlert('Reload from Cloud', 'This version of the app cannot do that yet. Refresh the app and try again.');
+      return;
+    }
+    _setCloudStatus('syncing', 'Reloading from cloud\u2026');
+    SyncEngine.reloadFromCloud(_projectId, SyncEngine.instanceId).then(function(data){
+      if (!data) {
+        _setCloudStatus('error', 'Nothing to reload');
+        showAlert('Reload from Cloud', 'The cloud had no copy of this report to give, so nothing was changed on this device.');
+        return;
+      }
+      try { Model.saveNow(); } catch (_) {}
+      _repaintAfterPull();
+      _setCloudStatus('synced', 'Reloaded from cloud');
+      showAlert('Reload from Cloud', 'This device is now showing the cloud copy of the report.');
+    }).catch(function(e){
+      _setCloudStatus('error', 'Reload failed');
+      showAlert('Reload from Cloud', 'The reload could not finish: ' + (e && e.message ? e.message : 'unknown error') +
+                '\n\nNothing on this device was changed.');
+    });
+  });
+}
+
+/* S692 — a correction arrived from ARENCON and this device has just taken it.
+   The person must be TOLD: a report changing on screen by itself, with no
+   explanation, is how trust in the tool is lost. The engine has already
+   replaced the model and set the old copy aside; the host repaints, writes the
+   new state to local storage, and says what happened and why. */
+window.addEventListener('arencon-authority-replaced', function(ev){
+  var d = (ev && ev.detail) || {};
+  if (d.reload) return;   /* the person asked for it; _reloadFromCloud reports */
+  try { Model.saveNow(); } catch (_) {}
+  try { _repaintAfterPull(); } catch (_) {}
+  try { _setCloudStatus('synced', 'Updated by ARENCON'); } catch (_) {}
+  var why = d.note ? ('\n\nReason given: ' + d.note) : '';
+  try {
+    showAlert('This report was corrected',
+      'ARENCON has replaced this report with a corrected version, and this device has taken it.\n\n' +
+      'What you were looking at has been set aside in this browser\u2019s storage, so nothing is lost.' + why);
+  } catch (_) {}
+});
+
 // ─── S96 Fix #3: Tile auto-prefetch (L0-L2 only, current project only) ──
 var _tilePrefetchAbort = null;
 var _tilePrefetchActive = false;
@@ -2754,6 +2815,7 @@ function _buildHeader(){
     onHelp: function(){ openHelp(); },
     onQR: function(){ _showQR(); },
     onResetTab: function(){ _resetCurrentTab(); },
+    onReloadCloud: function(){ _reloadFromCloud(); },   /* S692 */
     onResetProject: function(){ _resetProject(); },
     onToggleTheme: toggleDarkMode,
     onTextSize: cycleTextSize,
@@ -2830,7 +2892,7 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S628e';
+var FRT_BUILD = 'S692';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
