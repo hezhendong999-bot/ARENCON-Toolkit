@@ -630,7 +630,7 @@ export var initDrawings = {
       html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';
       html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">\u270F\uFE0F</button>';
       html += '</div>';
-      html += '<div class="dwg-folder-body dwg-card-row" style="padding:8px;' + (isFolded ? 'display:none;' : '') + '">';
+      html += '<div class="dwg-folder-body dwg-card-row' + (isFolded ? ' collapsed' : '') + '" style="padding:8px;">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
       // S81 Option 3: "+ Drop plans here" reserve card as last tile. Click
       // opens file picker scoped to this folder. Drop also still works on
@@ -1436,7 +1436,10 @@ document.addEventListener('click', function(e) {
       if (group) {
         var body = group.querySelector('.dwg-folder-body');
         var arrow = foldHdr.querySelector('span');
-        if (body) body.style.display = _foldedFolders[fn] ? 'none' : 'flex';
+        /* S692 — the class, not an inline style. An inline display:none loses
+           to "#drawings-container .dwg-card-row{display:grid !important}", so
+           the folder stayed open however many times it was tapped. */
+        if (body) body.classList.toggle('collapsed', !!_foldedFolders[fn]);
         if (arrow) arrow.textContent = _foldedFolders[fn] ? '\u25B6' : '\u25BC';
       }
     }

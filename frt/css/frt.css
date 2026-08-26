@@ -997,7 +997,16 @@ body.dark-mode #readonly-banner{background:#3d2e00;border-color:#665000;color:#F
 @media(pointer:coarse){.folder-rename-btn{opacity:.5;padding:6px 8px;}}
 .folder-icon{font-size:calc(16px + var(--ts));}
 .dwg-folder-body{display:flex;flex-wrap:wrap;gap:12px;padding:12px 16px;}
-.dwg-folder-body.collapsed{display:none;}
+/* S692 (Elvis, 26 Aug: "trying to close the folder to hide the contents, it
+   doesn't minimize"). This rule was correct and was simply being outvoted. The
+   folder body carries BOTH .dwg-folder-body and .dwg-card-row, and the S3xx
+   card-flow fix below declares "#drawings-container .dwg-card-row{display:grid
+   !important}" with no media query at all — so on every screen, phone to
+   desktop, the grid beat the hide. An ID-qualified selector plus !important is
+   what it takes to win; a plain class rule here can never collapse the folder.
+   Do not "tidy" the !important away without removing the grid one first. */
+#drawings-container .dwg-folder-body.collapsed,
+.dwg-folder-body.collapsed{display:none !important;}
 /* Context menu */
 .card-context-menu{display:none;position:absolute;right:4px;bottom:36px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.2);z-index:200;min-width:140px;max-width:200px;overflow:hidden;font-family:Calibri,sans-serif;}
 .card-context-menu.open{display:block;}
