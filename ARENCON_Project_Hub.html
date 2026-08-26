@@ -4318,6 +4318,15 @@ async function createNewReport(key) {
       delete seedData.exportIds;
       delete seedData._s217Backup;
       delete seedData._s464Backup;
+      /* ═══ S692 — CARRY-FORWARD LAW: issue identity never travels. ═══════════
+         7155.34 FRT #2 went out as a draft whose cover read "Date of Issue:
+         2026-08-11" — FRT #1's issue date, carried here along with the rest of
+         info{}, claiming the report was issued two weeks before the site visit
+         it describes. The date of issue is the identity of ONE issued document;
+         the issue lifecycle stamps it when THIS report is actually issued, and
+         until then the cover must show it blank. Every field added to the issue
+         lifecycle in future must be reset here too — carrying it is the bug. */
+      try{ if(seedData.info){ seedData.info.dateOfIssue=''; } }catch(_ci){}
       seedData.currentFrtInstance = String(nextNum);
       seedData.status = 'draft';
       seedData.modified = new Date().toISOString();

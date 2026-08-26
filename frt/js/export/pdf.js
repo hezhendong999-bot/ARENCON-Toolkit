@@ -1418,6 +1418,23 @@ if(_ctrFilterId!=='__all__'&&_ctrFilterId!=='__general__'){
 }
 
 var _curInst=p.currentFrtInstance||1;
+/* ═══ S692 — THE CLOSED-VISIT LAW. ═══════════════════════════════════════════
+   "Which visit closed this item?" was answered independently in SIX places —
+   the cover counter, the body filter, the card footer, both Previously-Closed
+   groupings and the appendix predicate — with two different fallbacks (1 vs
+   the current visit) and two different sources (per-observation vs pin-level).
+   On 7155.34 FRT #2 the cover therefore said two items closed this visit while
+   the Previously-Closed table filed one of the same items under FRT #1, in the
+   same document, from the same data. Every surface now reads THIS function and
+   nothing else, so the surfaces can never disagree again.
+   Fallback is the CURRENT visit, never 1: a closed item with no stamp was
+   closed by whoever is holding the report now — filing it under FRT #1
+   fabricates history a client can read. */
+function _closedVisitOf(r){
+  var obs=r&&r.obs;
+  if(obs&&obs.addressed!==undefined)return obs.addressedOnInstance||r.d.closedOnInstance||_curInst;
+  return r.d.closedOnInstance||_curInst;
+}
 // S119: per-observation status filter. An obs is included if:
 //   - it's not addressed (still outstanding), OR
 //   - it was addressed in the current FRT instance (so the report shows
@@ -1430,12 +1447,11 @@ var mainBodyDefs=reportDefs.filter(function(r){
   var obs=r.obs;
   if(obs&&obs.addressed!==undefined){
     if(!obs.addressed)return true;
-    var inst=obs.addressedOnInstance||r.d.closedOnInstance||1;
-    return inst===_curInst;
+    return _closedVisitOf(r)===_curInst;   /* S692: the law */
   }
   // Legacy fallback (pre-S119 obs without addressed metadata)
   if(_deficIsOpen(r.d))return true;
-  if(_deficIsClosed(r.d)&&(r.d.closedOnInstance||1)===_curInst)return true;
+  if(_deficIsClosed(r.d)&&_closedVisitOf(r)===_curInst)return true;   /* S692: the law */
   return false;
 });
 // S142 Batch 3-2 (Model 2): only the 'exclude' mode strips recs from the
@@ -1571,7 +1587,7 @@ if(summaryDefs.length){
   var _newThis=summaryDefs.filter(function(r){return (r.d.notedOnInstance||1)===_curInst;}).length;
   var _priorClosed=summaryDefs.filter(function(r){
     if(!_rowClosed(r))return false;
-    var ci=(r.obs&&r.obs.addressed!==undefined)?(r.obs.addressedOnInstance||r.d.closedOnInstance||1):(r.d.closedOnInstance||1);
+    var ci=_closedVisitOf(r);   /* S692: the law */
     var ni=(r.d.notedOnInstance||1);
     return ci===_curInst && ni<_curInst;
   }).length;
@@ -1971,7 +1987,7 @@ function _buildDefCard(r,hdrExtra){
   if(hasDwg){var dObj=(p.drawings||[]).find(function(x){return x.id===d.drawingId;});if(dObj)footerParts.push('\uD83D\uDCD0 '+esc(dObj.name));}
   var _nD=d.notedDate||d.date||'';
   if(_nD&&po.notedOnInstance===_curInst)footerParts.push('Noted '+_nD);
-  if(thisClosed){var ci=d.closedOnInstance||_curInst;var cd=d.closedDate||'';
+  if(thisClosed){var ci=_closedVisitOf(r);var cd=d.closedDate||'';   /* S692: the law */
     if(ci===_curInst&&cd)footerParts.push('Closed '+cd);
     else if(ci!==_curInst)footerParts.push('Closed in FRT #'+ci);}
   if(footerParts.length)h+='<div class="dc-footer">'+footerParts.join(' \u00b7 ')+'</div>';
@@ -2126,7 +2142,7 @@ var _recFootHtml='<div class="rec-foot">Recommendation items noted during this r
 var _recSecTtlHtml='<div class="rec-secttl"><div class="rec-secttl-ttl">Recommendations</div><div class="rec-secttl-sub">The following items were noted during this review and fall outside the contracted scope of work. They are provided for information and are not held against the engineer sign-off letter.</div></div>';
 _itemNo=0; // S317 Option A (LOCKED): recommendation item #s RESTART at 1
 if(pooledRecs.length){
-  function _recPrevClosed(r){return _deficIsClosed(r.d)&&((r.d.closedOnInstance||_curInst)<_curInst);}
+  function _recPrevClosed(r){return _deficIsClosed(r.d)&&(_closedVisitOf(r)<_curInst);}   /* S692: the law */
   var _activeRecs=[],_prevClosedRecs=[];
   pooledRecs.forEach(function(r){(_recPrevClosed(r)?_prevClosedRecs:_activeRecs).push(r);});
   // (1) Recommendation Summary — ALL pooled recs (scoreboard; closed,
@@ -2169,7 +2185,7 @@ if(pooledRecs.length){
     var nOpen=pooledRecs.filter(function(r){return _rIsNew(r)&&_itemIsOpen(r);}).length;
     var _priorCls=pooledRecs.filter(function(r){
       if(_itemIsOpen(r))return false;
-      var ci=(r.obs&&r.obs.addressed!==undefined)?(r.obs.addressedOnInstance||r.d.closedOnInstance||1):(r.d.closedOnInstance||1);
+      var ci=_closedVisitOf(r);   /* S692: the law */
       return ci===_curInst&&(r.d.notedOnInstance||1)<_curInst;
     }).length;
     var pct=Math.round(CL/T*100);
@@ -2248,7 +2264,7 @@ if(pooledRecs.length){
   // (4) Previously Closed Recommendations — markup identical to the
   //     deficiency "Previously Closed Items".
   if(_prevClosedRecs.length){
-    var _pcG={};_prevClosedRecs.forEach(function(r){var k=r.d.closedOnInstance||1;if(!_pcG[k])_pcG[k]=[];_pcG[k].push(r);});
+    var _pcG={};_prevClosedRecs.forEach(function(r){var k=_closedVisitOf(r);if(!_pcG[k])_pcG[k]=[];_pcG[k].push(r);});   /* S692: the law */
     var _pcK=Object.keys(_pcG).map(Number).sort(function(a,b){return a-b;});
     _recPrevClosedHtml='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;margin-top:16px;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
     _recPrevClosedHtml+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="5" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Recommendations</th></tr>';
@@ -3380,7 +3396,7 @@ _emitAppendices(['deficiency']);
 // Closed summary
 var _cp=window._frtCrbPreview,_csp=_cp?6:5;
 if((showClosedSummary&&closedSummaryDefs.length||_cp)&&_recsMode!=='only'){
-  var csG={};closedSummaryDefs.forEach(function(r){var i=r.d.closedOnInstance||1;if(!csG[i])csG[i]=[];csG[i].push(r);});
+  var csG={};closedSummaryDefs.forEach(function(r){var i=_closedVisitOf(r);if(!csG[i])csG[i]=[];csG[i].push(r);});   /* S692: the law */
   var csI=Object.keys(csG).map(Number).sort(function(a,b){return a-b;});
   var cH2='<div style="border:1px solid #DDE1E7;border-radius:6px;overflow:hidden;"><table style="width:100%;border-collapse:collapse;font-size:10pt;">';
   cH2+='<thead><tr style="background:#2A3A5C;color:white;"><th colspan="'+_csp+'" style="padding:8px 12px;text-align:left;font-size:12pt;">Previously Closed Items</th></tr>';
@@ -3390,7 +3406,7 @@ if((showClosedSummary&&closedSummaryDefs.length||_cp)&&_recsMode!=='only'){
     cH2+='<tr><td colspan="'+_csp+'" style="padding:6px 10px;background:#EEF2F4;font-weight:700;font-size:9.5pt;border-top:1.5px solid #DDE1E7;color:#4A5568;">Closed in FRT #'+inst+(cd2?' \u2014 '+cd2:'')+' ('+items.length+' item'+(items.length!==1?'s':'')+')</td></tr>';
     items.forEach(function(r,ri){
       var desc=_itemDesc(r);var td=desc.length>80?desc.substring(0,80)+'\u2026':desc;
-      var _rnd=Math.max(1,((r.d.closedOnInstance||1)-(r.d.notedOnInstance||1))+1);
+      var _rnd=Math.max(1,(_closedVisitOf(r)-(r.d.notedOnInstance||1))+1);   /* S692: the law */
       cH2+='<tr style="background:'+(ri%2===0?'#fff':'#fafafa')+';"><td style="padding:5px 10px;font-weight:700;color:#9C2742;">#'+(r.numLabel||r.d.num)+'</td><td style="padding:5px 10px;">'+esc(td)+'</td><td style="padding:5px 10px;">'+esc(r.ctr)+'</td><td style="padding:5px 10px;">FRT #'+(r.d.notedOnInstance||1)+'</td><td style="padding:5px 10px;color:#3F6E55;font-weight:700;">'+esc(r.d.closedNote||'Addressed')+'</td>'+(_cp?'<td style="padding:5px 10px;text-align:center;font-weight:700;color:#4A5568;">'+_rnd+'</td>':'')+'</tr>';
     });
   });
@@ -3446,11 +3462,7 @@ if(isField&&p.drawings&&p.drawings.length){
   // per-obs addressedOnInstance when the obs carries addressed metadata, else
   // fall back to pin-level closedOnInstance — so the appendix can never disagree
   // with the page-1 body about whether an item is current- vs prior-closed.
-  function _appClosedInst(r){
-    var obs=r.obs;
-    if(obs&&obs.addressed!==undefined)return obs.addressedOnInstance||r.d.closedOnInstance||_curInst;
-    return r.d.closedOnInstance||_curInst;
-  }
+  function _appClosedInst(r){ return _closedVisitOf(r); }   /* S692: delegates to the law — one implementation */
   function _appPrevClosed(r){return _deficIsClosed(r.d)&&(_appClosedInst(r)<_curInst);}
   // Build the lettered list of appendices to emit, in order.
   var _appendixDefs=[];
