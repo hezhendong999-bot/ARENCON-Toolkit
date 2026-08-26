@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-08-25T06:23:02.719Z",
+  "generatedAt": "2026-08-26T06:25:00.134Z",
   "note": "DRY-RUN REPORT ONLY. Nothing here deletes or authorizes deletion. Reclamation, if ever built, is a separate manual Mark-present step driven from this tombstone-based list — never a bucket scan.",
-  "currentRows": 58,
-  "referencedFilenames": 1190,
-  "tombstoneSnapshots": 14,
-  "purgedDistinctFilenames": 80,
-  "heldCount": 75,
+  "currentRows": 61,
+  "referencedFilenames": 1378,
+  "tombstoneSnapshots": 15,
+  "purgedDistinctFilenames": 116,
+  "heldCount": 111,
   "candidateCount": 5,
   "candidatesStillInR2": 0,
   "candidateBytes": 0,
@@ -308,6 +308,150 @@
     },
     {
       "fname": "defic_ph_1784391123959_5_cki4rjk4.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679008442_g_y80rrjpn.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679016172_h_9pqbdv34.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "dwg_1786459671661_pg1_ypg0.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "files.arencon.app",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "pdfbuf_1786459657131_i2j5xx.pdf",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "dwg_1786459674509_pg1_8scg.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "pdfbuf_1786459657163_rhyqfy.pdf",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "dwg_1786459676200_pg1_gq7i.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "pdfbuf_1786459657359_l8u5yj.pdf",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1786460719224_5_oez51vox.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1786460732655_6_1sljhp0b.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787686139461_11_v6a7cx18.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "crb_fph_1787686314331_15_fwu3q1iu.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "crb_fph_1787686314331_16_d7dtyf9b.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1786460788065_9_igli5q3z.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1786460788107_a_u4fqaepy.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787678004539_9_26j75yz0.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787677798799_4_u8dz6fpr.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787677820535_5_0oopmyv8.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787677831981_6_aamh5mmw.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787678167197_c_n6s5nx30.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787680290436_z_3sk025na.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679775562_k_q08feqs6.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679775660_l_sv6h1yvq.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679775771_m_qxq7exak.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679822974_p_3sboes0l.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823030_q_6l1qw55s.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823065_r_9si0unrd.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823099_s_simxup9i.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823127_t_ite69hbb.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823153_u_haf4shh3.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823178_v_wwtgepdv.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823197_w_6p8uwp7v.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823219_x_8vdvkydp.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787679823342_y_ezdc8o68.jpg",
+      "reason": "still referenced by a current report"
+    },
+    {
+      "fname": "defic_ph_1787678761529_f_z2ph7jj3.jpg",
       "reason": "still referenced by a current report"
     }
   ],
