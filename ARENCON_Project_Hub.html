@@ -3983,7 +3983,16 @@ async function _loadAndRenderInstances(proj) {
         var title = inst.label || defaultTitle;
         var date = inst.updated_at ? new Date(inst.updated_at).toLocaleDateString('en-CA') : '—';
         var by = inst.updated_by ? (userMap[inst.updated_by] || '—') : '—';
-        var status = inst.status || 'draft';
+        /* S688 — ONE WRITER, ONE TRUTH. The report's own blob is authoritative
+           because the report is the only thing that can issue itself: _doIssue
+           in the FRT stamps the revision, the date of issue AND the status
+           together, then mirrors the status to this row's column. The Hub's old
+           dropdown wrote ONLY the column, so a flip here left the two saying
+           different things about the same report — 7155.34 FRT #1 sat at
+           "issued" in the report and "draft" in the column, and neither was
+           wrong on its own terms. Read the report first, fall back to the
+           column for rows saved before the report started mirroring it. */
+        var status = (inst.data && inst.data.status) || inst.status || 'draft';
         // Deficiency counts for FRT instances
         var deficBadge = '';
         if (key === 'frt' && inst.data) {
@@ -4022,11 +4031,15 @@ async function _loadAndRenderInstances(proj) {
           status: status, issuedDate: (status === 'issued' ? date : '') };
         var actionsHtml = isViewer ? '' :
           '<span class="rctl">'
-          + '<select class="ri-status-sel" onclick="event.stopPropagation()" onchange="changeInstanceStatus(\'' + inst.id + '\',this.value)">'
-          + '<option value="draft"' + (status === 'draft' ? ' selected' : '') + '>Draft</option>'
-          + '<option value="review"' + (status === 'review' ? ' selected' : '') + '>Review</option>'
-          + '<option value="issued"' + (status === 'issued' ? ' selected' : '') + '>Issued</option>'
-          + '</select>'
+          /* S688 (Mark: "I don't think we should have a feature to set issued or
+             draft from hub page"): the status dropdown is GONE from this row.
+             Issuing is not a label — inside the report it stamps the revision and
+             the date of issue as one act. Setting "issued" from a list of reports
+             produced a report marked issued that had never been exported, and
+             setting it back to draft is what let three hours of new observations
+             land in a report that went to a client on 11 Aug. The status is still
+             shown, one line below, by the .ri-status chip — read-only, from the
+             report's own record. Set it in the report. */
           + '<button class="ri-act-btn" onclick="event.stopPropagation();renameInstance(\'' + inst.id + '\')" title="Rename">✏️</button>'
           + '<button class="ri-act-btn danger" onclick="event.stopPropagation();deleteInstance(\'' + inst.id + '\',\'' + esc(title).replace(/'/g, "\\'") + '\')" title="Delete">🗑️</button>'
           + '</span>';
