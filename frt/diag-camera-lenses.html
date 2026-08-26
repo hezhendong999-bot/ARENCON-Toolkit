@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ARENCON — Camera Lens Probe</title>
+<!--
+  S691 — WHY THIS PAGE EXISTS.
+
+  The .6 button in the camera has never worked. Both Elvis and Ian reported it,
+  and Mark confirmed: .6 and 1x produce an identical picture on the front and
+  back camera of every phone tried.
+
+  The cause in the code is not in doubt. applyZoom asks the hardware for the
+  chosen zoom, but first clamps it into the range the camera reports:
+
+      hz = min(caps.zoom.max, max(caps.zoom.min, zoom))
+
+  If the camera says its minimum zoom is 1, then 0.6 becomes 1 before it is
+  ever sent, and the two buttons issue the same instruction. The preview
+  fallback cannot rescue it either — that path only scales UP, so a ratio
+  below 1 is ignored.
+
+  What is NOT known, and cannot be worked out by reading code, is WHICH of two
+  situations these phones are in:
+
+    (a) the camera reports a zoom range that starts BELOW 1. Then the clamp is
+        throwing away a value the hardware would have accepted, and deleting
+        the clamp is most of the fix.
+
+    (b) the camera reports no zoom at all, or a range starting at 1. Then no
+        instruction to the current lens can ever go wider, because on Android
+        the ultra-wide is a SEPARATE PHYSICAL CAMERA. .6 must switch lenses,
+        which is a different and larger change.
+
+  From the outside (a) and (b) look the same — nothing happens. So this page
+  measures it instead of guessing. It opens every camera the phone exposes,
+  one at a time, reads what each claims, and then PROVES the claim by applying
+  zoom 0.6 and reporting whether the camera accepted or rejected it. An
+  applied constraint that resolves is ground truth; a capability object is
+  only a promise.
+
+  Two hard-won details from the torch work are reproduced here deliberately:
+    • capabilities read EMPTY if you read them the instant the stream opens.
+      This waits for the track to settle first.
+    • Android cameras are exclusive. Each stream is fully stopped before the
+      next is opened, or later lenses fail for reasons that have nothing to do
+      with what is being measured.
+
+  Open in a normal browser tab, not the installed app.
+-->
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;padding:16px;font-family:Calibri,'Segoe UI',sans-serif;
+       background:#EFEDF0;color:#1B1A22;font-size:15px;line-height:1.45}
+  h1{font-size:19px;margin:0 0 2px}
+  .sub{color:#5E5B68;font-size:13px;margin-bottom:14px}
+  button{font-family:inherit;font-size:15px;font-weight:600;padding:11px 18px;
+         border-radius:10px;border:0;background:#9C2742;color:#fff;cursor:pointer}
+  button:disabled{opacity:.5}
+  button.sec{background:transparent;color:#9C2742;border:1px solid rgba(156,39,66,.4)}
+  .row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+  .card{background:#fff;border:1px solid rgba(0,0,0,.10);border-radius:14px;
+        padding:12px 14px;margin-bottom:10px}
+  .card h2{font-size:15px;margin:0 0 6px}
+  .k{display:flex;justify-content:space-between;gap:10px;padding:3px 0;
+     border-bottom:1px solid rgba(0,0,0,.06);font-size:14px}
+  .k:last-child{border-bottom:0}
+  .k span:first-child{color:#5E5B68}
+  .k span:last-child{font-weight:600;text-align:right}
+  .yes{color:#2E9E72}.no{color:#C0445F}.warn{color:#C98A4A}
+  #verdict{font-weight:700;padding:12px 14px;border-radius:12px;margin-bottom:12px;display:none}
+  .v-a{background:rgba(46,158,114,.12);border:1px solid rgba(46,158,114,.45)}
+  .v-b{background:rgba(201,138,74,.14);border:1px solid rgba(201,138,74,.5)}
+  #log{white-space:pre-wrap;font-family:Consolas,monospace;font-size:11.5px;
+       background:#1B1A22;color:#e8e6ec;border-radius:10px;padding:10px;
+       margin-top:10px;display:none}
+  .hint{font-size:12.5px;color:#5E5B68;margin-top:12px}
+</style>
+</head>
+<body>
+
+<h1>Camera lens probe</h1>
+<div class="sub">Measures what this phone actually exposes. Nothing is saved or sent.</div>
+
+<div class="row">
+  <button id="go">Start probe</button>
+  <button id="copy" class="sec" style="display:none">Copy result</button>
+  <button id="raw" class="sec" style="display:none">Show raw</button>
+</div>
+
+<div id="verdict"></div>
+<div id="out"></div>
+<pre id="log"></pre>
+
+<div class="hint">
+  Allow the camera when asked. The screen may flicker as each lens is opened and
+  closed in turn — that is the probe working. Takes a few seconds.
+</div>
+
+<script>
+(function () {
+  var out = document.getElementById('out');
+  var logEl = document.getElementById('log');
+  var verdictEl = document.getElementById('verdict');
+  var btn = document.getElementById('go');
+  var copyBtn = document.getElementById('copy');
+  var rawBtn = document.getElementById('raw');
+  var lines = [];
+
+  function log(s) { lines.push(s); logEl.textContent = lines.join('\n'); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[<>&]/g, function (c) {
+    return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]; }); }
+  function kv(label, value, cls) {
+    return '<div class="k"><span>' + esc(label) + '</span><span class="' +
+           (cls || '') + '">' + esc(value) + '</span></div>';
+  }
+  function stopAll(stream) {
+    try { stream.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+  }
+
+  // The torch hunt learned this the hard way: capabilities are EMPTY if read the
+  // instant a stream opens. Give the track a moment to settle before believing it.
+  function settle(ms) { return new Promise(function (r) { setTimeout(r, ms || 450); }); }
+
+  function probeOne(dev, idx) {
+    var label = dev.label || ('camera ' + (idx + 1) + ' (' + dev.deviceId.slice(0, 8) + ')');
+    log('--- opening: ' + label);
+    return navigator.mediaDevices.getUserMedia({
+      video: { deviceId: { exact: dev.deviceId } }, audio: false
+    }).then(function (stream) {
+      var track = stream.getVideoTracks()[0];
+      return settle().then(function () {
+        var caps = {}, sets = {};
+        try { caps = track.getCapabilities ? track.getCapabilities() : {}; } catch (e) {}
+        try { sets = track.getSettings ? track.getSettings() : {}; } catch (e) {}
+        var z = caps.zoom || null;
+        log('    caps.zoom = ' + (z ? JSON.stringify(z) : 'ABSENT'));
+        log('    facing    = ' + (sets.facingMode || caps.facingMode || 'unknown'));
+        log('    size      = ' + (sets.width || '?') + 'x' + (sets.height || '?'));
+
+        // GROUND TRUTH. A capability object is a claim; an applied constraint
+        // that resolves is a fact. Ask for 0.6 and see what the camera does.
+        var applied = null, appliedErr = '', landedAt = null;
+        if (!z) {
+          return finish(null, 'no zoom capability', null);
+        }
+        return track.applyConstraints({ advanced: [{ zoom: 0.6 }] })
+          .then(function () {
+            applied = true;
+            try { landedAt = track.getSettings().zoom; } catch (e) {}
+            log('    apply 0.6 -> ACCEPTED, landed at ' + landedAt);
+            return finish(true, '', landedAt);
+          })
+          .catch(function (e) {
+            applied = false; appliedErr = (e && e.name) || 'rejected';
+            log('    apply 0.6 -> REJECTED (' + appliedErr + ')');
+            return finish(false, appliedErr, null);
+          });
+
+        function finish(ok, note, landed) {
+          stopAll(stream);
+          return {
+            label: label, deviceId: dev.deviceId,
+            facing: sets.facingMode || caps.facingMode || 'unknown',
+            width: sets.width, height: sets.height,
+            zoom: z, applied: ok, note: note, landedAt: landed
+          };
+        }
+      }).catch(function (e) { stopAll(stream); throw e; });
+    }).catch(function (e) {
+      log('    FAILED to open: ' + ((e && e.name) || e));
+      return { label: label, deviceId: dev.deviceId, error: (e && e.name) || String(e) };
+    });
+  }
+
+  function render(results) {
+    var html = '';
+    var anySubOne = false, anyAccepted = false, backCount = 0;
+
+    results.forEach(function (r) {
+      html += '<div class="card"><h2>' + esc(r.label) + '</h2>';
+      if (r.error) {
+        html += kv('Could not open', r.error, 'no') + '</div>';
+        return;
+      }
+      if (/back|rear|environment/i.test(r.label) || r.facing === 'environment') backCount++;
+      html += kv('Facing', r.facing);
+      html += kv('Resolution', (r.width || '?') + ' x ' + (r.height || '?'));
+      if (!r.zoom) {
+        html += kv('Zoom capability', 'NONE REPORTED', 'no');
+      } else {
+        var lo = r.zoom.min, hi = r.zoom.max;
+        if (lo < 1) anySubOne = true;
+        html += kv('Zoom range', lo + '  to  ' + hi, lo < 1 ? 'yes' : 'warn');
+        html += kv('Zoom step', r.zoom.step == null ? '—' : r.zoom.step);
+      }
+      if (r.applied === true) {
+        anyAccepted = true;
+        html += kv('Asked for 0.6x', 'ACCEPTED, landed at ' + r.landedAt,
+                   (r.landedAt != null && r.landedAt < 1) ? 'yes' : 'warn');
+      } else if (r.applied === false) {
+        html += kv('Asked for 0.6x', 'REJECTED (' + r.note + ')', 'no');
+      } else {
+        html += kv('Asked for 0.6x', 'not attempted — ' + r.note, 'no');
+      }
+      html += '</div>';
+    });
+    out.innerHTML = html;
+
+    // The verdict is the whole point: which of the two situations is this phone in.
+    var v = '';
+    if (anySubOne && anyAccepted) {
+      verdictEl.className = 'v-a';
+      v = 'SITUATION A — this phone will go below 1x on a lens it already exposes. '
+        + 'The .6 button is being thrown away by the clamp in the code, not by the '
+        + 'hardware. Smaller fix.';
+    } else if (results.filter(function (r) { return !r.error; }).length > 1) {
+      verdictEl.className = 'v-b';
+      v = 'SITUATION B — no lens here accepts a zoom below 1x, but this phone exposes '
+        + backCount + ' back camera(s). .6 has to SWITCH LENSES rather than send a '
+        + 'zoom number. Larger fix, but possible on this phone.';
+    } else {
+      verdictEl.className = 'v-b';
+      v = 'SITUATION B, worst case — no sub-1x zoom accepted and only one camera is '
+        + 'exposed to the browser. On this phone the ultra-wide may be unreachable, '
+        + 'and the honest fix is to hide the .6 button rather than show one that '
+        + 'does nothing.';
+    }
+    verdictEl.textContent = v;
+    verdictEl.style.display = 'block';
+    log('\nVERDICT: ' + v);
+    copyBtn.style.display = 'inline-block';
+    rawBtn.style.display = 'inline-block';
+  }
+
+  btn.addEventListener('click', function () {
+    btn.disabled = true; btn.textContent = 'Probing…';
+    out.innerHTML = ''; lines = []; verdictEl.style.display = 'none';
+    log('ARENCON camera lens probe');
+    log('when: ' + new Date().toString());
+    log('agent: ' + navigator.userAgent);
+    log('');
+
+    if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) {
+      out.innerHTML = '<div class="card"><h2>Not supported</h2>' +
+        kv('getUserMedia', 'unavailable in this browser', 'no') + '</div>';
+      btn.disabled = false; btn.textContent = 'Start probe';
+      return;
+    }
+
+    // Permission first, or the device list comes back with blank labels and the
+    // whole exercise is unreadable.
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false })
+      .then(function (s) { stopAll(s); return navigator.mediaDevices.enumerateDevices(); })
+      .then(function (devs) {
+        var cams = devs.filter(function (d) { return d.kind === 'videoinput'; });
+        log('cameras exposed to the browser: ' + cams.length);
+        cams.forEach(function (c, i) { log('  [' + i + '] ' + (c.label || '(no label)')); });
+        log('');
+        if (!cams.length) throw new Error('no video inputs');
+
+        // Strictly one at a time. Android cameras are exclusive — overlapping
+        // opens fail for reasons unrelated to what is being measured.
+        var results = [];
+        return cams.reduce(function (chain, dev, i) {
+          return chain.then(function () {
+            return probeOne(dev, i).then(function (r) {
+              results.push(r);
+              return settle(250);
+            });
+          });
+        }, Promise.resolve()).then(function () { return results; });
+      })
+      .then(function (results) {
+        render(results);
+        btn.disabled = false; btn.textContent = 'Run again';
+      })
+      .catch(function (e) {
+        out.innerHTML = '<div class="card"><h2>Probe failed</h2>' +
+          kv('Error', (e && e.name) || String(e), 'no') +
+          kv('Most likely', 'camera permission was declined', '') + '</div>';
+        log('FAILED: ' + ((e && e.message) || e));
+        btn.disabled = false; btn.textContent = 'Start probe';
+        rawBtn.style.display = 'inline-block';
+      });
+  });
+
+  copyBtn.addEventListener('click', function () {
+    var text = lines.join('\n');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        copyBtn.textContent = 'Copied'; setTimeout(function () { copyBtn.textContent = 'Copy result'; }, 1600);
+      }).catch(function () { logEl.style.display = 'block'; });
+    } else { logEl.style.display = 'block'; }
+  });
+
+  rawBtn.addEventListener('click', function () {
+    logEl.style.display = (logEl.style.display === 'block') ? 'none' : 'block';
+  });
+})();
+</script>
+</body>
+</html>
