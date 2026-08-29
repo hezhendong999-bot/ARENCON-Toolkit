@@ -205,10 +205,36 @@ function _exportModalOpen(){
      they will differ by punctuation, case and spacing forever. So the COMPARISON
      is normalised (case, whitespace, trailing punctuation) while everything
      DISPLAYED stays exactly as typed — the report shows the name as entered. */
+  /* S692 — who a report is issued to, as the Owner stated the rule:
+       · THE OWNER IS ALWAYS TICKED. A commissioning report goes to the building
+         owner, full stop. A saved distribution can never un-tick them — before
+         this, a distribution saved without the owner brought the dialog back
+         with the owner unticked, and the next issue would quietly have gone out
+         without them.
+       · A CONTRACTOR THE REPORT IS ACTUALLY FOR ticks automatically. The report's
+         own evidence says which: a contractor carrying deficiencies here is the
+         vendor this report concerns. If none do, every contractor ticks — the
+         old behaviour — so nobody is silently dropped.
+       · THE PREVIOUS CHOICE IS REMEMBERED. Once a distribution is saved it comes
+         back exactly as saved (owner excepted, per the first rule): un-ticking a
+         contractor sticks, and so does adding one.
+     Tick state is a DEFAULT, never a lock — every chip stays tappable. */
+  var _forUs = {};
+  try {
+    if (typeof deficiencies === 'object' && deficiencies) {
+      Object.keys(deficiencies).forEach(function(k){
+        var v = deficiencies[k];
+        if (Array.isArray(v) && v.length) _forUs[_recipKey(k)] = 1;
+      });
+    }
+  } catch(_) {}
+  var _anyForUs = Object.keys(_forUs).length > 0;
   function on(n){
-    if(!saved) return true;
     var k=_recipKey(n);
-    return saved.some(function(s){ return _recipKey(s)===k; });
+    if(owner && k===_recipKey(owner)) return true;                          // owner: always
+    if(saved) return saved.some(function(s){ return _recipKey(s)===k; });   // remembered
+    if(_anyForUs) return !!_forUs[k];                                       // the vendor this report is for
+    return true;                                                            // nothing to go on: everyone
   }
   // 'other' recipients = saved names that are neither owner nor a contractor
   var roleSet={}; if(owner) roleSet[_recipKey(owner)]=1; ctrs.forEach(function(c){roleSet[_recipKey(c)]=1;});
