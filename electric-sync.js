@@ -480,30 +480,34 @@ const CloudSync = (function () {
     if (_projectId && _online) await _step('project-info', function () { return _loadProjectInfo(); }, 10000);
     if (_projectId && !_instanceId) await _step('report-number', async function () { _instanceNumber = await _getNextInstanceNumber(); }, 10000);
 
-    window.addEventListener('online', function () {
-      _online = true;
-      _setStatus('saving', 'Reconnected...');
-      /* S583 — an offline save never involves the engine, so engine.isPending
-         stays false and this handler used to do nothing on reconnect. Check
-         the real ledger: local saved vs cloud confirmed. */
-      if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
-        /* S589 — push the LIVE model, never the stored string. save(_lastSavedJson)
-           re-sent a document collected minutes earlier; if a pull had since
-           brought in another device's newer readings, that stale document was
-           pushed straight back over them. Collect fresh: whatever is on screen
-           now already contains the merged truth. */
-        engine.pushVia = 'reconnect';
-        /* S600: reconnect is a wake by another name — same pull-first rule. */
-        Promise.resolve((async function () {
-          if (_projectId) { try { await engine.pull(_projectId, engine.instanceId || _instanceId); _lastPullAt = Date.now(); } catch (_) {} }
-          return save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson);
-        })())
-          .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); })
-          .catch(function () { _setStatus('pending', 'Saved locally'); });
-      } else if (engine.isPending) {
-        engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); });
-      } else { _setStatus('synced', 'Online'); }
+    /* S699 (mirror of diesel-sync.js) — reconnect has ONE owner. This facade's
+       own `online` listener raced the shared engine's flush() on the same
+       event. Both are replaced by one registered path whose order the engine
+       fixes: pull (ordinary merge) → afterPull → pushAhead. `pushAhead` stays
+       ours because only this facade knows it is ahead — an offline save never
+       reaches the engine, so engine.isPending is false (S583). */
+    engine.onReconnect({
+      afterPull: function () {
+        _lastPullAt = Date.now();
+        _setStatus('saving', 'Reconnected...');
+      },
+      pushAhead: function () {
+        /* S589 — collect fresh, never the stored string: the screen now holds
+           the merged truth the pull just delivered. */
+        if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
+          engine.pushVia = 'reconnect';
+          return Promise.resolve(save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson))
+            .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); return r; })
+            .catch(function () { _setStatus('pending', 'Saved locally'); return null; });
+        }
+        if (engine.isPending) {
+          return engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); return r; });
+        }
+        _setStatus('synced', 'Online');
+        return null;
+      }
     });
+    window.addEventListener('online', function () { _online = true; });
     window.addEventListener('offline', function () {
       _online = false;
       _setStatus('offline', 'Working offline');

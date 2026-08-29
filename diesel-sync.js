@@ -732,42 +732,56 @@ const CloudSync = (function () {
     if (_projectId && _online) await _step('project-info', function () { return _loadProjectInfo(); }, 10000);
     if (_projectId && !_instanceId) await _step('report-number', async function () { _instanceNumber = await _getNextInstanceNumber(); }, 10000);
 
-    window.addEventListener('online', function () {
-      _online = true;
-      _setStatus('saving', 'Reconnected...');
-      /* S583 — an OFFLINE save returns before the engine is ever involved, so
-         engine.isPending stays false and this handler used to do nothing: the
-         offline work sat unsent until something else happened to push it —
-         and the first heartbeat pull could destroy it first. Check the real
-         ledger: local saved vs cloud confirmed. save() routes through the
-         wipe gate and full push machinery, exactly like any other save. */
-      if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
-        /* S589 — push the LIVE model, never the stored string. save(_lastSavedJson)
-           re-sent a document collected minutes earlier; if a pull had since
-           brought in another device's newer readings, that stale document was
-           pushed straight back over them. Collect fresh: whatever is on screen
-           now already contains the merged truth. */
-        engine.pushVia = 'reconnect';
-        /* S600: reconnect is a wake by another name — same pull-first rule. */
-        Promise.resolve((async function () {
-          if (_projectId) { try { await engine.pull(_projectId, engine.instanceId || _instanceId); _lastPullAt = Date.now(); } catch (_) {} }
-          return save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson);
-        })())
-          .then(function (r) {
-            _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally');
-            /* S622c — the facade-level truth: a save that resolved WITHOUT a
-               cloud row while the device believes it is online is the drift
-               seed. Record it; the engine's push_result rows say why. */
-            try { if (!r && navigator.onLine && engine && engine.constructor) _diag('push_result', { outcome: 'save-resolved-null-online' }); } catch (_) {}
-          })
-          .catch(function (e) {
-            _setStatus('pending', 'Saved locally');
-            try { if (navigator.onLine) _diag('push_result', { outcome: 'save-threw-online', err: String(e && e.message || e).slice(0, 120) }); } catch (_) {}
-          });
-      } else if (engine.isPending) {
-        engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); });
-      } else { _setStatus('synced', 'Online'); }
+    /* ═══ S699 — RECONNECT HAS ONE OWNER NOW. ════════════════════════════════
+       This facade used to add its OWN `online` listener doing pull-then-save,
+       while the shared engine's listener called flush() on the same event.
+       Both ran. The listener is gone; the same steps are now registered with
+       the engine, which fixes the order once for every tool:
+       pull (ordinary merge) → afterPull → pushAhead.
+       `pushAhead` stays OURS because only this facade knows whether it is
+       ahead: the engine's _pendingSync is false after an offline save, which
+       never reaches the engine at all (S583). */
+    engine.onReconnect({
+      afterPull: function () {
+        /* The engine has applied the pull; the host's own apply/repaint path
+           runs here so a collect below reads POST-pull state, never pre-pull
+           pixels. _lastPullAt is stamped so the heartbeat does not immediately
+           re-pull. */
+        _lastPullAt = Date.now();
+        _setStatus('saving', 'Reconnected...');
+      },
+      pushAhead: function () {
+        /* S583 — an OFFLINE save returns before the engine is ever involved, so
+           engine.isPending stays false. Check the real ledger: local saved vs
+           cloud confirmed. save() routes through the wipe gate and the full
+           push machinery, exactly like any other save.
+           S589 — push the LIVE model, never the stored string: collect fresh,
+           because whatever is on screen now already contains the merged truth
+           the pull just delivered. */
+        if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
+          engine.pushVia = 'reconnect';
+          return Promise.resolve(save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson))
+            .then(function (r) {
+              _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally');
+              /* S622c — a save that resolved WITHOUT a cloud row while the
+                 device believes it is online is the drift seed. Record it. */
+              try { if (!r && navigator.onLine && engine && engine.constructor) _diag('push_result', { outcome: 'save-resolved-null-online' }); } catch (_) {}
+              return r;
+            })
+            .catch(function (e) {
+              _setStatus('pending', 'Saved locally');
+              try { if (navigator.onLine) _diag('push_result', { outcome: 'save-threw-online', err: String(e && e.message || e).slice(0, 120) }); } catch (_) {}
+              return null;
+            });
+        }
+        if (engine.isPending) {
+          return engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); return r; });
+        }
+        _setStatus('synced', 'Online');
+        return null;
+      }
     });
+    window.addEventListener('online', function () { _online = true; });
     window.addEventListener('offline', function () {
       _online = false;
       _setStatus('offline', 'Working offline');

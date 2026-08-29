@@ -1160,3 +1160,21 @@ exportPanelSelected
 _frtBootLocalUnreadable
 _s698ShowLocalUnreadable
 _s698MergeHeld
+
+@ ────────────────────────────────────────────────────────────────────────────
+@ S699 — ONE OWNER FOR RECONNECT.
+@ Before this, TWO things fired on the browser's `online` event: the engine's
+@ listener called flush() (push-only) and the Diesel/Electric facades ran their
+@ own pull-then-save. They raced. onReconnect/reconnect are the single ordered
+@ path: pull with the ORDINARY merge (never allowStaleOverwrite, never
+@ authoritative - reconnect is NOT an authorised correction, doctrine I-14),
+@ then the host repaint, then a push only if this device is still ahead.
+@ _reconnectAfterPull is MANDATORY and is why this is safe: a host that
+@ collects state from the SCREEN (Diesel/Electric, getProjectReadsScreen) would
+@ otherwise push pre-pull pixels over the merge that just landed. Do NOT fold a
+@ pull into flush() - that is the double-write this design exists to avoid, and
+@ it is worse than the race it would replace. Heartbeat flush stays push-only.
+@ ────────────────────────────────────────────────────────────────────────────
+onReconnect
+_reconnectAfterPull
+_reconnectPushAhead

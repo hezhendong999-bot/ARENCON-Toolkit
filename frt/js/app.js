@@ -1281,6 +1281,29 @@ function _repaintAfterPull(){
   try { switchTab(_currentTab); } catch (e) { console.warn('[FRT v2] repaint after pull failed:', e && e.message); }
 }
 
+/* ═══ S699 — FRT JOINS THE ONE RECONNECT PATH. ═════════════════════════════
+   Coming back online used to push whatever was pending without pulling first,
+   so a device that had been offline sent its work into a conflict and relied on
+   the 412 merge to sort it out. Now the engine runs one fixed order for every
+   tool — pull with the ORDINARY merge (never allowStaleOverwrite, never
+   authoritative: reconnect is not an authorised correction, doctrine I-14) →
+   repaint → push only if this device is still ahead.
+
+   FRT supplies only `afterPull`; the engine owns the push, because FRT's ahead
+   state IS the engine's (_pendingSync), unlike Diesel/Electric whose offline
+   saves never reach the engine. Registration is unconditional — if it ever
+   failed, the engine keeps the old push-only path rather than inventing one. */
+try {
+  if (typeof SyncEngine !== 'undefined' && SyncEngine.onReconnect) {
+    SyncEngine.onReconnect({
+      afterPull: function () {
+        try { _repaintAfterPull(); } catch (_) {}
+        try { _setCloudStatus('synced', 'Reconnected'); } catch (_) {}
+      }
+    });
+  }
+} catch (e) { console.warn('[FRT S699] reconnect hook not registered:', e && e.message); }
+
 /* ═══ S692 — RELOAD FROM CLOUD (host side). ════════════════════════════════
    Mark, 25 Aug: "I do not ever want a device with old cache to overwrite the
    new work" / "No commercial app requires clearing data/cache."
