@@ -28,6 +28,20 @@
 var _appendixExcl = new Set();
 function _ppxKey(item){ return (item.photo&&item.photo.id) ? item.photo.id : ('pgk_'+item.section+'#'+item.idx); }
 
+/* ════ S693 — ONE flow formatter for every printed flow ══════════════════════
+   Hydraulic-calc inputs carry decimals; summing them and printing via bare
+   toLocaleString() put "2,353.383 gpm" on a client report. The rule, in one
+   place so it cannot drift: printed flows carry thousands separators and AT
+   MOST one decimal. Comparison and calculation are untouched — only what a
+   reader sees. Used by the Total System Demand rows here and by part06b's
+   safety-margin line and readout strip (pdfExport loads first, so the symbol
+   exists before either runs). */
+function _fmtFlow(n){
+  n = +n;
+  if(!isFinite(n)) return '\u2014';
+  return n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+
 /* ════ S512 — CLICKABLE PHOTOS ═══════════════════════════════════════════════
    window.__photoLinkHrefs is populated (async, before the preview opens) by the
    export flow: lib/data/photoLinkMint.js mints an opaque /p/{token} for every
@@ -895,7 +909,7 @@ function _realExportPDF() {
       out+='<tr><td style="text-align:left">Sprinkler System Demand (SD) + Inside Hose</td><td>'+gv('dem-spr-flow')+'</td><td>'+gv('dem-spr-psi')+'</td></tr>';
       out+='<tr><td style="text-align:left">Outside Hose Allowance (OHL)</td><td>'+gv('dem-hose-flow')+'</td><td>—</td></tr>';
       var totalDemF=(parseFloat(gv('dem-spr-flow'))||0)+(parseFloat(gv('dem-hose-flow'))||0);
-      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemF.toLocaleString()+' gpm</td><td>'+gv('dem-spr-psi')+' psi</td></tr>';
+      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+_fmtFlow(totalDemF)+' gpm</td><td>'+gv('dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Chart
       if(chartImgA) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">3-Point Fire Pump Performance Curve (w/o PRV &amp; PLD)</div><img src="'+chartImgA+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_buildReadoutStripHtml3pt()+_safetyMarginPdf('')+'</div>';
@@ -918,7 +932,7 @@ function _realExportPDF() {
       out+='<tr><td style="text-align:left">Sprinkler System Demand (SD) + Inside Hose</td><td>'+gv('pld-dem-spr-flow')+'</td><td>'+gv('pld-dem-spr-psi')+'</td></tr>';
       out+='<tr><td style="text-align:left">Outside Hose Allowance (OHL)</td><td>'+gv('pld-dem-hose-flow')+'</td><td>—</td></tr>';
       var totalDemPld=(parseFloat(gv('pld-dem-spr-flow'))||0)+(parseFloat(gv('pld-dem-hose-flow'))||0);
-      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+totalDemPld.toLocaleString()+' gpm</td><td>'+gv('pld-dem-spr-psi')+' psi</td></tr>';
+      out+='<tr style="font-weight:700;"><td style="text-align:left">Total System Demand</td><td>'+_fmtFlow(totalDemPld)+' gpm</td><td>'+gv('pld-dem-spr-psi')+' psi</td></tr>';
       out+='</tbody></table>';
       // Charts
       if(chartImgB) out+='<div style="margin-top:14px;text-align:center;"><div style="font-size:9pt;font-weight:700;color:#2C3E50;margin-bottom:4px;">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</div><img src="'+chartImgB+'" style="width:100%;max-width:850px;border:1px solid #DDD;border-radius:6px;display:block;margin:0 auto;">'+_safetyMarginPdf('pld-','pldChart')+'</div>';
@@ -1505,6 +1519,32 @@ function _realExportPDF() {
             tb = _shell(true);                                // continue on a fresh page
             grp.forEach(function(r){ tb.appendChild(r); });
           }
+          /* S693 — the pull-back above deliberately skipped the FIRST group of a
+             shell so the band could not strand over an empty table; the price
+             was that a first group overflowing a page that already carried
+             OTHER content rode the overflow and painted past the sheet edge.
+             When the page has other content, move band + shell + group to a
+             fresh page TOGETHER — nothing strands, nothing bleeds. A first
+             group alone on its page stays (nowhere better exists; the S687
+             photo flow below divides it if it can be divided). */
+          if(_overflow() && firstOnPage){
+            var _tblEl = tb.parentNode, _wrapEl = _tblEl ? _tblEl.parentNode : null;
+            var _hasOther = _wrapEl && Array.prototype.some.call(curPage.children, function(n){
+              return n !== _wrapEl && !(n.classList && (n.classList.contains('compact-header') || n.classList.contains('sh')));
+            });
+            if(_hasOther && _wrapEl && _wrapEl.parentNode === curPage){
+              grp.forEach(function(r){ if(r.parentNode) r.parentNode.removeChild(r); });
+              if(!tb.rows.length) curPage.removeChild(_wrapEl);
+              var _tailBand = curPage.lastElementChild;
+              if(_tailBand && _tailBand.classList && _tailBand.classList.contains('sh') && curPage.children.length > 1){
+                curPage.removeChild(_tailBand);        // the band travels with its table
+              } else { _tailBand = null; }
+              _push();
+              if(_tailBand) curPage.appendChild(_tailBand);
+              tb = _shell(false);
+              grp.forEach(function(r){ tb.appendChild(r); });
+            }
+          }
           if(_overflow()) _flowPhotoOverflow(grp);            // S687: taller than any page — divide at photo boundaries
         });
       }
@@ -1544,6 +1584,22 @@ function _realExportPDF() {
             curPage.appendChild(w);
           }
           w.appendChild(k);
+          /* S693 — ROOT CAUSE of the deficiency-summary bleed: a contractor
+             block carrying several deficiencies measures taller than ANY page,
+             and "leave it on its own page" painted the excess past the sheet
+             edge (probe measured 170–570px of ink off the page). A block that
+             has ALREADY overflowed a page it has to itself is in the
+             guaranteed-bleed case; when it is a plain multi-child container
+             (not nosplit / apx-keep), dividing it at its OWN child boundaries
+             is strictly better. Recursion descends the tree, so it terminates
+             at leaves; every block that fits a page is placed exactly as
+             before this fix. */
+          if(_overflow() && k.children && k.children.length > 1 && !(k.classList && (k.classList.contains('nosplit') || k.classList.contains('apx-keep')))){
+            w.removeChild(k);
+            if(!w.children.length && w.parentNode === curPage) curPage.removeChild(w);
+            _splitGeneric(k, head);
+            w = curPage.lastChild; if(!w || w === block){ w = _wrap(true); }
+          }
         });
       }
 
@@ -1579,8 +1635,32 @@ function _realExportPDF() {
             var testBand = _bandClone(head,false);
             curPage.appendChild(testBand);
             var firstBN = bodyNodes[0];
+            /* S693 — ROOT CAUSE of "section starts on a fresh page leaving most
+               of a page blank" (field report pages 8–9, sections 4 & 5). The
+               test below measured band + the ENTIRE first body node. For every
+               section whose body is ONE block (all .sb.flush tables, and the
+               big section-4 .sb) that degenerates into "does the whole section
+               fit — if not, fresh page", abandoning hundreds of px of room the
+               splitting machinery below was built to fill. So: when the first
+               body node is SPLITTABLE (a rowed table, or a multi-child
+               container), require only the band plus a meaningful start of
+               content (160px ≈ table header + a first row group); the split
+               machinery re-stamps "(cont.)" bands from there. An ATOMIC first
+               node (nosplit / apx-keep / single leaf — the 300px placard case
+               this test was written for) keeps the original whole-block test. */
+            var _fbAtomic = firstBN && firstBN.classList && (firstBN.classList.contains('nosplit') || firstBN.classList.contains('apx-keep'));
+            var _fbTable = (!_fbAtomic && firstBN && firstBN.querySelector) ? ((firstBN.matches && firstBN.matches('table')) ? firstBN : firstBN.querySelector('table')) : null;
+            var _fbSplittable = !_fbAtomic && firstBN && ((_fbTable && _fbTable.tBodies && _fbTable.tBodies.length && _fbTable.tBodies[0].rows.length > 2) || (firstBN.children && firstBN.children.length > 1));
             var measured = false;
-            if(firstBN){
+            if(firstBN && _fbSplittable){
+              if((PAGE_LIMIT - curPage.offsetHeight) < 160){
+                curPage.removeChild(testBand);
+                _push();                              // no meaningful room under the band → fresh page
+                pushedForBand = true;
+              } else {
+                curPage.removeChild(testBand);        // band + a real start fit; splitting fills the rest
+              }
+            } else if(firstBN){
               curPage.appendChild(firstBN);          // tentatively measure band + first block
               measured = true;
               if(_overflow()){ 
@@ -1648,6 +1728,18 @@ function _realExportPDF() {
               _splitGeneric(prevNode, head);
               if(_overflow() && curPage.children.length > 1) _push();
               curPage.appendChild(bn);
+              /* S693 — the overflow test above ran BEFORE the verdict box was
+                 re-appended, so a page the split had left nearly full took the
+                 box and painted it past the sheet edge (the field FAIL bar,
+                 page 11). Test what is actually ON the page: if the box
+                 overflows and has company, it gets the fresh page the nosplit
+                 rule promises it. */
+              if(_overflow() && curPage.children.length > 2){
+                curPage.removeChild(bn);
+                _push();
+                if(head) curPage.appendChild(_bandClone(head,true));
+                curPage.appendChild(bn);
+              }
             }
             return;
           }

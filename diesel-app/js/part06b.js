@@ -76,7 +76,7 @@ function calcTotalDemand3pt() {
   const dpEl = document.getElementById('dem-psi');  if(dpEl) dpEl.value = sp||'';
   const tfl = document.getElementById('dem-total-flow');
   const tps = document.getElementById('dem-total-psi');
-  if(tfl) tfl.textContent = tf>0 ? tf.toLocaleString()+' gpm' : '—';
+  if(tfl) tfl.textContent = tf>0 ? _fmtFlow(tf)+' gpm' : '—';
   if(tps) tps.textContent = sp>0 ? sp+' psi' : '—';
   updateChart3pt();
 }
@@ -90,7 +90,7 @@ function calcTotalDemandPld() {
   const dpEl = document.getElementById('pld-dem-psi');  if(dpEl) dpEl.value = sp||'';
   const tfl = document.getElementById('pld-dem-total-flow');
   const tps = document.getElementById('pld-dem-total-psi');
-  if(tfl) tfl.textContent = tf>0 ? tf.toLocaleString()+' gpm' : '—';
+  if(tfl) tfl.textContent = tf>0 ? _fmtFlow(tf)+' gpm' : '—';
   if(tps) tps.textContent = sp>0 ? sp+' psi' : '—';
   updatePldChart(); updatePldNetChart();
 }
@@ -521,7 +521,7 @@ function renderFigReadout3pt(){
     var cell=document.createElement('div'); cell.className='ro';
     cell.innerHTML='<div class="pct">'+_escHtml(row.pct)+' · '+_escHtml(row.label)+'</div>'
       +'<div class="val">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
-      +'<div class="sub">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
+      +'<div class="sub">@ '+(!isNaN(flow)?_fmtFlow(flow)+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
       +'<span class="chip '+r.verdict+'">'+vtxt+'</span>';
     host.appendChild(cell);
   });
@@ -534,7 +534,7 @@ function renderFigSupply3pt(){
   var sf=parseFloat(document.getElementById('ws-static-flow')?.value)||0;
   var rf=parseFloat(document.getElementById('ws-res-flow')?.value);
   var rp=parseFloat(document.getElementById('ws-res-psi')?.value);
-  if(!isNaN(sp)&&sp>0) parts.push('Static supply: <b>'+sp+' psi</b>'+(sf>0?' @ '+sf.toLocaleString()+' gpm':''));
+  if(!isNaN(sp)&&sp>0) parts.push('Static supply: <b>'+sp+' psi</b>'+(sf>0?' @ '+_fmtFlow(sf)+' gpm':''));
   if(!isNaN(rf)&&!isNaN(rp)&&rf>0) parts.push('Residual supply: <b>'+rp+' psi @ '+rf.toLocaleString()+' gpm</b>');
   var df=parseFloat(document.getElementById('dem-flow')?.value);
   var dp=parseFloat(document.getElementById('dem-psi')?.value);
@@ -587,7 +587,7 @@ function renderFigReadoutPld(){
     var cell=document.createElement('div'); cell.className='ro';
     cell.innerHTML='<div class="pct">'+row.pct+'</div>'
       +'<div class="val">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
-      +'<div class="sub">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(!isNaN(rpm)&&rpm>0?' · '+rpm+' rpm':'')+'</div>'
+      +'<div class="sub">@ '+(!isNaN(flow)?_fmtFlow(flow)+' gpm':'— gpm')+(!isNaN(rpm)&&rpm>0?' · '+rpm+' rpm':'')+'</div>'
       +'<span class="chip '+v.verdict+'">'+vtxt+'</span>';
     host.appendChild(cell);
   });
@@ -599,7 +599,7 @@ function renderFigSupplyPld(){
   var sf=parseFloat(document.getElementById('pld-ws-static-flow')?.value)||0;
   var rf=parseFloat(document.getElementById('pld-ws-res-flow')?.value);
   var rp=parseFloat(document.getElementById('pld-ws-res-psi')?.value);
-  if(!isNaN(sp)&&sp>0) parts.push('Static supply: <b>'+sp+' psi</b>'+(sf>0?' @ '+sf.toLocaleString()+' gpm':''));
+  if(!isNaN(sp)&&sp>0) parts.push('Static supply: <b>'+sp+' psi</b>'+(sf>0?' @ '+_fmtFlow(sf)+' gpm':''));
   if(!isNaN(rf)&&!isNaN(rp)&&rf>0) parts.push('Residual supply: <b>'+rp+' psi @ '+rf.toLocaleString()+' gpm</b>');
   var df=parseFloat(document.getElementById('pld-dem-flow')?.value);
   var dp=parseFloat(document.getElementById('pld-dem-psi')?.value);
@@ -627,7 +627,7 @@ function renderFigReadoutPldNet(){
     var cell=document.createElement('div'); cell.className='ro';
     cell.innerHTML='<div class="pct">'+row.pct+'</div>'
       +'<div class="val">'+netVal+'</div>'
-      +'<div class="sub">net @ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+'</div>'
+      +'<div class="sub">net @ '+(!isNaN(flow)?_fmtFlow(flow)+' gpm':'— gpm')+'</div>'
       +'<span class="chip '+v.verdict+'">'+vtxt+'</span>';
     host.appendChild(cell);
   });
@@ -867,7 +867,7 @@ function _safetyMarginPdf(pfx, chartKey){
     +'<b style="color:#1a1a1a;">Safety Margin: </b>'
     +'<b style="color:'+col.c+';font-size:11pt;">'+sign+m.psi.toFixed(1)+' psi</b> '
     +'<span style="color:'+col.c+';font-weight:700;">('+pctTxt+' · '+col.word+')</span> '
-    +'<span style="color:#666;">— actual output '+m.avail.toFixed(1)+' psi '+(m.basis==='golden'?'(pump w/ limiters)':'(water supply)')+' \u2212 demand '+m.demPsi.toFixed(0)+' psi @ '+m.demFlow.toLocaleString()+' gpm</span>'
+    +'<span style="color:#666;">— actual output '+m.avail.toFixed(1)+' psi '+(m.basis==='golden'?'(pump w/ limiters)':'(water supply)')+' \u2212 demand '+m.demPsi.toFixed(0)+' psi @ '+_fmtFlow(m.demFlow)+' gpm</span>'
     +'</span></div>';
 }
 function toggleSafetyMargin(chartKey){
@@ -890,7 +890,7 @@ function _buildReadoutStripHtml3pt(){
     return '<td style="text-align:center;padding:6px 4px;border:1px solid #DDE1E7;">'
       +'<div style="font-size:7.5pt;font-weight:700;color:#A0AEC0;text-transform:uppercase;letter-spacing:.4px;">'+row.pct+' · '+row.label+'</div>'
       +'<div style="font-size:11pt;font-weight:700;color:#1C2333;">'+(!isNaN(dis)?dis+' psi':'—')+'</div>'
-      +'<div style="font-size:7.5pt;color:#4A5568;">@ '+(!isNaN(flow)?flow.toLocaleString()+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
+      +'<div style="font-size:7.5pt;color:#4A5568;">@ '+(!isNaN(flow)?_fmtFlow(flow)+' gpm':'— gpm')+(row.rpm?' · '+row.rpm+' rpm':'')+'</div>'
       +'<span style="display:inline-block;font-size:7pt;font-weight:800;padding:1px 8px;border-radius:8px;margin-top:2px;background:'+chipBg+';color:'+chipCol+';">'+vtxt+'</span>'
       +'</td>';
   }).join('');
