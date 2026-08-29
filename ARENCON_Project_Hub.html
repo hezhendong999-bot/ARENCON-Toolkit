@@ -4149,7 +4149,9 @@ async function _loadAndRenderDeletedInstances(proj) {
     var shortName = _TOOL_SHORT_NAMES[inst.tool_key] || (t ? t.name : inst.tool_key);
     var defaultTitle = sfn ? (sfn + ' ' + prefix + ' #' + inst.instance_number)
                            : (shortName + ' Report #' + inst.instance_number);
-    var title = inst.label || defaultTitle;
+    /* S693 — Mark's rule: a trashed report is labelled, e.g. "FRT #2 (deleted)",
+       because its number may now be held by a live report at the same time. */
+    var title = (inst.label || defaultTitle) + ' (deleted)';
     var who = inst.deleted_by ? (_userMap[inst.deleted_by] || 'someone') : 'someone';
     var when = inst.deleted_at ? new Date(inst.deleted_at).toLocaleDateString('en-CA') : '—';
     /* S495 STAGE 2 — retention countdown. Policy: 90 days from deleted_at
@@ -4276,15 +4278,22 @@ async function createNewReport(key) {
   if (!t) return;
 
   // Find next instance number.
-  // S495 — DELIBERATELY NOT filtered by deleted_at, unlike every other
-  // tool_data query. Report numbers must stay unique across the project's whole
-  // history: if FRT #3 were deleted and this query skipped it, the next report
-  // would also be #3, and restoring the original would leave two reports
-  // numbered #3 in one project. A deleted report still owns its number.
-  // Do not "fix" this to match the other queries.
+  // S693 — NUMBER REUSE LAW (Mark's design; supersedes S495's "a deleted
+  // report still owns its number"). The S495 comment described a query that
+  // could never do what it claimed: the RESTRICTIVE policy hiding deleted
+  // rows means no client query ever sees them, so this always computed max+1
+  // over LIVE reports — while the old table-wide unique constraint still
+  // counted the invisible deleted row. Once any report of a tool was deleted
+  // in a project, no new one could EVER be created there (1490.04 x2 and
+  // 6360.08 were dead in the field, users staring at a raw constraint error).
+  // The database now enforces uniqueness among LIVE reports only
+  // (tool_data_live_number_uniq, partial on deleted_at is null). A deleted
+  // report keeps its number for display — "FRT #2 (deleted)" — and the clash
+  // is handled at RESTORE time (see restoreInstance). The explicit filter
+  // below makes the query say what it does.
   var nextNum = 1;
   try {
-    var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).order('instance_number', {ascending:false}).execute();
+    var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).is('deleted_at', null).order('instance_number', {ascending:false}).execute();
     if (existing && existing.length > 0) nextNum = existing[0].instance_number + 1;
   } catch(e) {}
 
@@ -4300,10 +4309,9 @@ async function createNewReport(key) {
   // exportRegistry/exportIds (CRB round math ties them to the noting report)
   // and the _s217/_s464 point-in-time backups. FRT ONLY — commissioning
   // tools (diesel/electric/IST) are genuinely per-visit and stay blank.
-  // S495: the numbering query above intentionally includes deleted reports, so
-  // existing[0] may BE a deleted one. Seeding from it would silently resurrect
-  // work someone deliberately removed. The number comes from all rows; the seed
-  // comes from the newest report still live.
+  // S693: the numbering query above returns LIVE reports only, so existing[0]
+  // is the newest live report. The !deleted_at check in the loop below stays
+  // as belt-and-braces — the seed must never resurrect deleted work.
   var _seedSrc = null;
   if (existing && existing.length > 0) {
     for (var _si = 0; _si < existing.length; _si++) {
@@ -6567,13 +6575,49 @@ async function restoreInstance(instanceId, title) {
   try {
     /* S642: clients cannot update a deleted row (that immutability is the
        whole protection) — restore is the one sanctioned exception and runs
-       server-side. */
-    await _sb.rpc('hub_restore_report', { p_id: instanceId });
-    toast('Report restored', 'success');
-    if (_detailProjectId) {
-      var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
-      if (proj) { _loadAndRenderInstances(proj); _loadAndRenderDeletedInstances(proj); }
+       server-side.
+       S693: the function now answers with a typed result. 'conflict' means a
+       LIVE report holds this number (numbers are reusable since S693), and
+       the sanctioned resolution is a SWAP — the live holder moves to Deleted
+       (fully restorable), this one returns under its own number. NOTHING IS
+       EVER RENUMBERED: an FRT's items are stamped with its visit number
+       internally, so renumbering a container silently corrupts the
+       carried-vs-new math. Do not add a renumber option. */
+    var _res = await _sb.rpc('hub_restore_report', { p_id: instanceId, p_mode: 'keep' });
+    var _refresh = function() {
+      if (_detailProjectId) {
+        var proj = _projects.find(function(p) { return p.id === _detailProjectId; });
+        if (proj) { _loadAndRenderInstances(proj); _loadAndRenderDeletedInstances(proj); }
+      }
+    };
+    if (_res && _res.result === 'ok') {
+      toast('Report restored', 'success');
+      _refresh();
+      return;
     }
+    if (_res && _res.result === 'conflict') {
+      var _num = _res.instance_number;
+      var _swap = await Dlg.confirmDanger({
+        title: 'Report number in use',
+        message: 'A live report #' + _num + ' already exists in this project.',
+        detail: 'Report numbers can be reused after a delete, so both copies exist. '
+          + 'Restoring this one swaps them: the current #' + _num + ' moves to Deleted '
+          + 'Reports and this one returns as #' + _num + '. Nothing is destroyed.',
+        undoNote: 'The displaced report stays in Deleted Reports on this project and can be restored the same way.',
+        confirmText: 'Swap them',
+        icon: '\u21C4'
+      });
+      if (!_swap) return;
+      var _res2 = await _sb.rpc('hub_restore_report', { p_id: instanceId, p_mode: 'swap', p_actor: _profile ? _profile.id : null });
+      if (_res2 && _res2.result === 'ok') {
+        toast('Reports swapped \u2014 the previous #' + _num + ' is in Deleted Reports', 'success');
+        _refresh();
+      } else {
+        toast('Swap failed \u2014 refresh and try again', 'error');
+      }
+      return;
+    }
+    toast('Restore failed \u2014 the report was not found in Deleted Reports', 'error');
   } catch (e) { toast('Restore failed: ' + e.message, 'error'); }
 }
 
