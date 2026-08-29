@@ -54,6 +54,13 @@ frt/fonts/Carlito-Bold.ttf
 frt/fonts/Carlito-Italic.ttf
 frt/fonts/Carlito-BoldItalic.ttf
 frt/vendor/fontkit.umd.min.js
+vendor/fontkit.umd.min.js
+# ^ S695b: fontkit at the ROOT vendor path. lib/export/capturePdf.js resolves
+#   '../../vendor/fontkit.umd.min.js' from lib/export/, i.e. the root — but the
+#   file only ever lived under frt/vendor/ (from before the capture pipeline
+#   moved into lib/). Every export in BOTH tools 404'd it and silently degraded
+#   from real selectable text to the invisible search layer. The frt/vendor
+#   copy stays for anything old still pointing at it.
 frt/fonts/Blair.ttf
 frt/fonts/LiberationSans-Regular.ttf
 

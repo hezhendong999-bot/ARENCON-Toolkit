@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608291631';
+var CACHE_NAME = 'arencon-frt-202608291716';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -54,6 +54,7 @@ var APP_FILES = [
   'frt/fonts/Carlito-Italic.ttf',
   'frt/fonts/Carlito-BoldItalic.ttf',
   'frt/vendor/fontkit.umd.min.js',
+  'vendor/fontkit.umd.min.js',
   'frt/fonts/Blair.ttf',
   'frt/fonts/LiberationSans-Regular.ttf',
   'diesel-app/css/diesel-01.css',
