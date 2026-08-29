@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARENCON camera visual probe</title>
+<style>
+  body{margin:0;background:#0b0a0d;color:#f4f3f6;font-family:Calibri,sans-serif;padding:16px;}
+  h1{font-size:20px;margin:0 0 4px;} .sub{color:#a09aa8;font-size:14px;margin-bottom:14px;}
+  button{font-family:Calibri,sans-serif;font-size:16px;font-weight:700;border:0;border-radius:12px;padding:12px 20px;cursor:pointer;}
+  .go{background:#9C2742;color:#fff;} .alt{background:#26242c;color:#f4f3f6;border:1px solid #3a3742;}
+  .card{background:#161419;border:1px solid #2a2731;border-radius:16px;padding:10px;margin:10px 0;}
+  .card img{width:100%;border-radius:10px;display:block;background:#000;}
+  .lbl{font-size:15px;font-weight:700;margin:8px 0 2px;} .caps{font-size:12.5px;color:#a09aa8;word-break:break-all;}
+  .pick{width:100%;margin-top:8px;background:#2C7FB8;color:#fff;}
+  .verdict{border-radius:14px;padding:14px;margin:14px 0;font-size:15px;font-weight:700;display:none;}
+  .v-ok{background:rgba(46,158,114,.15);border:1px solid #2E9E72;color:#3FD08A;}
+  .v-none{background:rgba(201,138,74,.15);border:1px solid #C98A4A;color:#E0A36A;}
+  .status{font-size:14px;color:#a09aa8;margin:10px 0;}
+  #report{width:100%;background:#161419;color:#c9c6cf;border:1px solid #2a2731;border-radius:10px;font-size:12px;padding:8px;min-height:90px;font-family:monospace;}
+  #native{display:none;} .h2{font-size:17px;font-weight:700;margin:18px 0 6px;}
+  #nativeShot{width:100%;border-radius:10px;display:none;margin-top:8px;}
+</style>
+</head>
+<body>
+<h1>Camera visual probe</h1>
+<div class="sub">This shows a picture from every camera your phone lets the browser see.
+Point the phone at the room and hold it still — it switches lenses by itself.</div>
+<button class="go" id="btnStart">Start</button>
+<div class="status" id="status"></div>
+<div id="cards"></div>
+<div id="ask" style="display:none">
+  <div class="h2">Which picture shows the WIDEST view?</div>
+  <div class="sub">Tap "This one is the wide view" under it. If none of them looks wider than the
+  normal camera, tap below.</div>
+  <button class="alt" id="btnNone" style="width:100%">None of these is wide</button>
+</div>
+<div class="verdict v-ok" id="vOk"></div>
+<div class="verdict v-none" id="vNone">Recorded. This phone does not show its wide lens to the
+browser, so the .6 button stays hidden in the tool on this phone — it will never pretend.
+The native Samsung camera below CAN still take .6 photos.</div>
+<div id="native">
+  <div class="h2">Native camera check</div>
+  <div class="sub">This opens your real Samsung camera app — with its own .6 button. Take a .6
+  photo and it comes straight back to this page, proving the path works.</div>
+  <input type="file" accept="image/*" capture="environment" id="natIn" style="display:none">
+  <button class="go" id="btnNative" style="width:100%">Open native camera</button>
+  <img id="nativeShot" alt="">
+</div>
+<div class="h2">Report (long-press to copy, send to Mark's session)</div>
+<textarea id="report" readonly></textarea>
+<script>
+(function(){
+  var S=document.getElementById('status'), cards=document.getElementById('cards'),
+      rep=document.getElementById('report'), lines=[];
+  function log(t){ lines.push(t); rep.value=lines.join('\n'); }
+  log('ARENCON camera VISUAL probe');
+  log('when: '+new Date().toString());
+  log('agent: '+navigator.userAgent);
+
+  function openCam(id){ return navigator.mediaDevices.getUserMedia(
+    { video:{ deviceId:{exact:id}, width:{ideal:1280}, height:{ideal:960} }, audio:false }); }
+
+  function frameOf(stream){ return new Promise(function(res){
+    var v=document.createElement('video'); v.playsInline=true; v.muted=true; v.srcObject=stream;
+    v.play().catch(function(){});
+    setTimeout(function(){
+      var w=v.videoWidth||1280, h=v.videoHeight||960, c=document.createElement('canvas');
+      c.width=w; c.height=h;
+      try{ c.getContext('2d').drawImage(v,0,0,w,h); }catch(e){}
+      var t=stream.getVideoTracks()[0], caps={};
+      try{ caps=t.getCapabilities?t.getCapabilities():{}; }catch(e){}
+      res({ url:c.toDataURL('image/jpeg',0.8), caps:caps });
+    }, 900); // caps and the first real frames need the track to settle (S430/S431)
+  });}
+
+  document.getElementById('btnStart').addEventListener('click', function(){
+    this.disabled=true; S.textContent='Asking for camera permission\u2026';
+    navigator.mediaDevices.getUserMedia({video:true,audio:false}).then(function(s){
+      s.getTracks().forEach(function(t){t.stop();});
+      return navigator.mediaDevices.enumerateDevices();
+    }).then(function(ds){
+      var cams=ds.filter(function(d){return d.kind==='videoinput';});
+      log('cameras exposed to the browser: '+cams.length);
+      var i=0;
+      function next(){
+        if(i>=cams.length){ S.textContent='Done \u2014 answer the question below.';
+          document.getElementById('ask').style.display=''; return; }
+        var d=cams[i++], lbl=d.label||('camera '+i);
+        S.textContent='Opening: '+lbl+' \u2026';
+        openCam(d.deviceId).then(function(stream){
+          return frameOf(stream).then(function(r){
+            try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
+            var z=r.caps&&r.caps.zoom?JSON.stringify(r.caps.zoom):'n/a';
+            var mw=(r.caps&&r.caps.width&&r.caps.width.max)||'?',
+                mh=(r.caps&&r.caps.height&&r.caps.height.max)||'?';
+            var torch=!!(r.caps&&r.caps.torch), facing=(r.caps&&r.caps.facingMode)?r.caps.facingMode.join(','):'?';
+            log('['+lbl+'] facing='+facing+' zoom='+z+' torch='+torch+' maxRes='+mw+'x'+mh);
+            var el=document.createElement('div'); el.className='card';
+            el.innerHTML='<img src="'+r.url+'"><div class="lbl">'+lbl+'</div>'+
+              '<div class="caps">facing '+facing+' \u00B7 zoom '+z+' \u00B7 torch '+torch+' \u00B7 max '+mw+'\u00D7'+mh+'</div>';
+            if(/back|environment/i.test(facing) || /back|rear/i.test(lbl)){
+              var b=document.createElement('button'); b.className='pick';
+              b.textContent='This one is the wide view';
+              b.addEventListener('click', function(){
+                try{ localStorage.setItem('arc-cam-wide-v3','sw:'+d.deviceId); }catch(e){}
+                log('CHOSEN AS WIDE: '+lbl);
+                var v=document.getElementById('vOk');
+                v.textContent='Saved. The .6 button in the tool will switch to "'+lbl+
+                  '" on this phone from now on. Open the FRT camera and try .6 \u2014 it should widen.';
+                v.style.display='block'; window.scrollTo(0,document.body.scrollHeight);
+              });
+              el.appendChild(b);
+            }
+            cards.appendChild(el);
+            setTimeout(next, 250); // exclusive cameras — breathe between lenses
+          });
+        }).catch(function(err){ log('['+lbl+'] open FAILED: '+(err&&err.name||err)); setTimeout(next,150); });
+      }
+      next();
+    }).catch(function(err){ S.textContent='Camera permission failed: '+(err&&err.name||err); });
+  });
+
+  document.getElementById('btnNone').addEventListener('click', function(){
+    try{ localStorage.setItem('arc-cam-wide-v3','none'); }catch(e){}
+    log('VERDICT: no wide view among browser-visible cameras');
+    document.getElementById('vNone').style.display='block';
+    document.getElementById('native').style.display='block';
+    window.scrollTo(0,document.body.scrollHeight);
+  });
+
+  var natIn=document.getElementById('natIn');
+  document.getElementById('btnNative').addEventListener('click', function(){ natIn.click(); });
+  natIn.addEventListener('change', function(){
+    var f=natIn.files&&natIn.files[0]; if(!f) return;
+    var img=document.getElementById('nativeShot');
+    img.src=URL.createObjectURL(f); img.style.display='block';
+    log('native camera returned a photo: '+f.name+' ('+Math.round(f.size/1024)+' KB)');
+  });
+})();
+</script>
+</body>
+</html>
