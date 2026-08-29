@@ -1347,6 +1347,30 @@ window.addEventListener('arencon-authority-replaced', function(ev){
   } catch (_) {}
 });
 
+/* S693 — THE ISSUED-REPORT LOCK, host side. The server has refused a save
+   because this report is issued (PT423): the engine has already set the
+   unsent work aside and stood the retry machinery down. The host's job is to
+   turn that refusal into a STATE the person can act on — told ONCE per
+   report per open, in plain words, with the way forward. Before this, an
+   issued report silently accepted two weeks of fieldwork (7155.34, 25 Aug);
+   now it says no immediately and says where to continue. */
+var _s693LockToldFor = null;
+window.addEventListener('arencon-report-issued-locked', function(ev){
+  var d = (ev && ev.detail) || {};
+  try { _setCloudStatus('error', 'Issued \u2014 closed to edits'); } catch (_) {}
+  if (_s693LockToldFor === d.instanceId) return;   /* one notice per open, not per save attempt */
+  _s693LockToldFor = d.instanceId;
+  try {
+    showAlert('This report is issued',
+      'This report was issued' + (d.issued ? ' on ' + d.issued : '') +
+      ' and is closed to edits.\n\n' +
+      'Your changes are held safely on this device \u2014 they have NOT been sent to the cloud, ' +
+      'and they will not overwrite the issued report.\n\n' +
+      'To continue field work, open the next report from the Hub. To deliberately change this ' +
+      'issued report, use Issue \u2192 Revise or Revert to Draft \u2014 unlocking returns it to Draft.');
+  } catch (_) {}
+});
+
 // ─── S96 Fix #3: Tile auto-prefetch (L0-L2 only, current project only) ──
 var _tilePrefetchAbort = null;
 var _tilePrefetchActive = false;
@@ -3654,11 +3678,18 @@ function _doRevise(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
-  Model.saveNow();
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
-  _syncIssueStatus('revision');
+  /* S693 — UNLOCK IS ROW-STATUS-FIRST. The server refuses content changes to
+     an issued row (trg_tool_data_issued_lock) and the data PATCH carries no
+     status — so the row must be flipped BEFORE the first content save, or the
+     unlock's own save is refused. On a failed flip (offline, expired login)
+     the save still runs: locally it lands as always, and the cloud push is
+     refused-and-held — which is the honest state, because the unlock did not
+     take and the report IS still issued. */
+  var _after = function(){ try { Model.saveNow(); } catch (_) {} };
+  _syncIssueStatus('revision').then(_after, _after);
   toast('Revision started: ' + newRev);
 }
 
@@ -3668,16 +3699,21 @@ function _doRevertDraft(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
-  Model.saveNow();
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
-  _syncIssueStatus('draft');
+  /* S693 — row-status-first, same law as _doRevise above. */
+  var _after = function(){ try { Model.saveNow(); } catch (_) {} };
+  _syncIssueStatus('draft').then(_after, _after);
   toast('Reverted to draft: ' + newRev);
 }
 
 function _syncIssueStatus(status) {
-  if (typeof SyncEngine === 'undefined' || !SyncEngine.instanceId) return;
+  /* S693 — now RETURNS its promise. The unlock flow must flip the ROW's
+     status before the first content save (the data PATCH carries no status,
+     so a content save against a still-issued row is refused by
+     trg_tool_data_issued_lock). Callers that don't sequence are unaffected. */
+  if (typeof SyncEngine === 'undefined' || !SyncEngine.instanceId) return Promise.resolve();
   // ── S524e DOCTRINE I-8 / I-10 — this writer was the last one in FRT going
   // out with no concurrency token and no attribution. It cannot erase report
   // content (it only sets `status`), but it STAMPS updated_at, which
@@ -3689,7 +3725,7 @@ function _syncIssueStatus(status) {
   var seen = (SyncEngine && SyncEngine.lastSeenUpdatedAt) || null;
   if (seen) headers['If-Match'] = '"' + seen + '"';
   var user = (typeof Auth !== 'undefined' && Auth.getUser) ? Auth.getUser() : null;
-  Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
+  return Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
     method: 'PATCH',
     body: JSON.stringify({
       status: status,

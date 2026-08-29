@@ -1093,3 +1093,26 @@ _authSeen
 _setAsideLocalCopy
 reloadFromCloud
 _reloadFromCloud
+
+@ ────────────────────────────────────────────────────────────────────────────
+@ S693 — THE ISSUED-REPORT LOCK (Mark's #1 after 7155.34, built S693).
+@ An issued report went to a client; its content does not move. The server
+@ refuses content changes with a TYPED answer (errcode PT423 -> HTTP 423,
+@ trigger trg_tool_data_issued_lock), and the engine treats that refusal as a
+@ STATE: unsent work is set aside, the retry machinery stands down, and the
+@ host tells the person once, in plain words, where to continue. Before this,
+@ a locked report was retried every 15 s forever, and on 25 Aug an issued
+@ report silently accepted two weeks of fieldwork.
+@
+@ _issuedLocked is the engine's memory that the server said no. It gates
+@ nothing destructive — it exists so the refusal is announced as a state, the
+@ banner can be lifted on unlock, and diagnostics can tell a lock from a
+@ network failure. It clears at the pull door when the row's status is no
+@ longer 'issued' — the deliberate, recorded unlock (Revise / Revert to
+@ Draft), which flips the ROW status first because the data PATCH carries no
+@ status. Removing the PT423 branch in sync.js restores the silent-retry
+@ defect; removing the pull-door clear leaves a device locked forever after a
+@ legitimate unlock.
+@ ────────────────────────────────────────────────────────────────────────────
+_issuedLocked
+_s693LockToldFor
