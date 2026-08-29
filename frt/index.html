@@ -296,7 +296,13 @@ function ensurePdfJs(cb){
 <!-- ═══ HIDDEN FILE INPUTS ═══ -->
 <input type="file" id="load-input" accept=".json" style="display:none">
 <input type="file" id="drawing-file-input" accept="image/*,.pdf" multiple style="display:none">
-<input type="file" id="photo-file-input" accept="image/*" multiple capture="environment" style="display:none">
+<!-- S698c: the hidden #photo-file-input (capture="environment") was removed here.
+     It was the last single-shot capture markup in FRT, left behind when every
+     camera control moved to the burst engine (openCameraBurst). Verified dead:
+     zero JS references anywhere in the repo. Removed so no future session can
+     wire to it - a capture input cannot be opened programmatically after the
+     user gesture is gone (S159), and it carries none of the burst engine's
+     write-on-shutter, cancel-confirm or mid-burst recovery. -->
 
 <!-- ═══ MAIN CONTENT ═══ -->
 <div id="view-project" style="display:none;">

@@ -1,4 +1,5 @@
 [{
+      "_comment_S698c": "TWO fingerprints may be needed. The first is the upload/local signing certificate already in use. If the TWA still opens with a Chrome Custom Tabs address bar (the maroon bar), the usual cause is that Google Play re-signs the app with a DIFFERENT certificate under Play App Signing, so the fingerprint the device presents is not the one listed here. THE SECOND SLOT IS DELIBERATELY EMPTY: the value must be copied from Play Console > your app > Setup > App integrity > App signing key certificate > SHA-256 certificate fingerprint. Paste it as a second string in the array below, colon-separated uppercase hex, exactly as Play shows it. Do not guess or derive it - a wrong fingerprint fails silently and looks identical to no fingerprint at all. This file must stay valid JSON: no trailing comma after the last entry.",
       "relation": ["delegate_permission/common.handle_all_urls"],
       "target": {
         "namespace": "android_app",
