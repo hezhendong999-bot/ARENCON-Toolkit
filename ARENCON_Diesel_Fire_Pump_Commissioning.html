@@ -17091,7 +17091,7 @@ function applyTextSize(size){
 // scope); Diesel now registers it like FRT does, and its shell is precached.
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('sw.js').then(function(reg){
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function(reg){
       setInterval(function(){
         // reg.update() throws InvalidStateError mid-install/activate — guard +
         // swallow so a transient state never surfaces as an uncaught rejection.

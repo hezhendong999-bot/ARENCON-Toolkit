@@ -10191,7 +10191,7 @@ function _pgEscHtml(s) {
 
   // Register service worker for PWA installability
   if('serviceWorker' in navigator){
-    navigator.serviceWorker.register('sw.js').catch(function(){});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(function(){});
   }
 
   /* ═══ S641 — KEEP THE BROWSER'S OWN DISK COPY CURRENT (root cause, take 2) ═

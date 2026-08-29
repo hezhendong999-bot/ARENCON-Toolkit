@@ -18,7 +18,7 @@
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('../sw.js').then(function(reg){
+    navigator.serviceWorker.register('../sw.js', { updateViaCache: 'none' }).then(function(reg){
       setInterval(function(){
         // reg.update() throws InvalidStateError if the SW is mid-install/activate
         // (e.g. a new CACHE_NAME still settling). Guard + swallow so a transient

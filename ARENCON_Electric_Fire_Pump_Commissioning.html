@@ -9101,7 +9101,7 @@ function applyTextSize(size){
 <!-- ══ SERVICE WORKER REGISTRATION (Session 53) ══ -->
 <script>
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('sw.js')  /* S461f: sw-electric.js never existed (404 every boot) — the root sw.js is the toolkit worker */.then(function(r){
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })  /* S461f: sw-electric.js never existed (404 every boot) — the root sw.js is the toolkit worker. S698b: updateViaCache 'none' so the browser cannot serve a cached sw.js and pin the fleet to an old build. */.then(function(r){
     /* S680b — the S617 pill is retired here; lib/ui/liveUpdate.js is armed in
        the module block above and owns update behaviour for this tool. */
     console.log('[SW] Registered:', r.scope);
