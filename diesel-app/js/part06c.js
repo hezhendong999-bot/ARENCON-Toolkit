@@ -1139,7 +1139,7 @@ function renderFlowTestThumbsPld() {
   el.innerHTML = flowTestPhotosPld.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div style="position:relative;">
       <img src="${_phSrc(p)}" onclick="openLightbox(flowTestPhotosPld,${i})" style="width:80px;height:80px;object-fit:cover;border-radius:4px;border:2px solid #ddd;cursor:zoom-in;">
-      <button onclick="flowTestPhotosPld.splice(${i},1);renderFlowTestThumbsPld()" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
+      <button onclick="_ftDeletePld(${i})" style="position:absolute;top:-5px;right:-5px;background:#A85959;color:white;border:none;border-radius:50%;width:18px;height:18px;cursor:pointer;font-size:10px;padding:0;">✕</button>
     </div>`).join('');
 }
 function triggerFlowTestPhoto() { openFlowEquipModal('std'); }
@@ -1173,7 +1173,35 @@ function renderFlowTestThumbs() {
   if(!el) return;
   el.innerHTML = flowTestPhotos.map((p,i)=>({p:p,i:i})).filter(o=>!_isPhotoDeleted(o.p)).map(({p,i})=>`
     <div class="photo-thumb"><img src="${_phSrc(p)}">
-    <button class="photo-remove" onclick="flowTestPhotos.splice(${i},1);renderFlowTestThumbs()">✕</button></div>`).join('');
+    <button class="photo-remove" onclick="_ftDelete(${i})">✕</button></div>`).join('');
+}
+
+/* S695 — THE LAST SPLICE-DELETES ON A LIVE SURFACE. These ✕ buttons removed
+   the array entry directly: no confirmation (against the universal rule) and
+   no tombstone — the merge saw absence, absence never deletes, and the photo
+   returned on the next pull. Route through deletePhotoEverywhere (S264): one
+   confirm tap, soft-delete with delState the sync spec already carries
+   (S605), every surface re-rendered, Recently Deleted holds the restore.
+   The id-less fallback mirrors _recDelete for legacy entries only. */
+function _ftDelete(i){
+  var p = flowTestPhotos[i]; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      flowTestPhotos.splice(i,1); renderFlowTestThumbs();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
+}
+function _ftDeletePld(i){
+  var p = flowTestPhotosPld[i]; if(!p) return;
+  if(p.id){ deletePhotoEverywhere({photoId:p.id}); }
+  else {
+    _aConfirm('Delete this photo? This cannot be undone.', function(){
+      flowTestPhotosPld.splice(i,1); renderFlowTestThumbsPld();
+      if(typeof saveState==='function') saveState();
+    },'Delete');
+  }
 }
 
 // S280: second #global-file-input change listener REMOVED.

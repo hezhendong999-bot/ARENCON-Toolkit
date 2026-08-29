@@ -1116,3 +1116,23 @@ _reloadFromCloud
 @ ────────────────────────────────────────────────────────────────────────────
 _issuedLocked
 _s693LockToldFor
+
+@ S693 — one flow formatter: every printed flow carries thousands separators and
+@ at most one decimal (the 2,353.383 gpm defect, Mark's field export). Removing
+@ it puts raw float sums back on client reports.
+_fmtFlow
+
+@ S694 — pagination is resident 4 of the shared PDF engine (moved verbatim from
+@ the S693-fixed host, page-identity proven in real layout). The host delegates;
+@ deleting either side de-unifies the report.
+paginate
+
+@ S695 — deletion is an event, not an absence (Mark, Aug 2026): sign-row and
+@ flow-photo deletes write tombstones the merge carries, so a deletion finally
+@ propagates and sticks; Clean Up Empty is the person-triggered reaper for the
+@ 1490.04 append-bug rows. Reverting any of these reopens resurrection.
+removeSignRow
+_signVisible
+cleanupEmptySignRows
+_ftDelete
+_ftDeletePld

@@ -1138,7 +1138,16 @@ function resetCurrentPage() {
     renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary();
   } else if (active === 'sign') {
     ['so-name','so-title','so-company','so-date'].forEach(id => { const el=document.getElementById(id);if(el)el.value=''; });
-    contractorSignRows.length = 0; renderAllSignRows(); addContractorSignRow();
+    /* S695 — the reset used to WIPE the array (length = 0), which is absence,
+       and absence never deletes: the cloud copy unioned every row back on the
+       next pull, so "clear section" quietly undid itself. Tombstone each row
+       instead — the same delete-as-event the ✕ button now writes — and the
+       clear propagates and sticks. */
+    (function(){ const at = new Date().toISOString();
+      contractorSignRows.forEach(r => { if(r && !r.deleted){ r.deleted = true; r.delAt = at; } });
+      witnessSignRows.forEach(r => { if(r && !r.deleted){ r.deleted = true; r.delAt = at; } });
+    })();
+    renderAllSignRows(); addContractorSignRow();
   } else if (active === 'sketch') {
     sketchEntries.length = 0;
     const sc = document.getElementById('sketch-container');
@@ -1238,7 +1247,7 @@ window.addEventListener('load', () => {
      row that collect then minted a DIFFERENT id per device; the merge unioned
      them all — one ghost contractor per device per session (21→32 rows in
      tool_data_history on 03-Aug). Starter row only when there are none. */
-  if (!contractorSignRows.length) addContractorSignRow();
+  if (!contractorSignRows.some(function(r){ return r && !r.deleted; })) addContractorSignRow();   /* S695: visible rows, not slots — tombstoned rows keep their slots */
   renderDeficGroups();
   updateDeficSummary();
   updateOfflineStatus();

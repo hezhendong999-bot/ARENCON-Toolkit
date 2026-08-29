@@ -26,11 +26,23 @@ import { JSDOM } from 'jsdom';
 const _HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(_HERE, '../..');
 const LIVE_SRC = fs.readFileSync(path.join(REPO, 'diesel-app/js/pdfExport.js'), 'utf8');
+/* S695 — the pagination block became resident 4 of the shared engine (S694).
+   Pagination checks now read the ENGINE; the signature-guard and photo-box
+   checks below still read the host, which is where those blocks live. */
+const ENGINE_SRC = fs.readFileSync(path.join(REPO, 'lib/export/reportPdf.js'), 'utf8');
 /* The pre-fix baseline is taken from git at the last field-proven commit, not
    from a copy that could go stale. */
 const PRE_SRC = execSync('git show 08e1bb9:diesel-app/js/pdfExport.js', { cwd: REPO, encoding: 'utf8' });
 
 function liftPagination(src) {
+  /* S695 — engine shape (lib/export/reportPdf.js): the block sits inside
+     `function paginate(win, cfg){ … _paginateWhenSettled(); }`. Lift from
+     _paginateNow through the tail call. */
+  const ea = src.indexOf('  function _paginateNow(){');
+  const et = src.indexOf('  _paginateWhenSettled();');
+  if (ea >= 0 && et > ea && src.indexOf('cfg && cfg.header') > 0) {
+    return src.slice(ea, et + '  _paginateWhenSettled();'.length);
+  }
   const a = src.indexOf('// ── PAGINATION ENGINE (Session 53) ──');
   if (a < 0) return null;
   /* Two shapes exist: the pre-S688 timer body ends '}, 1200);'; the S688 gate
@@ -81,12 +93,24 @@ function runPagination(src, win) {
   const block = liftPagination(src);
   if (!block) throw new Error('pagination block not found in source');
   const warnings = [];
+  const conFake = { warn: (...a) => warnings.push(a.join(' ')), error: (...a) => warnings.push(a.join(' ')), log: () => {}, info: () => {} };
+  if (block.indexOf('cfg && cfg.header') >= 0) {
+    /* engine shape — same header CONTENT the host shape composes, so the
+       inertness diff compares geometry, never wording */
+    new Function('win', 'cfg', 'setTimeout', 'console', 'Array', 'Date', 'Math', block)(
+      { document: win.document },
+      { header: { client: 'C', addr: 'A', title: 'Diesel Fire Pump Commissioning Report #1 - P', projNo: '1490.04', rev: 'A02' } },
+      (fn) => fn(), conFake, Array, Date, Math
+    );
+    if (warnings.length) throw new Error('pagination swallowed an error: ' + warnings[0]);
+    return Array.from(win.document.querySelectorAll('#wrap .page'));
+  }
   new Function('w', 'proj', '_pdfInstNum', 'formRevision', 'setTimeout', 'console', 'Array', 'Date', 'Math', block)(
     { document: win.document },
     { client: 'C', addr: 'A', projname: 'P', projno: '1490.04', revision: 'A02' },
     1, 'A01',
     (fn) => fn(),
-    { warn: (...a) => warnings.push(a.join(' ')), error: (...a) => warnings.push(a.join(' ')), log: () => {} },
+    conFake,
     Array, Date, Math
   );
   if (warnings.length) throw new Error('pagination swallowed an error: ' + warnings[0]);
@@ -106,7 +130,7 @@ function check(name, pass, detail) {
 {
   const small = [2, 1, 0, 3, 1, 2, 0, 1];   // nothing oversized
   const oldWin = makeDoc(small); runPagination(PRE_SRC, oldWin);
-  const newWin = makeDoc(small); runPagination(LIVE_SRC, newWin);
+  const newWin = makeDoc(small); runPagination(ENGINE_SRC, newWin);
   const a = oldWin.document.getElementById('wrap').innerHTML;
   const b = newWin.document.getElementById('wrap').innerHTML;
   let at = 0; while (at < a.length && a[at] === b[at]) at++;
@@ -126,7 +150,7 @@ function check(name, pass, detail) {
 /* ── 3: THE FIX — same shape, fixed code ── */
 {
   const win = makeDoc([24, 1, 1]);
-  const pages = runPagination(LIVE_SRC, win);
+  const pages = runPagination(ENGINE_SRC, win);
   const flat = win.document.getElementById('wrap').innerHTML;
 
   check('no page exceeds the budget any more', pages.every(p => contentH(p) <= BUDGET),
@@ -150,7 +174,7 @@ function check(name, pass, detail) {
 }
 
 /* ── 4: the fix is wired into the live file at the right spot ── */
-check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPhotoOverflow\(grp\);/.test(LIVE_SRC));
+check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPhotoOverflow\(grp\);/.test(ENGINE_SRC));
 
 /* ── 5: S688 — pagination WAITS for images to settle instead of hoping ──
    jsdom does not load resources, so an <img src> stays complete=false forever:
@@ -165,18 +189,23 @@ check('the flow guard sits on the placement path', /if\(_overflow\(\)\) _flowPho
   win.document.querySelector('.page').appendChild(holdout);
   check('an image that has not settled is really reported unsettled by the DOM', holdout.complete === false);
 
-  const block = liftPagination(LIVE_SRC);
-  check('the live block runs the settle gate, not the bare timer', /setTimeout\(_paginateWhenSettled, 1200\);/.test(block || ''));
+  const block = liftPagination(ENGINE_SRC);
+  /* S695 — the split world: the ENGINE ends in a direct settle-gate call and
+     the HOST owns the 1200ms floor around ReportPdf.paginate. Both halves of
+     the contract are asserted, so neither side can quietly drop its piece. */
+  check('the engine block ends in the settle gate, not a bare paginate',
+    /_paginateWhenSettled\(\);\s*$/.test(block || ''));
+  check('the host arms the 1200ms floor around the engine call',
+    /setTimeout\(function\(\)\{[\s\S]*?ReportPdf\.paginate\(w,[\s\S]*?\}, 1200\);/.test(LIVE_SRC));
 
   const caps = [];
   /* The marker that pagination RAN is the letter-height lock it stamps on every
      finished sheet — a two-item document may legitimately make just one page. */
   let paginated = () => (win.document.querySelector('#wrap .page') || {}).style?.height === '11in';
-  new Function('w', 'proj', '_pdfInstNum', 'formRevision', 'setTimeout', 'console', 'Array', 'Date', 'Math', block)(
+  new Function('win', 'cfg', 'setTimeout', 'console', 'Array', 'Date', 'Math', block)(
     { document: win.document },
-    { client: 'C', addr: 'A', projname: 'P', projno: '1490.04', revision: 'A02' },
-    1, 'A01',
-    (fn, ms) => { if (ms >= 15000) { caps.push(fn); } else { fn(); } },   // run the 1200ms floor now; HOLD the cap
+    { header: { client: 'C', addr: 'A', title: 'Diesel Fire Pump Commissioning Report #1 - P', projNo: '1490.04', rev: 'A02' } },
+    (fn, ms) => { if (ms >= 15000) { caps.push(fn); } else { fn(); } },   // HOLD the 15s cap; everything shorter runs now
     { warn: () => {}, error: () => {}, info: () => {}, log: () => {} },
     Array, Date, Math
   );

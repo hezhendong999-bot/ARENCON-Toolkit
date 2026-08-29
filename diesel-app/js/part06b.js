@@ -1543,33 +1543,93 @@ function addSignRow(type) {
   _renderSignSection(type);
 }
 function removeSignRow(type, i) {
+  /* S695 — DELETION IS AN EVENT, NOT AN ABSENCE. This was a raw splice: the
+     row vanished locally, the merge saw absence, and absence never deletes
+     (doctrine I-2) — so every other device's copy unioned the row straight
+     back. That is the machine that made 1490.04's sign rows undeletable from
+     either end. A tombstone (deleted + delAt) is CONTENT the merge carries
+     and stamps like any edit: the deletion propagates, wins over stale live
+     copies on its timestamp, and sticks. Rows keep their array slots, so the
+     signature-canvas index mapping (i+2 / i+100) can never shift under a
+     delete. Confirm first — this is a destructive action like any other. */
   const arr = type==='witness' ? witnessSignRows : contractorSignRows;
-  arr.splice(i,1);
-  _renderSignSection(type);
+  const r = arr[i]; if(!r) return;
+  const who = type==='witness' ? 'witness' : 'contractor';
+  _aConfirm('Remove this '+who+' sign-off row? It will no longer appear in the report.', function(){
+    r.deleted = true;
+    r.delAt = new Date().toISOString();
+    _renderSignSection(type);
+    if(typeof debounceAutosave==='function') debounceAutosave();
+  }, 'Remove');
+}
+/* S695 — the visible view of a sign-row array: original indexes preserved so
+   every [i] binding and canvas id stays true; tombstoned rows simply do not
+   appear. ONE definition — render, print and cleanup all ask this. */
+function _signVisible(arr){
+  return arr.map(function(r,i){ return {r:r, i:i}; })
+            .filter(function(o){ return o.r && !o.r.deleted; });
 }
 function _renderSignSection(type) {
   // Only rebuild the specific section, leaving other signatures untouched
   if(type==='witness') {
     var wc = document.getElementById('witness-sign-rows');
     if(wc) wc.innerHTML = buildSignRowHtml(witnessSignRows,'witness','witness-sign-rows');
-    witnessSignRows.forEach(function(_,i){ setTimeout(function(){initSig('sig-canvas-c-'+(i+100));},40); });
+    _signVisible(witnessSignRows).forEach(function(o){ setTimeout(function(){initSig('sig-canvas-c-'+(o.i+100));},40); });
   } else {
     var cc = document.getElementById('contractor-sign-rows');
     if(cc) cc.innerHTML = buildSignRowHtml(contractorSignRows,'contractor','contractor-sign-rows');
-    contractorSignRows.forEach(function(_,i){ setTimeout(function(){initSig('sig-canvas-c-'+(i+2));},40); });
+    _signVisible(contractorSignRows).forEach(function(o){ setTimeout(function(){initSig('sig-canvas-c-'+(o.i+2));},40); });
   }
 }
 function addContractorSignRow() { addSignRow('contractor'); } // legacy alias
 
+/* S695 — CLEANUP FOR THE APPEND-BUG ROWS (1490.04 carries 698 of them).
+   Now that a deletion is a tombstone the merge carries, blank rows can
+   finally be cleaned DURABLY from one device: mark them deleted here, and
+   every other device takes the tombstones on its next pull instead of
+   restoring the blanks. "Blank" is strict — every text field empty AND no
+   ink recorded for the pad AND no uploaded signature image. A row anyone
+   typed one character into is kept. Deliberately a person-triggered action
+   with a count-first confirm, never automatic: reaping data on load is how
+   ghost machines start. */
+function cleanupEmptySignRows(){
+  function _blank(o, base){
+    var r = o.r;
+    if((r.name||'').trim() || (r.title||'').trim() || (r.company||'').trim() || (r.date||'').trim()) return false;
+    var cid = 'sig-canvas-c-' + (base + o.i);
+    if(typeof _sigStrokes!=='undefined' && (_sigStrokes[cid]||[]).length) return false;
+    var img = document.getElementById('sig-upload-img-' + (base + o.i));
+    if(img && img.src && img.style.display!=='none') return false;
+    return true;
+  }
+  var doomed = _signVisible(contractorSignRows).filter(function(o){ return _blank(o, 2); })
+    .concat(_signVisible(witnessSignRows).filter(function(o){ return _blank(o, 100); }));
+  if(!doomed.length){ if(typeof showToast==='function') showToast('No empty sign-off rows to clean up.'); return; }
+  _aConfirm('Remove ' + doomed.length + ' empty sign-off row' + (doomed.length===1?'':'s') +
+    '? Rows with any name, company, date or signature are kept.', function(){
+    var at = new Date().toISOString();
+    doomed.forEach(function(o){ o.r.deleted = true; o.r.delAt = at; });
+    renderAllSignRows();
+    if(typeof debounceAutosave==='function') debounceAutosave();
+    if(typeof showToast==='function') showToast(doomed.length + ' empty row' + (doomed.length===1?'':'s') + ' removed.');
+  }, 'Remove');
+}
+
 function buildSignRowHtml(arr, type, containerId) {
   const label = type==='witness' ? 'Witness' : 'Contractor';
   const accent = type==='witness' ? '#1A5276' : '#2C4770';
-  if(!arr.length) return `<p style="font-size:12px;color:var(--silver);text-align:center;padding:12px;">No ${label.toLowerCase()}s added yet. Click "Add ${label}" above.</p>`;
-  return arr.map((r,i)=>{
+  /* S695 — tombstoned rows keep their slots (see removeSignRow) but never
+     render. `i` stays the ORIGINAL array index so oninput bindings and the
+     canvas id (idx) address the right row; the visible position (vn) is what
+     the person is shown. */
+  const vis = _signVisible(arr);
+  if(!vis.length) return `<p style="font-size:12px;color:var(--silver);text-align:center;padding:12px;">No ${label.toLowerCase()}s added yet. Click "Add ${label}" above.</p>`;
+  return vis.map((o,vn)=>{
+    const r = o.r, i = o.i;
     const idx = (type==='witness' ? 100 : 2) + i;
     return `<div class="card" style="margin-bottom:12px;border:1.5px solid ${accent}22;">
       <div class="card-header" style="display:flex;justify-content:space-between;font-size:13px;padding:8px 14px;background:${accent}18;">
-        <span style="font-weight:700;color:${accent};font-size:14px;">${label} ${i+1}</span>
+        <span style="font-weight:700;color:${accent};font-size:14px;">${label} ${vn+1}</span>
         <button class="btn btn-outline btn-sm" style="font-size:11px;color:#A85959;border-color:#A85959;" onclick="removeSignRow('${type}',${i})">✕ Remove</button>
       </div>
       <div class="card-body" style="padding:12px 14px;">

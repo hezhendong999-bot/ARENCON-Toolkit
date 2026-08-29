@@ -1109,6 +1109,7 @@ function _realExportPDF() {
       if (csPrint) {
         let csHtml = '';
         contractorSignRows.forEach((row, i) => {
+          if(row && row.deleted) return;   /* S695 — tombstoned rows keep their slots but never print */
           const idx = i + 2;
           const canvas = document.getElementById('sig-canvas-c-' + idx);
           const upload = document.getElementById('sig-upload-img-' + idx);
@@ -1150,6 +1151,7 @@ function _realExportPDF() {
         let wsHtml = '';
         if (witnessSignRows.length > 0) {
           witnessSignRows.forEach((row, i) => {
+            if(row && row.deleted) return;   /* S695 — tombstoned rows keep their slots but never print */
             const idx = i + 100;
             const canvas = document.getElementById('sig-canvas-c-' + idx);
             const upload = document.getElementById('sig-upload-img-' + idx);
