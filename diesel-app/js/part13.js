@@ -6,7 +6,7 @@
 // scope); Diesel now registers it like FRT does, and its shell is precached.
 if('serviceWorker' in navigator){
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('../sw.js').then(function(reg){
+    navigator.serviceWorker.register('../sw.js', { updateViaCache: 'none' }).then(function(reg){
       /* S617 — "Update ready — tap to restart". Updates already install in
          the background; this is the missing last step: tell the person, let
          THEM choose the moment. nudge:false — this file's own interval below
