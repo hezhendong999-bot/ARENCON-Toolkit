@@ -122,246 +122,63 @@ function _exportContractorNames(){
   });
   return out;
 }
-/* S498: the panel body lives inside the engine's SHADOW ROOT, so document-level
-   lookups cannot see these nodes. _exmRoot is the body element handed over by
-   the panel's build(); every helper scopes its queries to it. Null when closed. */
-var _exmRoot=null;
-function _exmQ(sel){ return _exmRoot ? _exmRoot.querySelector(sel) : null; }
-function _exmQA(sel){ return _exmRoot ? _exmRoot.querySelectorAll(sel) : []; }
-function _exportModalSelected(){
-  var names=[];
-  _exmQA('.exm-chip.on').forEach(function(c){ names.push(c.getAttribute('data-name')); });
-  return names;
-}
-function _exportModalLine(){
-  var dl=_exmQ('#exm-dl'); if(dl) dl.textContent=_exportModalSelected().join(', ')||'\u2014';
-}
-function _exportModalToggle(el){
-  el.classList.toggle('on');
-  el.querySelector('.exm-dot').textContent = el.classList.contains('on')?'\u2713':'';
-  _exportModalLine();
-}
-/* S691 — ONE recipient-matching rule, reachable from every call site. It was
-   first written inside the modal builder, where the add-recipient path could not
-   see it and would have silently fallen back to exact matching — a second rule
-   wearing the first one's name. Company names are typed by hand across sessions
-   and devices and will differ by punctuation, case and spacing forever, so the
-   COMPARISON is normalised while everything DISPLAYED stays exactly as typed. */
-function _recipKey(n){
-  return String(n||'').toLowerCase().replace(/\s+/g,' ').trim().replace(/[.,;:]+$/,'').trim();
-}
-function _exportAddRecipient(){
-  var inp=_exmQ('#exm-newrec'); if(!inp) return;
-  var n=(inp.value||'').trim(); if(!n) return;
-  var pool=_exmQ('#exm-other'); if(!pool) return;
-  // de-dupe against existing chips — S691: same normalised key as the classifier,
-  // or typing a name that differs only by a full stop creates a twin chip
-  var _k=_recipKey(n);
-  var dup=false; _exmQA('.exm-chip').forEach(function(c){ if(_recipKey(c.getAttribute('data-name')||'')===_k) dup=true; });
-  if(dup){ inp.value=''; return; }
-  var grp=_exmQ('#exm-other-grp'); if(grp) grp.style.display='';
-  pool.insertAdjacentHTML('beforeend',_exmChip(n,'on',true));
-  inp.value='';
-  _exportModalLine();
-}
-// S366: per-recipient colours in the export modal — each owner/contractor gets a
-// distinct, STABLE colour (same name → same colour every time), matching FRT's
-// per-recipient colour treatment. Diesel stores contractors as plain name strings
-// (no roster colour like FRT), so assign deterministically by name hash from a
-// MUTED palette (no bright saturated hues — per ARENCON colour rule).
-var _EXM_OWNER_C = '#3E4C66';   // steel — owner (mirrors FRT OWNER_C)
-var _EXM_OTHER_C = '#8A7689';   // neutral grey — manually-pooled recipients (FRT ADDED_C)
-var _EXM_CTR_PALETTE = ['#2C6E8F','#5B7A52','#8A5A7A','#9C6B3E','#4A6B8A','#6E5A8A','#5A7D6E','#8A6B4A','#436B6B','#7A5A5A'];
-function _exmColorFor(name){
-  var s = String(name||''); var h = 0;
-  for(var i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) & 0x7fffffff; }
-  return _EXM_CTR_PALETTE[h % _EXM_CTR_PALETTE.length];
-}
-function _exmChip(name,state,removable,color){
-  var on=(state==='on');
-  var c = color || _EXM_OTHER_C;
-  return '<span class="exm-chip'+(on?' on':'')+'" data-name="'+_exmEsc(name)+'" style="--c:'+c+';" onclick="if(event.target.classList.contains(\'exm-rm\'))return;_exportModalToggle(this)">'
-    +'<span class="exm-dot">'+(on?'\u2713':'')+'</span>'+_exmEsc(name)
-    +(removable?'<span class="exm-rm" title="Remove recipient" onclick="this.parentNode.remove();_exportModalLine();">\u00D7</span>':'')
-    +'</span>';
-}
-function _exmEsc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+/* S696 — THE EXPORT PANEL IS RESIDENT 5 OF lib/export/reportPdf.js. The rules
+   about WHO a report goes to (owner always, the vendor the report is about,
+   the remembered choice, S691 normalised matching) are mechanism and live in
+   the engine now. What stays here is Diesel's: where the names come from,
+   what its photos are, and — deliberately unshared — the commit that WRITES
+   the distribution and saves. Changing how recipients are PICKED is cosmetic;
+   changing how the distribution is STORED is how a client report goes to the
+   wrong people. */
 function _exportModalOpen(){
-  /* S498 batch 2a (Mark-approved demo): the hand-drawn #exm-ov overlay is
-     retired in favour of the shared engine's panel family. The CONTENT is
-     unchanged — same distribution chips, same live distribution line, same
-     Report Photos summary — but the CHROME is now engine-owned: header wash +
-     hairline, the ✕ (which this modal never had), Cancel forced leftmost,
-     theming that follows data-theme, scroll lock, and Esc/✕ parity.
-     Body padding is overridden to 24px so the layout does not tighten against
-     the engine's 16px default (Mark, S498).
-     Fail-safe DIFFERS from _aConfirm on purpose: blocking a delete costs
-     nothing, but blocking an export strands an inspector with a dead Export
-     button. If the engine is somehow absent we fall straight through to the
-     PDF using the last SAVED distribution — a report still comes out. */
-  var D = window.ArenconDlg;
-  if(!D || !D.panel){
-    try{ console.error('[Diesel] dialog engine not loaded \u2014 exporting with the last saved distribution'); }catch(_){}
-    _exportPDFGo();
-    return;
-  }
-
-  var owner=((document.getElementById('pi-client')||{}).value||'').trim();
-  var ctrs=_exportContractorNames();
-  // pre-select set: saved distribution[] if present, else owner + all contractors
-  var saved=(distribution&&distribution.length)?distribution.slice():null;
-  /* S691 — the owner was appearing a second time under "Other recipients". The
-     saved distribution held "Iron Mountain Canada Corp." and the owner field
-     holds "Iron Mountain Canada Corp" — one trailing full stop apart. Matching
-     was exact, so the owner failed to match himself, got classified as a
-     manually-pooled recipient, and printed twice on the distribution line of a
-     client report. Company names are typed by hand across sessions and devices;
-     they will differ by punctuation, case and spacing forever. So the COMPARISON
-     is normalised (case, whitespace, trailing punctuation) while everything
-     DISPLAYED stays exactly as typed — the report shows the name as entered. */
-  /* S692 — who a report is issued to, as the Owner stated the rule:
-       · THE OWNER IS ALWAYS TICKED. A commissioning report goes to the building
-         owner, full stop. A saved distribution can never un-tick them — before
-         this, a distribution saved without the owner brought the dialog back
-         with the owner unticked, and the next issue would quietly have gone out
-         without them.
-       · A CONTRACTOR THE REPORT IS ACTUALLY FOR ticks automatically. The report's
-         own evidence says which: a contractor carrying deficiencies here is the
-         vendor this report concerns. If none do, every contractor ticks — the
-         old behaviour — so nobody is silently dropped.
-       · THE PREVIOUS CHOICE IS REMEMBERED. Once a distribution is saved it comes
-         back exactly as saved (owner excepted, per the first rule): un-ticking a
-         contractor sticks, and so does adding one.
-     Tick state is a DEFAULT, never a lock — every chip stays tappable. */
-  var _forUs = {};
-  try {
-    if (typeof deficiencies === 'object' && deficiencies) {
+  var elig=(typeof _collectAllPhotos==='function')?_collectAllPhotos().filter(_appendixEligible):[];
+  var _forNames=[];
+  try{
+    if(typeof deficiencies==='object' && deficiencies){
       Object.keys(deficiencies).forEach(function(k){
-        var v = deficiencies[k];
-        if (Array.isArray(v) && v.length) _forUs[_recipKey(k)] = 1;
+        var v=deficiencies[k];
+        if(Array.isArray(v) && v.length) _forNames.push(k);
       });
     }
-  } catch(_) {}
-  var _anyForUs = Object.keys(_forUs).length > 0;
-  function on(n){
-    var k=_recipKey(n);
-    if(owner && k===_recipKey(owner)) return true;                          // owner: always
-    if(saved) return saved.some(function(s){ return _recipKey(s)===k; });   // remembered
-    if(_anyForUs) return !!_forUs[k];                                       // the vendor this report is for
-    return true;                                                            // nothing to go on: everyone
-  }
-  // 'other' recipients = saved names that are neither owner nor a contractor
-  var roleSet={}; if(owner) roleSet[_recipKey(owner)]=1; ctrs.forEach(function(c){roleSet[_recipKey(c)]=1;});
-  var others=(saved||[]).filter(function(n){ return !roleSet[_recipKey(n)]; });
-
-  // report-photo count (appendix-eligible, minus current exclusions)
-  var elig=(typeof _collectAllPhotos==='function')?_collectAllPhotos().filter(_appendixEligible):[];
-  var incl=elig.filter(function(it){ return !_appendixExcl.has(_ppxKey(it)); }).length;
-  var ptot=elig.length;
-
+  }catch(_){}
   var proj=getProjInfo();
-  var subtitle=((proj.projno?proj.projno+' ':'')+(proj.projname||'')).trim()+' \u00B7 Diesel Fire Pump Commissioning Report';
-
-  var ownerHtml = owner
-    ? '<div class="exm-grp"><div class="exm-glbl">Owner</div><div class="exm-chips">'+_exmChip(owner,on(owner)?'on':'',false,_EXM_OWNER_C)+'</div></div>'
-    : '';
-  var ctrHtml = ctrs.length
-    ? '<div class="exm-grp"><div class="exm-glbl">Contractors</div><div class="exm-chips">'+ctrs.map(function(c){return _exmChip(c,on(c)?'on':'',false,_exmColorFor(c));}).join('')+'</div></div>'
-    : '';
-  var otherHtml = '<div class="exm-grp" id="exm-other-grp"'+(others.length?'':' style="display:none;"')+'>'
-    +'<div class="exm-glbl">Other recipients</div><div class="exm-chips" id="exm-other">'
-    +others.map(function(n){return _exmChip(n,'on',true,_EXM_OTHER_C);}).join('')+'</div></div>';
-
-  D.panel({
-    title:'Export Report',
-    sub:subtitle,
-    icon:'\u2b07',
-    accent:'info',
-    width:760,
-    build:function(bd){
-      /* The engine owns chrome; these styles are CONTENT (chips, distribution
-         line, photo row) and are scoped inside the panel body. Declared here so
-         they travel with the markup into the engine's shadow root, where the
-         host page's #exm-ov rules cannot reach. */
-      var st=document.createElement('style');
-      st.textContent=_EXM_BODY_CSS;
-      bd.appendChild(st);
-      var w=document.createElement('div');
-      w.id='exm-ov';                 /* keeps _exportModalSelected/_exportModalLine selectors working */
-      w.className='exm-panelbody';
-      w.innerHTML=
-         '<div class="exm-sec-lbl">Distribution</div>'
-        +ownerHtml+ctrHtml+otherHtml
-        +'<div class="exm-addrow"><input type="text" id="exm-newrec" placeholder="Add a recipient \u2014 e.g. base-building service contractor, construction PM\u2026" onkeydown="if(event.key===\'Enter\'){_exportAddRecipient();event.preventDefault();}"><button onclick="_exportAddRecipient()">+ Add to pool</button></div>'
-        +'<div class="exm-dline"><div class="exm-dl-l">Distribution line</div><div class="exm-dl-v" id="exm-dl"></div></div>'
-        +'<div class="exm-sec-lbl" style="margin-top:14px;">Report Photos</div>'
-        +'<div class="exm-photos"><span class="exm-ph-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></span>'
-          +'<span style="flex:1;"><b id="exm-photo-count" style="display:block;font-size:13.5px;">'+(ptot?(incl===ptot?('All '+ptot+' photo'+(ptot===1?'':'s')+' will print'):(incl+' of '+ptot+' photos will print')):'No report photos yet')+'</b>'
-          +'<span class="exm-ph-sub">Included by default \u2014 review only if you want to exclude some</span></span>'
-          +(ptot?'<button onclick="_prePrintFromMenu()">Review photos\u2026</button>':'')+'</div>';
-      bd.appendChild(w);
-      /* The panel body lives in a shadow root, so document.getElementById can no
-         longer find these nodes. Hand the helpers a direct reference instead. */
-      _exmRoot = w;
-      _exportModalLine();
+  window.ReportPdf.exportPanel({
+    dialog: window.ArenconDlg,
+    owner: ((document.getElementById('pi-client')||{}).value||'').trim(),
+    contractors: _exportContractorNames(),
+    saved: (distribution&&distribution.length)?distribution.slice():null,
+    forNames: _forNames,
+    photos: {
+      included: elig.filter(function(it){ return !_appendixExcl.has(_ppxKey(it)); }).length,
+      total: elig.length
     },
-    buttons:[
-      { label:'Cancel', kind:'cancel' },
-      { label:'\uD83D\uDCC4 Generate PDF', kind:'primary', onClick:function(api){
-          _exportModalCommit();
-          api.close('generate');
-          _exportPDFGo();
-          return false;   /* already closed above */
-        } }
-    ]
-  }).then(function(){ _exmRoot=null; });
+    sub: ((proj.projno?proj.projno+' ':'')+(proj.projname||'')).trim()+' \u00B7 Diesel Fire Pump Commissioning Report',
+    onReviewPhotos: function(){ _prePrintFromMenu(); },
+    onCommit: function(names){ _exportModalCommit(names); },
+    onGenerate: function(){ _exportPDFGo(); },
+    /* S498 asymmetry, preserved: blocking a delete costs nothing, but blocking
+       an export strands an inspector with a dead button — so a missing dialog
+       engine still produces a report, using the last SAVED distribution. */
+    onFallback: function(){ _exportPDFGo(); }
+  });
 }
-/* S498: content-only styles for the panel body. Chrome (card, header, footer,
-   ✕, buttons) belongs to the engine and is deliberately NOT redeclared here.
-   Colours reference the engine's own tokens so both modes come for free. */
-var _EXM_BODY_CSS=
-  '.exm-panelbody{padding:0 8px 4px;}'
- +'.exm-sec-lbl{font-size:11px;font-weight:700;letter-spacing:1.1px;color:var(--dlg-ink-3);text-transform:uppercase;margin:14px 0 8px;}'
- +'.exm-sec-lbl:first-child{margin-top:2px;}'
- +'.exm-grp{margin-bottom:10px;}'
- +'.exm-glbl{font-size:10.5px;font-weight:700;letter-spacing:1px;color:var(--dlg-ink-3);text-transform:uppercase;margin-bottom:6px;}'
- +'.exm-chips{display:flex;flex-wrap:wrap;gap:8px;}'
- +'.exm-chip{display:inline-flex;align-items:center;gap:7px;border-radius:18px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid var(--dlg-btn-line);background:var(--dlg-card-2);color:var(--dlg-ink);transition:background .12s,border-color .12s,color .12s;}'
- +'.exm-chip.on{background:var(--c,#5F8068);border-color:var(--c,#5F8068);color:#fff;}'
- +'.exm-chip .exm-dot{width:15px;height:15px;border-radius:50%;border:2px solid var(--c,var(--dlg-ink-3));display:inline-flex;align-items:center;justify-content:center;font-size:9px;color:#fff;background:transparent;}'
- +'.exm-chip.on .exm-dot{background:#fff;border-color:#fff;color:var(--c,#5F8068);}'
- +'.exm-chip .exm-rm{margin-left:3px;color:var(--dlg-ink-3);font-weight:700;font-size:15px;line-height:1;padding:0 3px;border-radius:4px;}'
- +'.exm-chip.on .exm-rm{color:rgba(255,255,255,.8);}'
- +'.exm-chip .exm-rm:hover{color:var(--dlg-fail);background:color-mix(in srgb, var(--dlg-fail) 16%, transparent);}'
- +'.exm-addrow{display:flex;gap:8px;margin:10px 0 8px;}'
- +'.exm-addrow input{flex:1;background:var(--dlg-card-2);border:1px solid var(--dlg-btn-line);border-radius:8px;color:var(--dlg-ink);padding:10px 13px;font:14px Calibri,sans-serif;-webkit-appearance:none;appearance:none;outline:none;}'
- +'.exm-addrow input::placeholder{color:var(--dlg-ink-3);opacity:1;}'
- +'.exm-addrow input:focus{border-color:color-mix(in srgb, var(--acc) 55%, transparent);box-shadow:0 0 0 3px color-mix(in srgb, var(--acc) 16%, transparent);}'
- +'.exm-addrow button{background:var(--dlg-btn-face);color:var(--dlg-btn-ink);border:1px solid var(--dlg-btn-line);border-radius:8px;padding:0 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;min-height:42px;}'
- +'.exm-addrow button:hover{border-color:color-mix(in srgb, var(--dlg-ink) 34%, transparent);}'
- +'.exm-dline{background:var(--dlg-card-2);border:1px solid var(--dlg-line);border-radius:9px;padding:11px 14px;}'
- +'.exm-dl-l{font-size:10.5px;font-weight:700;letter-spacing:1px;color:var(--dlg-ink-3);text-transform:uppercase;margin-bottom:4px;}'
- +'.exm-dl-v{font-size:13.5px;line-height:1.4;color:var(--dlg-ink);}'
- +'.exm-photos{display:flex;align-items:center;gap:14px;background:var(--dlg-card-2);border:1px solid var(--dlg-line);border-radius:9px;padding:13px 14px;}'
- +'.exm-photos .exm-ph-icon{flex:0 0 auto;display:inline-flex;color:var(--dlg-ink-2);}'
- +'.exm-photos .exm-ph-sub{font-size:12px;color:var(--dlg-ink-2);}'
- +'.exm-photos b{color:var(--dlg-ink);}'
- +'.exm-photos button{background:var(--dlg-btn-face);color:var(--dlg-btn-ink);border:1px solid var(--dlg-btn-line);border-radius:8px;padding:9px 16px;font:600 13px Calibri,sans-serif;cursor:pointer;white-space:nowrap;min-height:42px;}'
- +'.exm-photos button:hover{border-color:color-mix(in srgb, var(--dlg-ink) 34%, transparent);}'
- +'@media (pointer:coarse){.exm-chip{padding:10px 15px;font-size:14px;}.exm-addrow input{padding:12px 13px;font-size:15px;}}';
 function _exportModalClose(){
   /* S498: the engine owns dismissal now. Kept because the name is referenced
      elsewhere and callers expect it to exist. The engine exposes no imperative
      close for an open panel, so we use the same Esc dispatch _tieredBack tier 2a
-     uses — the engine's own key handler resolves the panel promise. */
-  if(_exmRoot){
-    try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){}
-    _exmRoot=null;
-  }
+     uses — the engine's own key handler resolves the panel promise.
+     S696: the open-panel flag moved into the engine with the panel itself. */
+  try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){}
 }
-function _exportModalCommit(){
+function _exportModalCommit(names){
+  /* S696 — the ticked names arrive from the engine's panel. The FALLBACK read
+     is kept for any caller that still commits with no argument: ask the engine
+     what is ticked, exactly as this used to ask its own DOM. Storage is
+     deliberately NOT shared — writing the distribution and saving stays here. */
+  var sel = Array.isArray(names) ? names
+          : ((window.ReportPdf && window.ReportPdf.exportPanelSelected) ? window.ReportPdf.exportPanelSelected() : []);
   distribution.length=0;
-  _exportModalSelected().forEach(function(n){ distribution.push(n); });
+  sel.forEach(function(n){ distribution.push(n); });
   if(typeof saveState==='function') saveState();
   if(typeof debounceAutosave==='function') debounceAutosave();
 }

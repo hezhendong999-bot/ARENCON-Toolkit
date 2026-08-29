@@ -1136,3 +1136,11 @@ _signVisible
 cleanupEmptySignRows
 _ftDelete
 _ftDeletePld
+
+@ S696 — the export panel is resident 5 of the shared PDF engine. Its rules are
+@ Mark-stated: the owner is ALWAYS on the distribution (S692), the vendor the
+@ report is about ticks by its own evidence, the saved choice is remembered, and
+@ names are matched normalised so one trailing full stop cannot print an owner
+@ twice on a client report (S691). Deleting either side de-unifies the report.
+exportPanel
+exportPanelSelected
