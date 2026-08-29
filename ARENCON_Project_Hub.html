@@ -13,6 +13,13 @@
 <link rel="icon" type="image/png" sizes="192x192" href="arencon-icon-192.png">
 <link rel="apple-touch-icon" href="arencon-icon-192.png">
 <script src="hub-build.js"></script>  <!-- S680b: the Hub's build number, in a file small enough for the update engine to re-read. Classic script, so it is a real global and runs before every deferred module. -->
+<!-- S700a: THE ONE REPORT SEEDER. The rules that decide a new report's number
+     and what carries forward into it now live in this file, and both callers
+     run it — the Hub's "＋ New Report" below, and "Start the next report" on an
+     issued FRT. The Hub's own copy of those rules was DELETED, not left
+     alongside: a second copy would drift, and these rules decide which visit
+     every carried deficiency belongs to. -->
+<script src="lib/data/reportSeed.js?v=1"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -4277,93 +4284,47 @@ async function createNewReport(key) {
   var t = AVAILABLE_TOOLS[key];
   if (!t) return;
 
-  // Find next instance number.
-  // S693 — NUMBER REUSE LAW (Mark's design; supersedes S495's "a deleted
-  // report still owns its number"). The S495 comment described a query that
-  // could never do what it claimed: the RESTRICTIVE policy hiding deleted
-  // rows means no client query ever sees them, so this always computed max+1
-  // over LIVE reports — while the old table-wide unique constraint still
-  // counted the invisible deleted row. Once any report of a tool was deleted
-  // in a project, no new one could EVER be created there (1490.04 x2 and
-  // 6360.08 were dead in the field, users staring at a raw constraint error).
-  // The database now enforces uniqueness among LIVE reports only
-  // (tool_data_live_number_uniq, partial on deleted_at is null). A deleted
-  // report keeps its number for display — "FRT #2 (deleted)" — and the clash
-  // is handled at RESTORE time (see restoreInstance). The explicit filter
-  // below makes the query say what it does.
-  var nextNum = 1;
-  try {
-    var existing = await _sb.from('tool_data').eq('project_id', proj.id).eq('tool_key', key).is('deleted_at', null).order('instance_number', {ascending:false}).execute();
-    if (existing && existing.length > 0) nextNum = existing[0].instance_number + 1;
-  } catch(e) {}
+  /* ═══ S700a — THE SEEDING RULES NOW LIVE IN ONE FILE. ═══════════════════
+     Everything that used to sit here — finding the next LIVE number (S693's
+     number-reuse law), building the carry-forward seed (S488) and wiping the
+     issue identity (S692) — moved verbatim into lib/data/reportSeed.js, and
+     this function CALLS it rather than keeping a matching copy beside it.
 
-  // S488 CARRY-FORWARD FIX (root cause of "FRT #2 born empty", 1490.04):
-  // this insert shipped data:{} — a blank report — while the FRT side's
-  // _showNewInstanceDialog told users the Hub "seeds the new row from this
-  // one so open items carry forward (N+1 rule)". The Hub never did. FRT #N+1
-  // is now seeded from #N's blob (already fetched by the query above):
-  // contractors, trades, drawings (pins + their deficiencies, still tagged
-  // notedOnInstance N so the carried-vs-new filters work), photos (R2 pool is
-  // per-project, pointers stay valid), info, settings, signatures,
-  // distribution all carry. Stripped: the prior report's own artifacts —
-  // exportRegistry/exportIds (CRB round math ties them to the noting report)
-  // and the _s217/_s464 point-in-time backups. FRT ONLY — commissioning
-  // tools (diesel/electric/IST) are genuinely per-visit and stay blank.
-  // S693: the numbering query above returns LIVE reports only, so existing[0]
-  // is the newest live report. The !deleted_at check in the loop below stays
-  // as belt-and-braces — the seed must never resurrect deleted work.
-  var _seedSrc = null;
-  if (existing && existing.length > 0) {
-    for (var _si = 0; _si < existing.length; _si++) {
-      if (!existing[_si].deleted_at) { _seedSrc = existing[_si]; break; }
-    }
-  }
-  var seedData = {};
-  if (key === 'frt' && nextNum > 1 && _seedSrc && _seedSrc.data) {
-    try {
-      seedData = JSON.parse(JSON.stringify(_seedSrc.data));
-      delete seedData.exportRegistry;
-      delete seedData.exportIds;
-      delete seedData._s217Backup;
-      delete seedData._s464Backup;
-      /* ═══ S692 — CARRY-FORWARD LAW: issue identity never travels. ═══════════
-         7155.34 FRT #2 went out as a draft whose cover read "Date of Issue:
-         2026-08-11" — FRT #1's issue date, carried here along with the rest of
-         info{}, claiming the report was issued two weeks before the site visit
-         it describes. The date of issue is the identity of ONE issued document;
-         the issue lifecycle stamps it when THIS report is actually issued, and
-         until then the cover must show it blank. Every field added to the issue
-         lifecycle in future must be reset here too — carrying it is the bug. */
-      try{ if(seedData.info){ seedData.info.dateOfIssue=''; } }catch(_ci){}
-      seedData.currentFrtInstance = String(nextNum);
-      seedData.status = 'draft';
-      seedData.modified = new Date().toISOString();
-    } catch (eSeed) { seedData = {}; }
-  }
+     Why it moved: S700a puts the same act inside the report, so an issued FRT
+     can start the next one without sending a person back here. Those rules
+     decide which visit a deficiency belongs to, and a second copy that drifted
+     by one line would corrupt the carried-vs-new arithmetic on every report
+     after it. One implementation, two callers.
 
-  // Create the row
+     What stays HERE is the Hub's own presentation: the toast, launching the
+     new report, and refreshing this list. The seeder touches no DOM. */
+  if (!window.ReportSeed || !window.ReportSeed.createReport) {
+    toast('The report builder did not load — reload the page and try again.', 'error');
+    return;
+  }
   try {
-    var userId = _user ? _user.id : null;
-    var rows = await _sb.from('tool_data').insert({
-      project_id: proj.id,
-      tool_key: key,
-      instance_number: nextNum,
-      data: seedData,
-      status: 'draft',
-      created_by: userId,
-      updated_by: userId
+    var _seeded = await window.ReportSeed.createReport({
+      projectId: proj.id,
+      toolKey: key,
+      /* The Hub's Supabase config is page-local (it has no Auth module), so it
+         hands its own credentials over rather than letting the seeder guess. */
+      url: SUPABASE_URL,
+      anonKey: SUPABASE_ANON_KEY,
+      token: localStorage.getItem('sb-access-token'),
+      userId: _user ? _user.id : null
     });
-    if (rows && rows.length > 0) {
+    if (_seeded && _seeded.row && _seeded.row.id) {
       toast(t.name + ' report created', 'success');
-      // Launch it
-      launchToolInstance(key, rows[0].id);
-      // Refresh instances
+      launchToolInstance(key, _seeded.row.id);
       _loadAndRenderInstances(proj);
+    } else {
+      toast('Failed to create report', 'error');
     }
   } catch(e) {
-    toast('Failed to create report: ' + e.message, 'error');
+    toast('Failed to create report: ' + (e && e.message ? e.message : e), 'error');
   }
 }
+
 
 /* ═══ Star/Favourite Toggle ═══ */
 async function toggleStar(projectId) {

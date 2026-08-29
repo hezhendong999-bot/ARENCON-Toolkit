@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=740">
+<link rel="stylesheet" href="css/frt.css?v=741">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -979,7 +979,14 @@ function ensurePdfJs(cb){
      like the deletion law above, and it must load BEFORE app.js: without it
      the housekeeping sweep refuses to run at all, which is the safe direction
      for the one operation in this tool that cannot be undone. -->
-<script src="../lib/data/photoRetention.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
+<script src="../lib/data/photoRetention.js?v=1"></script><!-- S700a: THE ONE REPORT SEEDER — the rules that decide the next report's
+     number and what carries forward into it. The Project Hub's "＋ New Report"
+     runs this same file; FRT's "Start the next report" on an issued report
+     runs it too. Two callers, one implementation: a second copy of these rules
+     that drifted by a line would corrupt the carried-vs-new arithmetic on
+     every report after it. Classic script (the Hub is not a module page); it
+     must load BEFORE app.js so the banner's button has it on first tap. -->
+<script src="../lib/data/reportSeed.js?v=1"></script><!-- S679-C: THE photo viewer — shared shell; FRT personality via js/ui/lightboxHooks.js -->
 <script src="js/viewer/webglMarkup.js?v=8"></script>
 <script src="js/ui/pinsGL.js?v=13"></script>
 <!-- S124 A1 — Dimension tool helpers. Exposes window._dimTool (formatLabel,

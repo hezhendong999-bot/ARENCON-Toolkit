@@ -227,6 +227,22 @@ function _noticeUndo(msg, importId) {
 // commit and every diff-resolution branch call this — there is no second
 // writer to drift out of step with it.
 function _writeRow(row, ctx, opts) {
+  /* S700a — A CONTRACTOR REPLY IS NEW WORK, so it files on the live draft and
+     never onto the report that was already issued. Writing here would put
+     fresh answers inside a document the client is holding; the cloud would
+     then refuse the save and the whole import would sit unsent on one tablet,
+     which is worse than refusing it plainly.
+
+     The remedy is Push 3 of this session (start the next report, then import
+     there). Until that ships, refusing is the safe answer: the sheet is not
+     consumed and can be imported again once there is a live draft. */
+  try {
+    if (typeof window !== 'undefined' && window.FRT_ISSUED_LOCKED && window.FRT_ISSUED_LOCKED()) {
+      console.warn('[CRB S700a] Import refused \u2014 this report is issued. ' +
+                   'Start the next report and import there.');
+      return null;
+    }
+  } catch (_e700) {}
   opts = opts || {};
   var data = {
     company: row.company,
@@ -404,6 +420,17 @@ function _confirmReworded(row, ctx, applied, next) {
 export function openCrbImport() {
   var proj = Model.getProject && Model.getProject();
   if (!proj) { _notice('Open a project first, then import the filled PDF.'); return; }
+  /* S700a — refuse at the door rather than after the file is chosen and read.
+     Nothing is consumed: the same sheet imports normally once there is a live
+     draft to receive it. */
+  try {
+    if (typeof window !== 'undefined' && window.FRT_ISSUED_LOCKED && window.FRT_ISSUED_LOCKED()) {
+      _notice('This report is issued, so contractor answers cannot be filed into it. ' +
+              'Start the next report from the banner at the bottom of the screen and ' +
+              'import the sheet there.');
+      return;
+    }
+  } catch (_e700) {}
   var inp = document.createElement('input');
   inp.type = 'file';
   inp.accept = 'application/pdf,.pdf';

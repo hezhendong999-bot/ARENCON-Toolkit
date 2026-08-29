@@ -3974,6 +3974,22 @@ var _markupSavePending = false;
  */
 function _saveMarkup() {
   if (!_drawingId) return;
+  /* S700a — AN ISSUED REPORT'S DRAWINGS DO NOT MOVE. This save writes to
+     IndexedDB and uploads to cloud storage BEFORE the report row is written,
+     and the row is the only thing the issued-report lock can refuse. So on an
+     issued report the strokes would reach storage — and every other device —
+     while the report itself was refused: the drawings of a document already
+     sent to a client would change underneath it, silently.
+
+     The markup tools are hidden and the gesture gate refuses them before a
+     stroke exists, so reaching here at all means a path we did not foresee.
+     Refusing here is the backstop that makes the outcome safe anyway. */
+  try {
+    if (typeof window !== 'undefined' && window.FRT_ISSUED_LOCKED && window.FRT_ISSUED_LOCKED()) {
+      console.warn('[Markup S700a] Save refused \u2014 this report is issued and closed to edits.');
+      return;
+    }
+  } catch (_e700) {}
   if (_markupLoadInflight) {
     // Load racing in — let the debounce re-arm naturally after load resolves
     return;

@@ -11802,3 +11802,82 @@ body.dark-mode #drawing-viewer-overlay #dv-toolbar button#dv-close, body.dark-mo
   min-width:262px !important;
   max-width:min(340px, calc(100vw - 24px)) !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S700a — ISSUED REPORT: OPEN FOR REVIEW, CLOSED TO FIELDWORK.
+
+   Two jobs here, and only these two:
+     1. The standing banner that says which document this is.
+     2. Hiding the controls that would CREATE work, so nothing is started and
+        then refused. Reading, scrolling, filtering, opening a drawing or a
+        photo, previewing and exporting the PDF, and the Issue menu all stay
+        exactly as they are — that is what "open for review" means.
+
+   Scoped entirely under body.frt-issued-ro, which app.js sets and clears from
+   the report's status. Nothing here applies to a draft.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#s700-review-banner{
+  position:fixed; left:0; right:0; bottom:0; z-index:9500;
+  display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+  font-family:Calibri, sans-serif; font-size:calc(13.5px + var(--ts));
+  line-height:1.45; color:#fff; background:#9C2742;
+  border-top:1px solid rgba(255,255,255,.22);
+  box-shadow:0 -6px 22px rgba(0,0,0,.28);
+}
+#s700-review-banner.s700-revision{ background:#C98A4A; color:#2A1E0A; }
+#s700-review-banner .s700-b-text{ flex:1 1 320px; min-width:0; }
+#s700-review-banner .s700-b-acts{
+  display:flex; gap:10px; flex-wrap:wrap; flex:0 0 auto;
+}
+/* Generous targets — this is read and tapped with gloves on. */
+#s700-review-banner button{
+  font-family:Calibri, sans-serif; font-size:calc(13.5px + var(--ts));
+  font-weight:700; padding:11px 18px; min-height:44px;
+  border-radius:10px; cursor:pointer; white-space:nowrap;
+}
+#s700-review-banner .s700-b-primary{
+  background:#fff; color:#9C2742; border:0;
+}
+#s700-review-banner .s700-b-primary:disabled{ opacity:.65; cursor:default; }
+#s700-review-banner .s700-b-second{
+  background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,.55);
+}
+#s700-review-banner.s700-revision .s700-b-second{
+  color:#2A1E0A; border-color:rgba(0,0,0,.35);
+}
+/* The banner is fixed, so the last row of content must still be reachable. */
+body.frt-issued-ro,
+body:has(#s700-review-banner){ padding-bottom:96px; }
+
+/* ── Controls that create work: hidden while issued ───────────────────────
+   Hidden rather than disabled: a greyed-out "+ Add Deficiency" invites a tap
+   and a second guess about whether the app is broken. Absent says closed. */
+body.frt-issued-ro .add-deficiency-card,
+body.frt-issued-ro .add-defic-btn-wrap,
+body.frt-issued-ro [data-action="add-defic"],
+body.frt-issued-ro [data-action="open-add-defic"],
+body.frt-issued-ro [data-action="add-obs"],
+body.frt-issued-ro [data-action="show-add-activity"],
+body.frt-issued-ro [data-action="crx-add-ctr"],
+body.frt-issued-ro [data-action="crx-add-new-trade"],
+body.frt-issued-ro [data-action="crx-add-prebuilt"],
+body.frt-issued-ro #defic-control-bar,
+body.frt-issued-ro #site-photo-upload,
+/* The markup rail: pen, shapes, text, dimension, select and pin placement all
+   write to the drawing, and a drawing on an issued report does not move. */
+body.frt-issued-ro #dv-sidebar-tools{
+  display:none !important;
+}
+
+/* Editable text on an issued report reads as text, not as a box awaiting
+   input. The gesture gate refuses the keystrokes; this stops it LOOKING
+   editable in the first place. */
+body.frt-issued-ro [data-action="obs-text"],
+body.frt-issued-ro [data-action="closed-note"]{
+  background:transparent !important;
+  border-color:transparent !important;
+  resize:none !important;
+  cursor:default;
+}

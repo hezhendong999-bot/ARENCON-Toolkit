@@ -1171,6 +1171,11 @@ function _updateHeaderForProject() {
 
   // Update FRT instance indicator
   _updateFrtInstanceIndicator();
+
+  /* S700a — this function runs on every load and after Issue / Revise /
+     Revert to Draft resolve, so it is the one place the review banner and the
+     read-only state need to be recomputed. */
+  try { _s700Refresh(); } catch (_e700) {}
 }
 
 // ── Cloud Sync (Hub Mode) ────────────────────────────────
@@ -1279,6 +1284,10 @@ function _startCloudPull(){
 // idiom the boot-path render gate uses.
 function _repaintAfterPull(){
   try { switchTab(_currentTab); } catch (e) { console.warn('[FRT v2] repaint after pull failed:', e && e.message); }
+  /* S700a — the pull is how this device learns that somebody else issued the
+     report, or unlocked it with Revise. Recompute after the repaint so the
+     banner and the read-only state follow the row, not this tab's memory. */
+  try { _s700Refresh(); } catch (_e700) {}
 }
 
 /* ═══ S699 — FRT JOINS THE ONE RECONNECT PATH. ═════════════════════════════
@@ -1409,10 +1418,311 @@ window.addEventListener('arencon-report-issued-locked', function(ev){
       ' and is closed to edits.\n\n' +
       'Your changes are held safely on this device \u2014 they have NOT been sent to the cloud, ' +
       'and they will not overwrite the issued report.\n\n' +
-      'To continue field work, open the next report from the Hub. To deliberately change this ' +
-      'issued report, use Issue \u2192 Revise or Revert to Draft \u2014 unlocking returns it to Draft.');
+      'To continue field work, start the next report from the banner at the bottom of this ' +
+      'screen. To deliberately change this issued report, use Issue \u2192 Revise or Revert to ' +
+      'Draft \u2014 unlocking returns it to Draft.');
   } catch (_) {}
+  /* S700a — the refusal is also how a device that was OFFLINE when someone
+     else issued this report finds out. Its own copy still says draft, so
+     status alone would never raise the review state here. We do NOT write
+     the refusal into proj.status: the row is the truth, and a local flip
+     would then be pushed back as if this device had issued it. */
+  _s700ServerLocked = true;
+  try { _s700Refresh(); } catch (_) {}
 });
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   S700a — AN ISSUED REPORT IS OPEN FOR REVIEW, NOT FOR FIELDWORK.
+
+   THE FAILURE THIS ENDS. A return visit was recorded into FRT #1, which had
+   already been issued and sent. New deficiencies were added and old ones
+   closed on the document the client was holding. Nothing on screen said the
+   report was closed, and the app made #1 the easy thing to type into. The
+   cloud refusal (S693) is real but it arrives at the END of that work — by
+   which time the person has spent an afternoon on a report that cannot
+   accept it. This makes the app say so at the START.
+
+   THE TWO JOBS, KEPT APART:
+     New site work            → a NEW report. The banner's primary button.
+     A mistake in what we sent → Issue \u2192 Revise / Revert to Draft. Kept.
+
+   SCOPED TO 'issued' ONLY, DELIBERATELY. A report in REVISION is not blocked:
+   choosing Revise is a person saying "I mean to change the document we sent",
+   and blocking them there would leave the button as a dead end — which is the
+   same pressure that put a return visit into an issued report in the first
+   place. The server agrees: the lock refuses a write only when the row is
+   issued both before and after, so a revision row is writable. The app's rule
+   and the database's rule are therefore the SAME rule, not two that can drift.
+   The revision banner stays up as a standing reminder instead.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* True once the server has refused a save for this report (PT423). Separate
+   from proj.status on purpose — see the note in the listener above. */
+var _s700ServerLocked = false;
+var _s700Busy = false;
+
+/* THE ONE TRUTH every other module asks. Anything that creates work must ask
+   this before it creates any, not after. */
+function _s700IsIssued() {
+  try {
+    var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+    if (proj && proj.status === 'issued') return true;
+  } catch (_e) {}
+  return !!_s700ServerLocked;
+}
+window.FRT_ISSUED_LOCKED = _s700IsIssued;
+
+/* True when this report is a revision of something already sent. Not blocked;
+   banner only. */
+function _s700IsRevision() {
+  try {
+    var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+    if (!proj || _s700IsIssued()) return false;
+    var rev = (proj.info && proj.info.revision) || '';
+    /* A revision letter of B or later means this report has been issued at
+       least once. Reverting to Draft returns it to the A series, which is why
+       that path clears the banner and Revise does not. */
+    return /^[B-Z]\d{2,}/.test(rev);
+  } catch (_e) { return false; }
+}
+
+/* The refusal of last resort. Controls are hidden or inert before the gesture;
+   this exists so that a path we did not think of still cannot create work. */
+function _s700RefuseIfIssued(what) {
+  if (!_s700IsIssued()) return false;
+  try {
+    showAlert('This report is issued',
+      'This report has been issued and is closed to fieldwork, so ' +
+      (what || 'that change') + ' cannot be recorded here.\n\n' +
+      'Use "Start the next report" at the bottom of the screen for this visit, or ' +
+      'Issue \u2192 Revise if you mean to change the document that was already sent.');
+  } catch (_e) {}
+  return true;
+}
+window.FRT_REFUSE_IF_ISSUED = _s700RefuseIfIssued;
+
+function _s700BannerEl() { return document.getElementById('s700-review-banner'); }
+
+function _s700Unmount() {
+  var el = _s700BannerEl();
+  if (el && el.parentNode) el.parentNode.removeChild(el);
+}
+
+/* The banner is a position:fixed sibling appended to BODY. It never replaces
+   .main-wrap innerHTML — doing that is how a loading spinner once ate a
+   report's whole screen. */
+function _s700Mount(mode) {
+  var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+  if (!proj) return;
+  var inst = Number(proj.currentFrtInstance || 1) || 1;
+  var rev = (proj.info && proj.info.revision) || '';
+  var doi = (proj.info && proj.info.dateOfIssue) || '';
+  var el = _s700BannerEl();
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 's700-review-banner';
+    document.body.appendChild(el);
+  }
+  el.className = 's700-banner' + (mode === 'revision' ? ' s700-revision' : '');
+  var msg;
+  if (mode === 'revision') {
+    msg = '<b>Revision in progress.</b> FRT #' + inst + ' was issued and sent' +
+          (doi ? ' on ' + _s700Esc(doi) : '') + '. You are changing the document the client ' +
+          'already has\u2014' + (rev ? 'revision ' + _s700Esc(rev) + '. ' : '') +
+          'If this is new site work, it belongs on the next report instead.';
+  } else {
+    msg = '<b>This report is issued.</b> FRT #' + inst +
+          (doi ? ' was issued on ' + _s700Esc(doi) : ' has been issued') +
+          (rev ? ' as ' + _s700Esc(rev) : '') +
+          '. It is the copy that left the firm, so it is closed to fieldwork. ' +
+          'Start FRT #' + (inst + 1) + ' for this visit, or use Issue \u2192 Revise if you ' +
+          'mean to change what was already sent.';
+  }
+  el.innerHTML =
+    '<div class="s700-b-text">' + msg + '</div>' +
+    '<div class="s700-b-acts">' +
+      (mode === 'revision' ? '' :
+        '<button type="button" class="s700-b-primary" id="s700-start-next">Start FRT #' + (inst + 1) + '</button>') +
+      '<button type="button" class="s700-b-second" id="s700-issue-menu">Issue \u2192 Revise</button>' +
+    '</div>';
+  var b1 = document.getElementById('s700-start-next');
+  if (b1) b1.addEventListener('click', _s700StartNextReport);
+  var b2 = document.getElementById('s700-issue-menu');
+  if (b2) b2.addEventListener('click', function () { try { _issueReport(); } catch (_e) {} });
+}
+
+function _s700Esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+  });
+}
+
+/* Called wherever the report's state can change: on load, after a pull (a
+   colleague may have issued it), after Issue / Revise / Revert resolves, and
+   from the server refusal. The body class is what hides every control that
+   would create work; see frt.css \u00a7S700a. */
+function _s700Refresh() {
+  var issued = _s700IsIssued();
+  try { document.body.classList.toggle('frt-issued-ro', issued); } catch (_e) {}
+  if (issued) { _s700Mount('issued'); return; }
+  if (_s700IsRevision()) { _s700Mount('revision'); return; }
+  _s700Unmount();
+}
+window._s700Refresh = _s700Refresh;
+
+/* START THE NEXT REPORT. Uses the SHARED seeder (lib/data/reportSeed.js) —
+   the same rules the Hub's "\uFF0B New Report" runs, not a second copy of them.
+   Needs the network: a report number is only meaningful once the database has
+   agreed to it, so nothing is queued offline and #1 is NEVER unlocked because
+   the button could not run. */
+function _s700StartNextReport() {
+  if (_s700Busy) return;
+  var proj = (typeof Model !== 'undefined' && Model.getProject) ? Model.getProject() : null;
+  if (!proj) return;
+  var cur = Number(proj.currentFrtInstance || 1) || 1;
+
+  if (!_hubMode || !_projectId) {
+    showAlert('Not a cloud report',
+      'This report is open without a cloud project, so the next report cannot be created ' +
+      'from here. Open the project in the Hub and use \uFF0B New Report.');
+    return;
+  }
+  if (!window.ReportSeed || !window.ReportSeed.createReport) {
+    showAlert('Cannot start the next report',
+      'The report builder did not load on this device. Reopen the report and try again.');
+    return;
+  }
+
+  var btn = document.getElementById('s700-start-next');
+  var label = btn ? btn.textContent : '';
+  _s700Busy = true;
+  if (btn) { btn.disabled = true; btn.textContent = 'Creating\u2026'; }
+  var restore = function () {
+    _s700Busy = false;
+    var b = document.getElementById('s700-start-next');
+    if (b) { b.disabled = false; b.textContent = label || ('Start FRT #' + (cur + 1)); }
+  };
+
+  window.ReportSeed.createReport({ projectId: _projectId, toolKey: 'frt', fromInstance: cur })
+    .then(function (out) {
+      if (out && out.existingNewerDraft) {
+        /* Someone already started the next one. Two people back from the same
+           site should land in the SAME report, not mint one each. */
+        restore();
+        showConfirm('FRT #' + out.existingNewerDraft.instance_number + ' already exists',
+          'A newer report (FRT #' + out.existingNewerDraft.instance_number + ') already exists on ' +
+          'this project. Open that one for this visit?')
+          .then(function (yes) { if (yes) _s700OpenInstance(out.existingNewerDraft.id); });
+        return;
+      }
+      if (out && out.row && out.row.id) { _s700OpenInstance(out.row.id); return; }
+      restore();
+      showAlert('Could not start the next report',
+        'The next report was not created. Nothing has changed on this report \u2014 it is still ' +
+        'issued and closed. Try again, or create it from the Hub with \uFF0B New Report.');
+    })
+    .catch(function (err) {
+      restore();
+      showAlert('Could not start the next report',
+        'The next report could not be created' +
+        (navigator && navigator.onLine === false ? ' because this device is offline' : '') +
+        '.\n\n' + ((err && err.message) ? err.message : '') + '\n\n' +
+        'Nothing has changed: this report is still issued and closed to fieldwork. ' +
+        'Try again when you have signal, or create the next report from the Hub.');
+    });
+}
+
+/* ═══ S700a — THE GESTURE GATE. ════════════════════════════════════════════
+   Controls that create work are hidden by CSS while a report is issued (see
+   frt.css \u00a7S700a). This is the mechanical backstop underneath that: a
+   CAPTURE-phase listener that refuses the gesture BEFORE any handler runs, so
+   nothing is half-created and then thrown away. Capturing matters — a photo
+   refused after the shutter, or a stroke refused after it is drawn, destroys
+   work in front of the person, which is exactly what the burst camera's
+   write-on-shutter exists to prevent.
+
+   A DENY LIST, NOT AN ALLOW LIST. Reading, scrolling, filtering, opening a
+   drawing or a photo, previewing and exporting the PDF, and the Issue menu
+   itself must all keep working on an issued report — that is the whole point
+   of "open for review". An allow list would silently break one of them the
+   first time somebody added a control; a deny list can only ever fail by
+   letting a gesture through, which the push doors and the server still catch. */
+var _S700_DENY = {
+  /* create or restructure */
+  'add-defic':1, 'open-add-defic':1, 'add-obs':1, 'place-pin':1, 'dup-defic':1,
+  'spinoff-obs':1, 'reassign-defic':1, 'show-add-activity':1,
+  /* close / reopen / status */
+  'close-defic':1, 'reopen-defic':1, 'cv-reopen':1, 'cv-reopen-all':1,
+  'cv-sel-reopen':1, 'cv-setstatus':1, 'cv-statuspill':1, 'obs-status-cycle':1,
+  'toggle-addressed':1, 'closed-note':1, 'toggle-rec':1,
+  /* delete / remove */
+  'delete-defic':1, 'delete-obs':1, 'remove-obs':1, 'remove-pin':1,
+  'delete-activity':1, 'edit-activity':1, 'dfx-remove-obsrow':1,
+  'delete-obs-photo':1,
+  /* edit in place */
+  'obs-text':1, 'obs-contractor':1, 'obs-priority':1, 'obs-trade':1,
+  'dfx-ed-edit-noted':1, 'dfx-ed-move-drawing':1,
+  /* contractors and trades */
+  'crx-add-ctr':1, 'crx-add-new-trade':1, 'crx-add-prebuilt':1, 'crx-del-ctr':1,
+  'crx-del-trade':1, 'crx-rename':1, 'crx-untag':1, 'picker-add-new-ctr':1,
+  /* contractor thread */
+  'crbt-addcomment':1, 'crbt-editsave':1,
+  /* photos that attach or move */
+  'photo-assign-pin':1, 'photo-drop':1, 'choose-obs-photos':1,
+  'ai-suggest-photo':1, 'ph-undo-move':1, 'bv-swap':1
+};
+
+function _s700DeniedTarget(t) {
+  if (!t || !t.closest) return null;
+  var el = t.closest('[data-action],[data-mk-tool],[data-mk-group]');
+  if (!el) return null;
+  if (el.getAttribute('data-mk-tool') || el.getAttribute('data-mk-group')) return 'markup';
+  var a = el.getAttribute('data-action');
+  return (a && _S700_DENY[a]) ? a : null;
+}
+
+function _s700GestureGate(e) {
+  if (!_s700IsIssued()) return;
+  var hit = _s700DeniedTarget(e.target);
+  if (!hit) return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+  _s700RefuseIfIssued(hit === 'markup' ? 'marking up a drawing' : 'that change');
+}
+document.addEventListener('pointerdown', _s700GestureGate, true);
+document.addEventListener('click', _s700GestureGate, true);
+document.addEventListener('change', _s700GestureGate, true);
+
+/* Typing is refused silently: the box is visibly inert and the person has
+   already been told by the banner and by the first blocked tap. An alert per
+   keystroke would be its own kind of harm. Navigation keys stay live so the
+   report can still be read. */
+document.addEventListener('keydown', function (e) {
+  if (!_s700IsIssued()) return;
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var k = e.key || '';
+  if (k === 'Tab' || k === 'Escape' || k.indexOf('Arrow') === 0 ||
+      k === 'PageUp' || k === 'PageDown' || k === 'Home' || k === 'End') return;
+  if (!_s700DeniedTarget(e.target)) return;
+  e.preventDefault();
+  e.stopPropagation();
+}, true);
+
+/* Open a report instance in this tab, keeping every parameter the Hub passed
+   in (project number, name, client, address, filename) and swapping only the
+   instance. Field tablets run as an installed app where the person cannot
+   type a URL; navigating programmatically is the only way in. */
+function _s700OpenInstance(instanceId) {
+  try {
+    var params = new URLSearchParams(window.location.search);
+    params.set('instance', instanceId);
+    window.location.href = window.location.pathname + '?' + params.toString();
+  } catch (_e) {
+    window.location.href = window.location.pathname + '?project=' +
+      encodeURIComponent(_projectId) + '&instance=' + encodeURIComponent(instanceId);
+  }
+}
 
 // ─── S96 Fix #3: Tile auto-prefetch (L0-L2 only, current project only) ──
 var _tilePrefetchAbort = null;
@@ -1772,6 +2082,12 @@ function _pushToCloud() {
      is preserved, so nothing is lost; the moment the barrier is cleared the
      held work goes up under its own stamps. */
   if (window._frtBootLocalUnreadable) return;
+  /* S700a — an issued report does not send. The server would refuse anyway
+     (PT423), but a refusal per autosave cycle is noise on a report people are
+     legitimately READING, and every refusal sets work aside that was never
+     meant to exist. _pushDirty is preserved: if the report is unlocked by
+     Revise, the held work goes up on the next cycle. */
+  if (_s700IsIssued()) return;
   // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
   // nothing has changed since the last successful push, no network round
   // trip happens. The 'saved' Model event sets _pushDirty=true the moment
@@ -1817,6 +2133,12 @@ function _pushToCloudNow() {
      overwrite work we were never able to see. */
   if (window._frtBootLocalUnreadable) {
     _setCloudStatus('error', 'Cloud writes held \u2014 local copy unreadable');
+    return;
+  }
+  /* S700a — same rule at the door the heartbeat flush and the banner use, so
+     it holds on its own rather than relying on the caller above. */
+  if (_s700IsIssued()) {
+    _setCloudStatus('error', 'Issued \u2014 closed to edits');
     return;
   }
   // S155: optimistic clear. If push succeeds, _pushDirty stays false. If a
@@ -3779,7 +4101,19 @@ function _doRevise(newRev) {
      refused-and-held — which is the honest state, because the unlock did not
      take and the report IS still issued. */
   var _after = function(){ try { Model.saveNow(); } catch (_) {} };
-  _syncIssueStatus('revision').then(_after, _after);
+  /* S700a — the server-refusal flag is cleared ONLY when the row flip really
+     took. If the flip failed (offline, expired login) the report is still
+     issued at the database, so the banner and the read-only state must stay
+     exactly as they were: telling someone they are unlocked when the server
+     will still refuse them is the dishonest state we are removing. */
+  _syncIssueStatus('revision').then(function(){
+    _s700ServerLocked = false;
+    _after();
+    try { _s700Refresh(); } catch (_e700) {}
+  }, function(){
+    _after();
+    try { _s700Refresh(); } catch (_e700) {}
+  });
   toast('Revision started: ' + newRev);
 }
 
@@ -3794,7 +4128,16 @@ function _doRevertDraft(newRev) {
   if (revEl) revEl.value = newRev;
   /* S693 — row-status-first, same law as _doRevise above. */
   var _after = function(){ try { Model.saveNow(); } catch (_) {} };
-  _syncIssueStatus('draft').then(_after, _after);
+  /* S700a — same rule as _doRevise: the read-only state lifts only when the
+     database has actually accepted the flip. */
+  _syncIssueStatus('draft').then(function(){
+    _s700ServerLocked = false;
+    _after();
+    try { _s700Refresh(); } catch (_e700) {}
+  }, function(){
+    _after();
+    try { _s700Refresh(); } catch (_e700) {}
+  });
   toast('Reverted to draft: ' + newRev);
 }
 
