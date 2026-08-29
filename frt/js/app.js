@@ -1334,6 +1334,11 @@ window.addEventListener('arencon-authority-replaced', function(ev){
   try { Model.saveNow(); } catch (_) {}
   try { _repaintAfterPull(); } catch (_) {}
   try { _setCloudStatus('synced', 'Updated by ARENCON'); } catch (_) {}
+  /* S692 FIX 3 — the report is refreshed either way, but a person is only
+     interrupted when what they were looking at actually changed. A device
+     that already holds the corrected copy has nothing to be told, which is
+     why this notice can no longer repeat on every open. */
+  if (d.changed === false) return;
   var why = d.note ? ('\n\nReason given: ' + d.note) : '';
   try {
     showAlert('This report was corrected',
