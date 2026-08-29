@@ -557,6 +557,10 @@ const CloudSync = (function () {
      silent skeleton pushes are not. Harness: tools/sim/bootlaunder.mjs
      (2 checks red on S643b, green here; 4 negative controls green on both). */
   let _bootApplied = false;
+  /* S698 — set when the boot stamp-merge could not be trusted. Local saves to
+     disk continue; CLOUD writes are held, because a document we failed to
+     reconcile must never be pushed as authority. */
+  let _s698MergeHeld = false;
   let _bootHoldTimer = null;
   let _bootAppliedState = null;
   const BOOT_HOLD_MAX_MS = 20000;
@@ -934,6 +938,10 @@ const CloudSync = (function () {
     if (_online) {
       try {
         _captureNext = true;
+        /* I-14 EXCEPTION 1 — boot, capture-and-merge. The pull is CAPTURED,
+           not applied (_captureNext); the S601 block below merges it against
+           this device's disk copy by entry stamps before anything is painted
+           or pushed, and S698 holds cloud writes if that merge cannot run. */
         let data = await engine.pull(_projectId, _instanceId, { allowStaleOverwrite: true });
         _captureNext = false;
         if (data) {
@@ -948,13 +956,41 @@ const CloudSync = (function () {
              now merges disk vs cloud by entry stamps exactly like every
              heartbeat pull: whichever value was ENTERED later survives, per
              field, and that is what reaches both the screen and the cloud. */
+          /* ═══ S698 — A FAILED BOOT MERGE MUST NOT BECOME AN ADOPT. ═════════
+             The old catch merely logged "skipped" and left `data` holding the
+             RAW cloud copy — which is then painted, cached and pushed. So the
+             one path where the stamp law could not run was also the one path
+             that silently discarded this device's disk work: exactly the S601
+             resurrection, re-entered through the error door. If the merge
+             cannot be trusted, the device's own disk copy stands and the push
+             is HELD until a human resolves it. Nothing is overwritten by a
+             copy we failed to reconcile. */
           try {
             const rec = await _cacheGet(_cacheKey());
             const localDisk = rec && rec.state
               ? (typeof rec.state === 'string' ? JSON.parse(rec.state) : rec.state) : null;
             const bm = engine.mergeByStamps(localDisk, data);
             if (bm) data = bm;
-          } catch (e) { console.warn('[DieselSync S601] boot stamp-merge skipped:', e && e.message); }
+            else if (localDisk) {
+              console.warn('[DieselSync S698] boot stamp-merge returned nothing \u2014 keeping this device\u2019s disk copy, holding the push.');
+              data = localDisk; _s698MergeHeld = true;
+            }
+          } catch (e) {
+            let _ld = null;
+            try {
+              const rec2 = await _cacheGet(_cacheKey());
+              _ld = rec2 && rec2.state ? (typeof rec2.state === 'string' ? JSON.parse(rec2.state) : rec2.state) : null;
+            } catch (_) {}
+            if (_ld) {
+              console.error('[DieselSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+                ') \u2014 keeping this device\u2019s disk copy and HOLDING cloud writes. The raw cloud copy is NOT adopted.');
+              data = _ld;
+            } else {
+              console.error('[DieselSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+                ') and no local disk copy is readable \u2014 HOLDING cloud writes.');
+            }
+            _s698MergeHeld = true;
+          }
           const meta = await _fetchRowMeta();
           _instanceId = engine.instanceId || _instanceId;
           _instanceNumber = engine.instanceNumber || _instanceNumber;
@@ -1144,6 +1180,14 @@ const CloudSync = (function () {
       _settleRetry(); return null;
     }   // S584: live OS read, never the stale event latch
     if (alreadyPushed) return null;
+    /* S698 — the boot merge could not be trusted, so this device's document is
+       its own disk copy, unreconciled with the cloud. It saves to disk (above)
+       and stays queued, but it must NOT be pushed as authority: that is the
+       adopt-through-the-error-door this session closed. */
+    if (_s698MergeHeld) {
+      _setStatus('pending', 'Saved on this device \u2014 cloud paused');
+      return null;
+    }
     /* ── S571 — CHANGE JOURNAL, STAGE THREE (second half) ────────────────────
      * A save whose shape matches a wipe now stops at the CLOUD DOOR and asks a
      * person, once. Three properties make this safe to ship on a threshold

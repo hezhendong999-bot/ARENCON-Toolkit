@@ -341,6 +341,9 @@ const CloudSync = (function () {
      record-touching door; a 20s fallback guarantees sync can never be wedged.
      Harness: tools/sim/bootlaunder.mjs. */
   let _bootApplied = false;
+  /* S698 (mirror) — boot stamp-merge could not be trusted: local saves
+     continue, cloud writes are held. */
+  let _s698MergeHeld = false;
   let _bootHoldTimer = null;
   let _bootAppliedState = null;
   const BOOT_HOLD_MAX_MS = 20000;
@@ -637,6 +640,10 @@ const CloudSync = (function () {
     if (_online) {
       try {
         _captureNext = true;
+        /* I-14 EXCEPTION 1 — boot, capture-and-merge. The pull is CAPTURED,
+           not applied (_captureNext); the S601 block below merges it against
+           this device's disk copy by entry stamps before anything is painted
+           or pushed, and S698 holds cloud writes if that merge cannot run. */
         let data = await engine.pull(_projectId, _instanceId, { allowStaleOverwrite: true });
         _captureNext = false;
         if (data) {
@@ -651,13 +658,37 @@ const CloudSync = (function () {
              now merges disk vs cloud by entry stamps exactly like every
              heartbeat pull: whichever value was ENTERED later survives, per
              field, and that is what reaches both the screen and the cloud. */
+          /* S698 (mirror of diesel-sync.js) — a failed boot merge must not
+             become an adopt. The old catch left `data` holding the RAW cloud
+             copy, so the one path where the stamp law could not run was also
+             the one path that silently discarded this device's disk work.
+             Keep the disk copy; hold cloud writes. */
           try {
             const rec = await _cacheGet(_cacheKey());
             const localDisk = rec && rec.state
               ? (typeof rec.state === 'string' ? JSON.parse(rec.state) : rec.state) : null;
             const bm = engine.mergeByStamps(localDisk, data);
             if (bm) data = bm;
-          } catch (e) { console.warn('[ElectricSync S601] boot stamp-merge skipped:', e && e.message); }
+            else if (localDisk) {
+              console.warn('[ElectricSync S698] boot stamp-merge returned nothing \u2014 keeping this device\u2019s disk copy, holding the push.');
+              data = localDisk; _s698MergeHeld = true;
+            }
+          } catch (e) {
+            let _ld = null;
+            try {
+              const rec2 = await _cacheGet(_cacheKey());
+              _ld = rec2 && rec2.state ? (typeof rec2.state === 'string' ? JSON.parse(rec2.state) : rec2.state) : null;
+            } catch (_) {}
+            if (_ld) {
+              console.error('[ElectricSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+                ') \u2014 keeping this device\u2019s disk copy and HOLDING cloud writes. The raw cloud copy is NOT adopted.');
+              data = _ld;
+            } else {
+              console.error('[ElectricSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+                ') and no local disk copy is readable \u2014 HOLDING cloud writes.');
+            }
+            _s698MergeHeld = true;
+          }
           const meta = await _fetchRowMeta();
           _instanceId = engine.instanceId || _instanceId;
           _instanceNumber = engine.instanceNumber || _instanceNumber;
@@ -821,6 +852,12 @@ const CloudSync = (function () {
       _settleRetry(); return null;
     }   // S584
     if (alreadyPushed) return null;
+    /* S698 (mirror) — unreconciled document: saves to disk, never pushed as
+       authority. */
+    if (_s698MergeHeld) {
+      _setStatus('pending', 'Saved on this device \u2014 cloud paused');
+      return null;
+    }
     try {
       const _allow = await _wipeGateAllows(stateJson);
       if (!_allow) { _setStatus('pending', 'Saved locally — cloud save paused'); return null; }

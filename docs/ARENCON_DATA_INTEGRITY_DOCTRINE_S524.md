@@ -79,3 +79,66 @@ Acceptance gate for every phase: two-device torture test with Mark present — c
 - **Test from the boot state, not just the steady state.** Ten merge tests passed and still missed a report-hollowing defect because every one started from a populated model. Any test suite for merge, sync, or load must include the first-moment-after-open case.
 - **A fix that has not reached the device has not shipped.** Verify the build stamp in the field, not the commit SHA in the repo.
 - **Test the way a person uses it.** In-memory and service-role tests do not exercise permissions, triggers, or RLS. Any claim about "it saves" requires a save through the ordinary user path (see I-11).
+
+---
+
+## I-14 — THE OVERRIDE LAW: when a device may take the cloud copy whole (S698)
+
+**Everyday law, unchanged and absolute:** a stale cache never overwrites newer
+stamped work, and nobody is ever told to close a device, hard-refresh, or clear
+their data to make sync behave. If a path needs a device to be closed, that
+path is a bug — fix the path.
+
+`allowStaleOverwrite` bypasses the per-item stamp merge, so every call site is
+an override of that law and must be one of the four named exceptions below.
+There are no others, and a future session that finds a fifth has found a defect.
+
+**1. Boot, capture-and-merge (diesel-sync.js `load()`, electric-sync.js
+`load()`).** The pull is captured, NOT applied: the host then merges the cloud
+copy against its own disk copy by entry stamps (`mergeByStamps`) and applies
+the result, holds pushes until `bootApplyComplete`, and carries the
+unsent-work marker. S698: if that merge cannot be trusted, the device's disk
+copy stands and cloud writes are HELD — a document we failed to reconcile is
+never pushed as authority.
+
+**2. Boot, own-newer detection (frt/js/app.js, S676).** FRT prefers the
+device's own saved copy when it is provably later than the last cloud
+agreement, and then pulls in MERGE mode. Adopt mode is only for the case where
+the device holds nothing newer. S698: if the local copy cannot be READ, the
+device does not guess — it retries, then holds cloud writes and says so. A
+failed read must never become an adopt.
+
+**3. User-confirmed replacement.** "Reload from Cloud" (More menu) and the
+"Pull now" conflict banner. Both warn, in plain words, that local changes will
+be replaced, and both require a deliberate tap. The warning is not optional
+decoration — removing it turns a sanctioned exception into data loss.
+
+**4. THE AUTHORITY MARK (S692) — do not remove, do not "simplify".**
+`authority_rev` is a server-owned counter on each `tool_data` row. When the
+cloud mark is HIGHER than the mark this device has accepted, the cloud copy is
+taken whole at BOTH doors: the ordinary pull and the 412 conflict path. The
+conflict door is the one that matters — a device mid-save never reaches the
+pull door, and on 25 Aug that is precisely how three correct repairs to
+7155.34 were each reversed within minutes by a cached device.
+
+  - No client can raise the mark. A Postgres trigger reverts any attempt
+    unless the security-definer raise function has set a transaction-scoped
+    flag, and EXECUTE on that function is revoked from every client role.
+    Verified: a direct write of 999 is refused and left at 0. Verified again
+    S698 by repo-wide grep — the only client-side references are the two
+    read-and-compare sites in lib/data/sync.js.
+  - The outgoing copy is set aside in IDB BEFORE it is replaced
+    (`_setAsideLocalCopy`), so a WRONG correction is always recoverable.
+  - The takeover sets the merge ancestor to the cloud copy outright. Without
+    that line the correction survives one render and is undone on the next
+    pull (the 8-pin revert).
+  - **This is not a reconnect mechanism and must never be used as one.** It is
+    for an authorised correction made by ARENCON, announced to the person.
+
+**Related, not an override:** the S693 issued-report lock (PT423 / HTTP 423)
+REFUSES writes rather than overwriting anything. Unsent work is set aside on
+the device and the person is told. It belongs to the same family as the I-8
+wipe guard: a refusal is a SUCCESS of the safety system.
+
+**Every `allowStaleOverwrite` call site carries a comment naming which
+exception it is.** A site that cannot name one is a defect, not a shortcut.

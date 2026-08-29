@@ -1144,3 +1144,19 @@ _ftDeletePld
 @ twice on a client report (S691). Deleting either side de-unifies the report.
 exportPanel
 exportPanelSelected
+
+@ ────────────────────────────────────────────────────────────────────────────
+@ S698 — A FAILED READ MUST NOT BECOME AN ADOPT (doctrine I-14).
+@ These three guard the one path where a device does not know whether it is
+@ holding unsent work. FRT: if the device's own saved copy cannot be READ at
+@ boot after retries, cloud writes are HELD and the person is told plainly —
+@ the old code treated "could not read" as "nothing there", pulled in adopt
+@ mode, and replaced unsent edits it had never seen. Diesel/Electric: if the
+@ boot stamp-merge throws, the device's disk copy stands and the push is held;
+@ the old catch left the RAW cloud copy in `data`, so the one path where the
+@ stamp law could not run was also the one path that discarded disk work.
+@ Removing any of these restores an adopt-through-the-error-door.
+@ ────────────────────────────────────────────────────────────────────────────
+_frtBootLocalUnreadable
+_s698ShowLocalUnreadable
+_s698MergeHeld

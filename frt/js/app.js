@@ -1347,6 +1347,26 @@ window.addEventListener('arencon-authority-replaced', function(ev){
   } catch (_) {}
 });
 
+/* S698 (F) — the device's own saved copy could not be read at boot, after
+   retries. That copy is the only thing that knows whether unsent work exists,
+   so the honest position is: do not guess, do not adopt, hold cloud writes,
+   and say so in plain words. Local saving to disk continues normally — the
+   inspector is never stopped from working. */
+function _s698ShowLocalUnreadable() {
+  try { _setCloudStatus('error', 'Cloud writes held \u2014 local copy unreadable'); } catch (_) {}
+  try {
+    showAlert('This device\u2019s saved copy could not be read',
+      'Cloud saving has been paused on this device as a precaution.\n\n' +
+      'Your work is still being saved on this device, and nothing has been ' +
+      'overwritten. The pause exists because this device may be holding work ' +
+      'that has not reached the cloud yet, and we will not risk replacing it ' +
+      'with an older copy.\n\n' +
+      'What to do: close this report and open it again. If this message ' +
+      'appears a second time, tell Mark before doing any more work on this ' +
+      'device \u2014 do not clear the app\u2019s data.');
+  } catch (_) {}
+}
+
 /* S693 — THE ISSUED-REPORT LOCK, host side. The server has refused a save
    because this report is issued (PT423): the engine has already set the
    unsent work aside and stood the retry machinery down. The host's job is to
@@ -1706,6 +1726,7 @@ function _showRemoteUpdateBanner(remoteTs){
       if (!yes) return;
       // Explicit user choice — bypass the S263 stale-overwrite gate (the
       // confirm above already warns this overwrites local).
+      // I-14 EXCEPTION 3 — user-confirmed replacement ("Pull now" banner).
       SyncEngine.pull(_projectId, SyncEngine.instanceId, { allowStaleOverwrite: true }).then(function(data){
         if (data) { _lastPulledUpdatedAt = remoteTs; _setCloudStatus('synced', 'Refreshed from cloud'); _repaintAfterPull(); }
         b.remove();
@@ -1724,6 +1745,10 @@ function _pushToCloud() {
      preserved; the barrier lift's stamp flush and the S155 safety push send
      held work with honest stamps once boot completes. */
   if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) return;
+  /* S698 (F) — local copy unreadable at boot: hold cloud writes. _pushDirty
+     is preserved, so nothing is lost; the moment the barrier is cleared the
+     held work goes up under its own stamps. */
+  if (window._frtBootLocalUnreadable) return;
   // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
   // nothing has changed since the last successful push, no network round
   // trip happens. The 'saved' Model event sets _pushDirty=true the moment
@@ -1763,6 +1788,14 @@ function _pushToCloudNow() {
   /* S676 — same barrier as _pushToCloud; this is the door the heartbeat
      flush and the banner use, so it must hold on its own. */
   if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) return;
+  /* S698 (F) — the local copy could not be read at boot, so this device does
+     not know whether it is holding unsent work. Local saves continue to disk;
+     cloud writes are HELD until a human resolves it. Pushing here could
+     overwrite work we were never able to see. */
+  if (window._frtBootLocalUnreadable) {
+    _setCloudStatus('error', 'Cloud writes held \u2014 local copy unreadable');
+    return;
+  }
   // S155: optimistic clear. If push succeeds, _pushDirty stays false. If a
   // concurrent 'saved' fires during the network round-trip, it re-sets
   // _pushDirty=true and the next cycle picks it up — no edit lost. If push
@@ -3158,7 +3191,29 @@ function boot() {
          per-item law every 30s pull already uses. */
       var seed = Promise.resolve(snap);
       if (snap && snap.id) {
-        seed = IDB.get('projects', snap.id).then(function(own) {
+        /* ═══ S698 (F) — A FAILED READ MUST NOT BECOME AN ADOPT. ══════════════
+           This read is the ONLY thing that knows whether the device is holding
+           unsent work. The old `.catch(→ snap)` treated "I could not read the
+           local copy" as "there is no local copy": boot fell through to the
+           snapshot, the pull ran in ADOPT mode (allowStaleOverwrite), and the
+           unsent edits — still sitting in 'projects', unread — were replaced.
+           One transient storage hiccup was enough. Merging snapshot-vs-cloud
+           instead is NOT a fix either: the work lives in the store that failed
+           to read, so merging around it still loses it and the next save
+           writes over it.
+           The law: retry, and if the local copy is still unreadable, REFUSE TO
+           GUESS. Hold cloud writes, tell the person plainly, and let a human
+           decide — never silently adopt over work we cannot see. */
+        var _readOwn = function(tries) {
+          return IDB.get('projects', snap.id).catch(function(err) {
+            if (tries > 1) {
+              console.warn('[FRT v2] Boot: local copy read failed, retrying (' + (tries - 1) + ' left):', err && err.message);
+              return new Promise(function(r){ setTimeout(r, 250); }).then(function(){ return _readOwn(tries - 1); });
+            }
+            throw err;
+          });
+        };
+        seed = _readOwn(3).then(function(own) {
           if (own && own.modified && snap.modified && own.modified > snap.modified &&
               !(SyncEngine._isBlankSnapshot && SyncEngine._isBlankSnapshot(own))) {
             window._frtBootOwnNewer = true;
@@ -3167,7 +3222,15 @@ function boot() {
             return own;
           }
           return snap;
-        }).catch(function() { return snap; });
+        }).catch(function(err) {
+          /* Unreadable after retries. Barrier up: no adopt, no cloud writes. */
+          window._frtBootOwnNewer = true;            // merge mode for whatever IS in memory
+          window._frtBootLocalUnreadable = true;     // the push barrier (checked before every cloud write)
+          console.error('[FRT v2] S698 BOOT BARRIER — this device\u2019s local copy could not be read after 3 attempts. ' +
+            'Cloud writes are HELD so unsent work cannot be overwritten. Detail: ' + (err && err.message));
+          try { _s698ShowLocalUnreadable(); } catch (_) {}
+          return snap;
+        });
       }
       return seed.then(function(doc) {
         if (doc) {
@@ -3299,6 +3362,10 @@ function boot() {
            carrying its S646 keystroke stamps, never the default skeleton. */
         return _bootStep('cloud-pull',
           SyncEngine.pull(_projectId, instanceId,
+            /* I-14 EXCEPTION 2 — boot, own-newer detection (S676). Merge mode
+               whenever this device holds provably later work; adopt only when
+               it does not. S698 holds cloud writes if the local copy is
+               unreadable rather than adopting over work it cannot see. */
             window._frtBootOwnNewer ? {} : { allowStaleOverwrite: true }),
           20000
         ).then(function (r) {
