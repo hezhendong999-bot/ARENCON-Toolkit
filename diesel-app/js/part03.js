@@ -251,9 +251,12 @@ function goBackToHub(){
    open does back behave like the ← Back button (save → project detail).
    Layers are peeled outermost-priority first; each call closes exactly one. */
 function _tieredBack(){
-  // 1. Photo-selection modal (sits above export modal)
-  var ppx=document.getElementById('ppx-ov');
-  if(ppx){ if(typeof _ppxClose==='function')_ppxClose(); else ppx.remove(); return true; }
+  /* 1. S697: the photo-selection screen used to be a hand-drawn #ppx-ov overlay
+        and needed its own tier here. It is a dialog-engine panel now (it could
+        never paint above an engine dialog otherwise), so tier 2 below closes it
+        exactly like every other panel — and because each panel mounts its own
+        host, tier 2 peels the TOPMOST one, which is the right layer. Hunting
+        for #ppx-ov here would find nothing and silently pass the gesture on. */
   // 2. S497: sealed-engine dialogs (Modal Unification Wave 3). The engine owns
   //    its own teardown (scrim animation + scroll unlock), so we must NEVER
   //    remove its host element directly — that would strand the scroll lock.

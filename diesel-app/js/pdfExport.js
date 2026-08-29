@@ -188,72 +188,118 @@ function _prePrintFromMenu(){
   if(!all.length){ showToast('No report photos yet'); return; }
   _prePrintOpen(all);
 }
+/* S697 — THE PHOTO REVIEW IS A DIALOG-ENGINE PANEL, NOT A HAND-DRAWN OVERLAY.
+   ROOT CAUSE of "Review photos opens BEHIND the Export panel and ignores night
+   mode": this screen was built in S316, before the engine existed, as a fixed
+   overlay at z-index 99995 with a hardcoded light card. The engine mounts its
+   panels at 2147483000 — so this screen could NEVER paint above any dialog, at
+   any z-index worth writing, and its colours were literals no theme could
+   reach. Raising the number would have fixed today's symptom and left the class
+   alive for the next overlay. The engine already owns every other modal in this
+   tool; that is why every other modal stacks and themes correctly. So this one
+   joins them: the engine owns the card, the header, the buttons, Esc/✕ parity
+   and the scroll lock, and each panel mounts its own host — so a panel opened
+   from a panel lands on top, by construction. What stays here is the CONTENT:
+   which photographs, in which groups, and what tapping one means. */
+var _ppxRoot=null, _ppxCloseFn=null;
 function _prePrintOpen(all){
-  // S316 (field report): full-screen overlay sat UNDER the sticky app header
-  // ("header floating mid air"), thumbs too small, light text lost on light skin.
-  // Rebuilt as a centered MODAL: explicit light card, dark backdrop above
-  // everything, internal scroll, body scroll locked while open.
+  var D = window.ArenconDlg;
+  if(!D || !D.panel){
+    /* Unlike the export panel, this screen is a refinement: every eligible
+       photo prints by default, so losing the review costs nothing but the
+       chance to exclude. Say so rather than opening an unstyled overlay. */
+    if(typeof showToast==='function') showToast('Photo review needs the dialog engine \u2014 all report photos will print');
+    return;
+  }
   _ppxClose();
   var CATS=[['records','Pump \u00B7 Placard \u00B7 Flow Charts'],['flow','Flow Test \u2014 Gauges & RPM']];
   var byCat={}; all.forEach(function(it){ (byCat[it.cat]||(byCat[it.cat]=[])).push(it); });
-  var ov=document.createElement('div'); ov.id='ppx-ov';
-  ov.style.cssText='position:fixed;inset:0;z-index:99995;background:rgba(16,20,30,.62);display:flex;align-items:center;justify-content:center;padding:18px;font-family:Calibri,sans-serif;';
-  var h='<div style="background:#FBFAFC;color:#1B1A22;border-radius:14px;max-width:1040px;width:100%;max-height:84vh;display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.45);overflow:hidden;">'
-    +'<div style="padding:16px 20px 10px;border-bottom:1px solid #E3E1E8;flex:0 0 auto;">'
-    +'<div style="font-size:17px;font-weight:700;">Report Photos</div>'
-    +'<div style="font-size:12.5px;color:#5E5B68;margin-top:2px;">Everything below prints in the Photo Appendix by default \u2014 tap a photo to exclude it. Saved with the report.</div></div>'
-    +'<div id="ppx-body" style="flex:1 1 auto;overflow-y:auto;padding:4px 20px 16px;">';
+  var h='<div class="ppx-total" id="ppx-total"></div>';
   CATS.forEach(function(c){
     var items=byCat[c[0]]||[]; if(!items.length) return;
-    h+='<div style="margin-top:14px;">'
-      +'<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">'
-      +'<span style="font-weight:700;font-size:14px;color:#1B1A22;">'+c[1]+'</span>'
-      +'<span style="font-size:11.5px;color:#928E9C;" id="ppx-cnt-'+c[0]+'"></span>'
+    h+='<div class="ppx-grp">'
+      +'<div class="ppx-grp-hd">'
+      +'<span class="ppx-grp-lbl">'+c[1]+'</span>'
+      +'<span class="ppx-grp-cnt" id="ppx-cnt-'+c[0]+'"></span>'
       +'<span style="flex:1;"></span>'
-      +'<button onclick="_ppxCat(\''+c[0]+'\',true)" style="background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">All</button>'
-      +'<button onclick="_ppxCat(\''+c[0]+'\',false)" style="background:#ECEAF0;color:#1B1A22;border:1px solid #D8D5DE;border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;">None</button>'
-      +'</div><div style="display:flex;flex-wrap:wrap;gap:9px;">';
+      +'<button class="ppx-sel" onclick="_ppxCat(\''+c[0]+'\',true)">All</button>'
+      +'<button class="ppx-sel" onclick="_ppxCat(\''+c[0]+'\',false)">None</button>'
+      +'</div><div class="ppx-grid">';
     items.forEach(function(it){
       var k=_ppxKey(it), ex=_appendixExcl.has(k), s2=it.src||'';
-      h+='<div class="ppx-t" data-k="'+k+'" data-cat="'+(it.cat||'')+'" onclick="_ppxToggle(this)" '
-        +'style="position:relative;width:112px;height:112px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;border:2px solid '+(ex?'#D8D5DE':'#5F8068')+';opacity:'+(ex?'.35':'1')+';">'
-        +(s2?'<img src="'+s2+'" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block;">':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#777;font-size:10px;">no preview</div>')
-        +'<span style="position:absolute;top:3px;right:3px;background:rgba(28,35,51,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+(it.badge||'')+'</span>'
-        +'<span class="ppx-x" style="position:absolute;inset:0;display:'+(ex?'flex':'none')+';align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:700;background:rgba(0,0,0,.38);">\u2715</span>'
+      h+='<div class="ppx-t'+(ex?' is-out':'')+'" data-k="'+k+'" data-cat="'+(it.cat||'')+'" onclick="_ppxToggle(this)">'
+        +(s2?'<img src="'+s2+'" loading="lazy">':'<div class="ppx-nop">no preview</div>')
+        +'<span class="ppx-badge">'+(it.badge||'')+'</span>'
+        +'<span class="ppx-x">\u2715</span>'
         +'</div>';
     });
     h+='</div></div>';
   });
-  h+='</div>'
-    +'<div style="flex:0 0 auto;display:flex;gap:10px;padding:12px 20px;background:#F2F0F5;border-top:1px solid #E3E1E8;">'
-    +'<button onclick="_ppxClose()" class="_dsl-cancel">Cancel</button>'
-    +'<span style="flex:1;display:flex;align-items:center;color:#5E5B68;font-size:12px;" id="ppx-total"></span>'
-    +'<button onclick="_ppxDone()" style="background:#9C2742;color:#fff;border:none;border-radius:8px;padding:11px 26px;font:700 14px Calibri,sans-serif;cursor:pointer;">Done</button></div></div>';
-  ov.innerHTML=h;
-  document.body.appendChild(ov);
-  ov._prevOverflow=document.body.style.overflow;
-  document.body.style.overflow='hidden';
-  _ppxCounts();
+  D.panel({
+    title:'Report Photos',
+    sub:'Everything below prints in the Photo Appendix by default \u2014 tap a photo to exclude it. Saved with the report.',
+    icon:'\uD83D\uDDBC',
+    accent:'info',
+    width:1040,
+    build:function(bd){
+      var st=document.createElement('style'); st.textContent=_PPX_BODY_CSS; bd.appendChild(st);
+      var w=document.createElement('div'); w.className='ppx-panelbody'; w.innerHTML=h;
+      bd.appendChild(w);
+      _ppxRoot=w;
+      _ppxCounts();
+    },
+    buttons:[
+      { label:'Cancel', kind:'cancel' },
+      { label:'Done', kind:'primary', onClick:function(api){ _ppxDone(); return true; } }
+    ]
+  }).then(function(){ _ppxRoot=null; _ppxCloseFn=null; });
+  _ppxCloseFn = function(){ try{ document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'})); }catch(_){} };
 }
+/* Content-only styles. Chrome belongs to the engine and is deliberately NOT
+   redeclared; colours reference the engine's tokens so BOTH modes come free. */
+var _PPX_BODY_CSS=
+  '.ppx-panelbody{padding:0 4px 2px;}'
+ +'.ppx-total{font-size:12.5px;color:var(--dlg-ink-2);margin:2px 0 4px;}'
+ +'.ppx-grp{margin-top:14px;}'
+ +'.ppx-grp-hd{display:flex;align-items:center;gap:10px;margin-bottom:8px;}'
+ +'.ppx-grp-lbl{font-weight:700;font-size:14px;color:var(--dlg-ink);}'
+ +'.ppx-grp-cnt{font-size:11.5px;color:var(--dlg-ink-3);}'
+ +'.ppx-sel{background:var(--dlg-btn-face);color:var(--dlg-btn-ink);border:1px solid var(--dlg-btn-line);border-radius:6px;padding:5px 12px;font:600 12px Calibri,sans-serif;cursor:pointer;}'
+ +'.ppx-sel:hover{border-color:color-mix(in srgb, var(--dlg-ink) 34%, transparent);}'
+ +'.ppx-grid{display:flex;flex-wrap:wrap;gap:9px;}'
+ +'.ppx-t{position:relative;width:112px;height:112px;border-radius:8px;overflow:hidden;background:#000;cursor:pointer;border:2px solid #5F8068;opacity:1;}'
+ +'.ppx-t.is-out{border-color:var(--dlg-line);opacity:.35;}'
+ +'.ppx-t img{width:100%;height:100%;object-fit:cover;display:block;}'
+ +'.ppx-nop{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#777;font-size:10px;}'
+ +'.ppx-badge{position:absolute;top:3px;right:3px;background:rgba(28,35,51,.8);color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:7px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+ +'.ppx-x{position:absolute;inset:0;display:none;align-items:center;justify-content:center;color:#fff;font-size:30px;font-weight:700;background:rgba(0,0,0,.38);}'
+ +'.ppx-t.is-out .ppx-x{display:flex;}'
+ +'@media (pointer:coarse){.ppx-t{width:126px;height:126px;}.ppx-sel{padding:9px 14px;font-size:13px;}}';
+function _ppxQA(sel){ return _ppxRoot ? _ppxRoot.querySelectorAll(sel) : []; }
 function _ppxClose(){
-  var ov=document.getElementById('ppx-ov');
-  if(ov){ document.body.style.overflow=ov._prevOverflow||''; ov.remove(); }
+  /* S697 — closes THIS panel only. The old version removed a document-level
+     overlay; dispatching Esc blindly would now dismiss whatever panel is on
+     top, which — called at the start of _prePrintOpen — would have closed the
+     Export panel sitting underneath. Guarded on our own root being live. */
+  if(_ppxRoot && _ppxCloseFn){ var f=_ppxCloseFn; _ppxCloseFn=null; _ppxRoot=null; f(); }
 }
 function _ppxDone(){
   if(typeof saveState==='function') saveState();
   if(typeof debounceAutosave==='function') debounceAutosave();
-  _ppxClose();
+  _ppxRoot=null; _ppxCloseFn=null;   // the engine button closes the panel itself
   _exmRefreshPhotoCount();   // S329: if export modal still open behind, update its "All N will print" line
   showToast('Report photo selection saved');
 }
 function _exmRefreshPhotoCount(){
-  var el=document.getElementById('exm-photo-count'); if(!el) return;
   var elig=(typeof _collectAllPhotos==='function')?_collectAllPhotos().filter(_appendixEligible):[];
   var tot=elig.length;
   var incl=elig.filter(function(it){ return !_appendixExcl.has(_ppxKey(it)); }).length;
-  el.textContent = !tot ? 'No report photos yet'
+  var txt = !tot ? 'No report photos yet'
     : (incl===tot ? ('All '+tot+' photo'+(tot===1?'':'s')+' will print')
                   : (incl+' of '+tot+' photos will print'));
+  /* S697: the line lives in the export panel's shadow root — the engine puts
+     the sentence where only it can reach. */
+  if(window.ReportPdf && window.ReportPdf.exportPanelSetPhotoCount) window.ReportPdf.exportPanelSetPhotoCount(txt);
 }
 /* S616c — the companion set: photos a person has explicitly put BACK IN.
    _appendixExcl alone could only ever say "out", so a restore was
@@ -265,25 +311,29 @@ function _exmRefreshPhotoCount(){
 var _appendixIncl = new Set();
 function _ppxToggle(el){
   var k=el.getAttribute('data-k');
-  if(_appendixExcl.has(k)){ _appendixExcl.delete(k); _appendixIncl.add(k); el.style.opacity='1'; el.style.borderColor='#5F8068'; el.querySelector('.ppx-x').style.display='none'; }
-  else { _appendixExcl.add(k); _appendixIncl.delete(k); el.style.opacity='.35'; el.style.borderColor='rgba(255,255,255,.15)'; el.querySelector('.ppx-x').style.display='flex'; }
+  /* S697 — state is a CLASS now, not inline colours. The old version wrote
+     borderColor 'rgba(255,255,255,.15)' for an excluded tile, which is
+     invisible on the light card it was drawn on; the class carries the engine's
+     own line token and is correct in both modes. */
+  if(_appendixExcl.has(k)){ _appendixExcl.delete(k); _appendixIncl.add(k); el.classList.remove('is-out'); }
+  else { _appendixExcl.add(k); _appendixIncl.delete(k); el.classList.add('is-out'); }
   _ppxCounts();
   if(typeof debounceAutosave==='function') debounceAutosave();
 }
 function _ppxCat(cat,on){
-  document.querySelectorAll('#ppx-ov .ppx-t[data-cat="'+cat+'"]').forEach(function(el){
+  _ppxQA('.ppx-t[data-cat="'+cat+'"]').forEach(function(el){
     var k=el.getAttribute('data-k'), ex=_appendixExcl.has(k);
     if(on===ex) _ppxToggle(el);   // flip only the ones in the wrong state
   });
 }
 function _ppxCounts(){
   var tot=0, inc=0;
-  document.querySelectorAll('#ppx-ov .ppx-t').forEach(function(el){ tot++; if(!_appendixExcl.has(el.getAttribute('data-k'))) inc++; });
-  var t=document.getElementById('ppx-total'); if(t) t.textContent=inc+' of '+tot+' photos will print';
+  _ppxQA('.ppx-t').forEach(function(el){ tot++; if(!_appendixExcl.has(el.getAttribute('data-k'))) inc++; });
+  var t=_ppxRoot?_ppxRoot.querySelector('#ppx-total'):null; if(t) t.textContent=inc+' of '+tot+' photos will print';
   ['records','flow','checklist','deficiency','general'].forEach(function(c){
     var n=0,m=0;
-    document.querySelectorAll('#ppx-ov .ppx-t[data-cat="'+c+'"]').forEach(function(el){ m++; if(!_appendixExcl.has(el.getAttribute('data-k'))) n++; });
-    var s=document.getElementById('ppx-cnt-'+c); if(s) s.textContent=n+'/'+m;
+    _ppxQA('.ppx-t[data-cat="'+c+'"]').forEach(function(el){ m++; if(!_appendixExcl.has(el.getAttribute('data-k'))) n++; });
+    var s=_ppxRoot?_ppxRoot.querySelector('#ppx-cnt-'+c):null; if(s) s.textContent=n+'/'+m;
   });
 }
 function _ppxGenerate(){ _ppxDone(); }   // S296-era entry — INERT since S316, kept per S137
