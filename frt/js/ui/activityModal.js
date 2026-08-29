@@ -18,6 +18,7 @@ import { Model } from '../data/model.js';
 import { toast } from '../shared/toast.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { esc } from '../lib/esc.js';
+import { openCameraBurst } from './cameraBurst.js';   // S693: the ONE camera — re-export of the shared burst engine, never a fork
 
 // ── Activity Modal (v1-style) ────────────────────────────
 var _activityModalPhotos = [];
@@ -120,9 +121,27 @@ export function _showActivityModal(deficId, label, editActId, preObsRef) {
   }
 
   ov.querySelector('#am-upload-btn').addEventListener('click', function(ev) { ev.stopPropagation(); _amFileInput(false); });
-  // S331 #photo-buttons — expose Camera alongside Upload (capture=environment).
+  /* S693 — Camera routes through the ONE burst camera (S284 engine). This was
+     the last live single-shot capture input in FRT: S331 wired it before the
+     burst engine existed, and it silently lost every S544/S545/S546 protection
+     (disk-write-on-shutter, cancel-confirm, mid-burst recovery). Contract:
+       File[] → feed the modal's existing photo pipeline (_amAddPhoto)
+       []     → cancelled / Done with zero shots — no-op
+       null   → unsupported or denied — TELL the user; never auto-click a
+                capture input (the user gesture is gone by then and Android
+                Chrome blocks it, S159). Upload stays the plain picker.
+     Called directly in the tap handler so getUserMedia keeps the gesture. */
   var _amCam = ov.querySelector('#am-camera-btn');
-  if (_amCam) _amCam.addEventListener('click', function(ev) { ev.stopPropagation(); _amFileInput(true); });
+  if (_amCam) _amCam.addEventListener('click', function(ev) {
+    ev.stopPropagation();
+    var _pid = null;
+    try { _pid = new URLSearchParams(window.location.search).get('project'); } catch (_) {}
+    var _lbl = 'Activity \u2014 Deficiency #' + (d && d.num != null ? d.num : '?');
+    openCameraBurst({ projectId: _pid, tool: 'frt', label: _lbl }).then(function(files) {
+      if (files === null) { toast('Camera unavailable or permission denied \u2014 use \uD83D\uDCCE Upload'); return; }
+      if (files && files.length) { for (var i = 0; i < files.length; i++) _amAddPhoto(files[i]); }
+    });
+  });
 
   ov.querySelector('#am-cancel').addEventListener('click', function() { _activityModalPhotos = []; ov.remove(); });
 
