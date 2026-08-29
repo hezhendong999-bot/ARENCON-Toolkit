@@ -527,23 +527,31 @@ function _realExportPDF() {
   var _pdfTitle = _pdfSfn.trim() + ' Diesel Pump Commissioning Report' + (_pdfInstNum>1?' #'+_pdfInstNum:'') + ' ' + _pdfRev;
 
   // ════ S317: cover Status Overview + Inspection Completion (approved demo).
-  //      Donut = checklist outcomes across sections 1/2/3/5 incl. custom items;
-  //      bars = answered/total overall and per section. Report palette only. ════
+  //      Donut = checklist outcomes; bars = answered/total overall and per
+  //      section. Report palette only.
+  //      S698 (Mark approved): the donut used to take its own hardcoded list of
+  //      four sections and so counted 55 where the screen counted 61 — it was
+  //      silently dropping the churn run on both test tabs and the THREE
+  //      MANDATORY FA & Signaling items, on the page a client reads first. It
+  //      now derives from CL_GROUPS, the single checklist definition the screen
+  //      also uses, so the two can never disagree and a future section is
+  //      counted here automatically. ════
   var _ovHtml='';
   try{
-    var _ovSecs=[[S1,'s1','1. Pre-Commissioning'],[S2,'s2','2. Visual Inspection'],[S3,'s3','3. Controller Tests'],[S5,'s5','5. FA & Signaling']];
     var _ovC={yes:0,no:0,na:0,ic:0,total:0}, _ovPer=[];
-    _ovSecs.forEach(function(cfg){
-      var items=cfg[0].concat(customItems[cfg[1]]||[]), ans=0;
-      items.forEach(function(it,idx){
-        var st=clState[cid(cfg[1],idx)], sc=st&&st.status;
-        _ovC.total++;
-        if(sc==='yes'){_ovC.yes++;ans++;}
-        else if(sc==='no'){_ovC.no++;ans++;}
-        else if(sc==='na'){_ovC.na++;ans++;}
-        else _ovC.ic++;
+    CL_GROUPS.forEach(function(g){
+      var ans=0, tot=0;
+      g.secs.forEach(function(sec){
+        clSectionItems(sec).forEach(function(it,idx){
+          var st=clState[cid(sec,idx)], sc=st&&st.status;
+          _ovC.total++; tot++;
+          if(sc==='yes'){_ovC.yes++;ans++;}
+          else if(sc==='no'){_ovC.no++;ans++;}
+          else if(sc==='na'){_ovC.na++;ans++;}
+          else _ovC.ic++;
+        });
       });
-      _ovPer.push({name:cfg[2],ans:ans,tot:items.length});
+      _ovPer.push({name:g.label,ans:ans,tot:tot});
     });
     var _C=2*Math.PI*44, _off=0, _arcs='';
     [['yes','#5F8068'],['no','#A85959'],['na','#888888'],['ic','#B08948']].forEach(function(seg){

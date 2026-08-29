@@ -992,10 +992,14 @@ function _applyStateInPlace(jsonStr) {
     renderAllSignRows();
     calcTotalDemand3pt(); calcTotalDemandPld();
     syncAllFields(); refreshAllCharts();
-    var _srcMap={s1:S1,s2:S2,s3:S3,s4:S4_items,s4pld:S4_items,s5m:S5_mandatory,s5:S5};
+    /* S698: was a second _srcMap listing the sections and their arrays — a
+       third place that had to agree with the checklist engine and the cover.
+       Order and membership now come from CL_SECTIONS, and the items from the
+       engine, so there is one definition to keep right. */
     var _contMap={s1:'cl-s1',s2:'cl-s2',s3:'cl-s3',s4:'cl-s4',s4pld:'cl-s4pld',s5m:'cl-s5-mandatory',s5:'cl-s5'};
-    ['s1','s2','s3','s4','s4pld','s5m','s5'].forEach(function(sec){
-      if(_srcMap[sec]) renderChecklist(_srcMap[sec],_contMap[sec],sec);
+    CL_SECTIONS.forEach(function(sec){
+      var src=(typeof _CLENG!=='undefined'&&_CLENG.sectionItems)?_CLENG.sectionItems(sec):null;
+      if(src && _contMap[sec]) renderChecklist(src,_contMap[sec],sec);
     });
     updateProgress(); updateVerdict();
     showToast('\u21b6 Undo applied',1500);

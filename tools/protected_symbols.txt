@@ -1178,3 +1178,15 @@ _s698MergeHeld
 onReconnect
 _reconnectAfterPull
 _reconnectPushAhead
+
+@ S698 — ONE definition of the checklist. Mark reported the Summary screen
+@ counting 61 items and the PDF cover donut counting 55; the cause was four
+@ private section lists, and the verdict's copy omitted the THREE MANDATORY FA &
+@ Signaling items entirely, so a No on "engine running signal received at FACP"
+@ never reached the overall verdict. Every counter now derives from CL_GROUPS.
+@ Removing these re-splits the definition and the numbers drift apart again.
+CL_GROUPS
+CL_SECTIONS
+clChecklistItems
+clSectionItems
+clCounts

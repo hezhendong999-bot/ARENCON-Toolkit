@@ -297,6 +297,72 @@ function _migrateClState(loaded, savedVer){ return _CLENG.migrate(loaded, savedV
 // Custom items added by user per section
 const customItems = {}; // { section: [ {num,text,ref} ] }
 
+/* ════ S698 — ONE DEFINITION OF "THE CHECKLIST" ═══════════════════════════════
+   Mark, 29 Aug: the Summary screen counted 61 checklist items and the PDF cover
+   donut counted 55.
+
+   ROOT CAUSE: there was no single answer to "what is on the checklist". Three
+   places each held their own: the checklist engine's sectionItems map, a
+   duplicate _srcMap in the render path, and the cover's own hardcoded list of
+   four sections. The cover's list was written as "1/2/3/5" and so silently
+   omitted the churn-run item on both test tabs and — worse on a page a client
+   or AHJ reads first — the THREE MANDATORY FA & Signaling items (engine
+   running, combined trouble/overpressure, main switch to off/manual). A figure
+   labelled CHECKLIST under-reported the inspection by six items.
+
+   Raising the cover's number would have fixed this report and left the next
+   section to drift again. So: the groups below are the single source of truth.
+   Every counter derives from them, which is why they cannot disagree — and a
+   section added here appears on the screen, in the cover donut and in the
+   cover's completion bars at once, with no second place to remember.
+
+   Counting from the manifest rather than from clState also means an orphaned
+   saved answer — a key left behind by a deleted custom item — can no longer
+   inflate the screen's total the way it inflates a raw key count. */
+const CL_GROUPS = [
+  { label:'1. Pre-Commissioning', secs:['s1'] },
+  { label:'2. Visual Inspection', secs:['s2'] },
+  { label:'3. Controller Tests',  secs:['s3'] },
+  /* the churn run is answered once per test path — the screen has always
+     counted both, and now the cover does too */
+  { label:'4. Performance Test',  secs:['s4','s4pld'] },
+  /* s5m carries the three MANDATORY signals; grouped with s5 so the cover
+     keeps its familiar five bars rather than sprouting new ones */
+  { label:'5. FA & Signaling',    secs:['s5m','s5'] }
+];
+const CL_SECTIONS = CL_GROUPS.reduce(function(a,g){ return a.concat(g.secs); }, []);
+
+/* Every answerable checklist item, built-ins then that section's custom items —
+   the same order the renderer and cid() use, so ids line up exactly. */
+function clSectionItems(sec){
+  var base = (typeof _CLENG!=='undefined' && _CLENG.sectionItems) ? (_CLENG.sectionItems(sec)||[]) : [];
+  var cust = (typeof customItems!=='undefined' && customItems[sec]) ? customItems[sec] : [];
+  return base.concat(cust);
+}
+function clChecklistItems(){
+  var out=[];
+  CL_SECTIONS.forEach(function(sec){
+    clSectionItems(sec).forEach(function(it,idx){
+      var id=cid(sec,idx), st=(typeof clState!=='undefined' && clState[id]) ? clState[id] : null;
+      out.push({ sec:sec, idx:idx, id:id, item:it, status:(st&&st.status)||'' });
+    });
+  });
+  return out;
+}
+/* Pass / Fail / N-A / incomplete, over the whole checklist. `answered` excludes
+   incomplete; `total` is every item that CAN be answered. */
+function clCounts(items){
+  var c={total:0,yes:0,no:0,na:0,ic:0,answered:0};
+  (items||clChecklistItems()).forEach(function(o){
+    c.total++;
+    if(o.status==='yes'){c.yes++;c.answered++;}
+    else if(o.status==='no'){c.no++;c.answered++;}
+    else if(o.status==='na'){c.na++;c.answered++;}
+    else c.ic++;
+  });
+  return c;
+}
+
 
 var deletedItems = {}; // { section: Set of deleted built-in indices }
 
@@ -1167,14 +1233,13 @@ function handleDrop(e,id){ e.preventDefault(); e.currentTarget.classList.remove(
 
 // ── PROGRESS ──
 function updateProgress() {
-  let total=0, yes=0, no=0, na=0;
-  for(const v of Object.values(clState)){
-    total++;
-    if(v.status==='yes') yes++;
-    else if(v.status==='no') no++;
-    else if(v.status==='na') na++;
-  }
-  const ans=yes+no+na;
+  /* S698: counts come from the ONE checklist definition (CL_GROUPS), not from
+     a raw walk of saved answers — so the screen and the PDF cover report the
+     same checklist, and a saved answer orphaned by a deleted custom item can
+     no longer inflate the total. */
+  const _c = clCounts();
+  let total=_c.total, yes=_c.yes, no=_c.no, na=_c.na;
+  const ans=_c.answered;
   const pct = total ? Math.round(ans/total*100) : 0;
   document.getElementById('prog-fill').style.width = pct+'%';
   document.getElementById('prog-label').textContent = `${ans} / ${total} (${pct}%)`;
@@ -1219,13 +1284,22 @@ function updateProgress() {
     })();
   })();
   // Update tab dots for sections with unselected items
+  /* S698: built from the one checklist definition rather than a raw key walk.
+     Two consequences that matter: an orphaned saved answer no longer invents a
+     count, and the mandatory FA items (their own section key, s5m) now fold
+     into the FA & Signaling tab — before this, leaving one of the three
+     mandatory signals unanswered lit no dot at all, so nothing nagged. */
   var secCounts = {};
-  for(var k in clState) {
-    var sec = k.split('_')[0];
+  clChecklistItems().forEach(function(o){
+    var sec = (o.sec === 's5m') ? 's5' : o.sec;      // mandatory FA lives on the s5 tab
     if(!secCounts[sec]) secCounts[sec] = {total:0,done:0};
     secCounts[sec].total++;
-    if(clState[k].status) secCounts[sec].done++;
-  }
+    if(o.status) secCounts[sec].done++;
+    if(o.sec === 's5m'){                              // keep s5m addressable for its own override
+      if(!secCounts.s5m) secCounts.s5m = {total:0,done:0};
+      secCounts.s5m.total++; if(o.status) secCounts.s5m.done++;
+    }
+  });
   // Merged Performance tab: the s4 dot reflects ONLY the active test's checklist
   // (3-Point uses s4 items; 7-Point uses s4pld items). The inactive test's unanswered
   // items must not keep the dot nagging.
@@ -2403,13 +2477,18 @@ function _dslVerdictFacts(){
     }
   }catch(_e3){}
   try{
-    ['s1','s2','s3','s4','s4pld','s5'].forEach(function(sec){
-      var srcMap={s1:S1,s2:S2,s3:S3,s5:S5}, items=srcMap[sec]; if(!items) return;
-      items.forEach(function(_it,idx){
-        var st=clState[cid(sec,idx)] && clState[cid(sec,idx)].status;
-        if(st) f.anyResponse=true;
-        if(st==='no') f.checklistNo++;
-      });
+    /* S698 — this was a FOURTH private section list, and the most consequential
+       one: it fed the OVERALL verdict. It looped six section keys against a map
+       holding only four, so s4 and s4pld fell through the `if(!items) return`,
+       and s5m was never in the loop at all. A "No" on a MANDATORY FA signal —
+       engine running received at FACP, combined trouble/overpressure, main
+       switch to off/manual — therefore did not count toward the verdict, and a
+       report could read CONDITIONAL on fewer items than were actually failed.
+       It now walks the one checklist definition, so every answerable item is
+       scored and a new section is scored the day it is added. */
+    clChecklistItems().forEach(function(o){
+      if(o.status) f.anyResponse=true;
+      if(o.status==='no') f.checklistNo++;
     });
   }catch(_e4){}
   // S509c: when nothing is scorable, say WHY. The verdict is unchanged by this —
