@@ -3330,7 +3330,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S702i';
+var FRT_BUILD = 'S702j';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3461,7 +3461,7 @@ function boot() {
     if (_bs) _bs.textContent = 'build ' + FRT_BUILD;
   } catch (_bse) {}
   try {
-    window.addEventListener('load', function () {
+    var _mountBuildStamp = function () {
       if (document.getElementById('frt-build-stamp')) return;
       var b = document.createElement('div');
       b.id = 'frt-build-stamp';
@@ -3481,7 +3481,18 @@ function boot() {
           navigator.serviceWorker.controller.postMessage({ type: 'GET_BUILD_STAMP' }, [ch.port2]);
         }
       } catch (_se) {}
-    });
+    };
+    /* ═══ S702j — A LISTENER THAT CAN NEVER FIRE. ════════════════════════════
+       This was registered on `load` alone. app.js is a DEFERRED module, so on
+       a warm start boot() can run after `load` has already gone past — and the
+       listener is then attached to an event that will not happen again. The
+       one label that tells anyone in the field which build a tablet is running
+       simply would not exist, and its absence was read yesterday as proof of
+       an old build. Mount it now if the document is already up; keep the
+       listener only for the case where it genuinely is not. Same element, same
+       corner — it is NOT moved a third time. */
+    if (document.readyState === 'complete' || document.readyState === 'interactive') _mountBuildStamp();
+    else window.addEventListener('load', _mountBuildStamp);
   } catch (_bse2) {}
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
