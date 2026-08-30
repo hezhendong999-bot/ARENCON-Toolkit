@@ -1190,3 +1190,29 @@ CL_SECTIONS
 clChecklistItems
 clSectionItems
 clCounts
+
+@ S700a — ISSUED OPEN IS REVIEW, NOT FIELDWORK. A return visit was recorded into
+@ an FRT that had already been issued and sent: new deficiencies added, old ones
+@ closed, on the document the client was holding. S693 refuses that at the
+@ database, but the refusal arrives AFTER the afternoon's work. A lock is not a
+@ workflow. An issued report now opens with a standing banner naming the report,
+@ its revision and its date of issue, and offers the two honest ways forward.
+@ _s700IsIssued is the one truth every other module asks; _S700_DENY plus the
+@ capture-phase gate refuse a work-creating gesture BEFORE anything is made, so
+@ no photo is taken then discarded and no stroke drawn then dropped.
+@ _s700StartNextReport calls the SHARED seeder — ReportSeed, in
+@ lib/data/reportSeed.js — which the Hub also calls after deleting its own copy.
+@ Those rules decide which visit a carried deficiency belongs to; a second copy
+@ that drifted by one line corrupts the carried-vs-new arithmetic on every later
+@ report. The block is scoped to ISSUED ONLY, never to a revision: Revise means
+@ "I mean to change what we sent", and blocking there leaves that button a dead
+@ end — the same pressure that caused the original failure. The server agrees,
+@ so the app and the database enforce the same rule rather than two that drift.
+@ ────────────────────────────────────────────────────────────────────────────
+_s700IsIssued
+_s700Refresh
+_s700ServerLocked
+_s700RefuseIfIssued
+_s700StartNextReport
+_S700_DENY
+ReportSeed
