@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202608300905';
+var CACHE_NAME = 'arencon-frt-202608301010';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -345,6 +345,18 @@ self.addEventListener('message', function(e) {
       if (e.ports && e.ports[0]) e.ports[0].postMessage(reply);
       else if (e.source && e.source.postMessage) e.source.postMessage(reply);
     } catch (_) {}
+    return;
+  }
+  /* S707 — a worker that has installed but is WAITING serves nothing. The
+     install handler already calls skipWaiting(), but that only helps a worker
+     that installs while the page is open; one that installed on a previous
+     visit can still be sitting in `waiting` when the tool boots. The build
+     stamp's force-update needs a way to say "take over now" before it reloads,
+     or the reload is answered by the outgoing cache and the build appears not
+     to have moved — the S590 failure, which is exactly what it is there to
+     rule out. */
+  if (msg.type === 'SKIP_WAITING') {
+    try { self.skipWaiting(); } catch (_) {}
     return;
   }
   if (msg.type === 'TILE_CACHE_CLEAR') {

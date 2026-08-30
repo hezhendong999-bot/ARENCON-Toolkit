@@ -3330,7 +3330,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S706';
+var FRT_BUILD = 'S707';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3466,8 +3466,64 @@ function boot() {
       var b = document.createElement('div');
       b.id = 'frt-build-stamp';
       b.textContent = 'build ' + FRT_BUILD;
-      b.style.cssText = 'position:fixed;left:10px;bottom:8px;z-index:20;pointer-events:none;' +
+      b.style.cssText = 'position:fixed;left:6px;bottom:4px;z-index:20;pointer-events:auto;' +
+        'padding:6px 8px;min-height:24px;cursor:pointer;-webkit-tap-highlight-color:transparent;' +
         'font:400 10.5px Calibri,sans-serif;color:#928E9C;opacity:.65;';
+      /* ═══ S707 — A TABLET HAS NO WAY TO TAKE AN UPDATE. ════════════════════
+         On a desktop Mark presses Ctrl+Shift+R. Inside the TWA there is no such
+         gesture, and telling anyone to close or reopen the app is forbidden
+         (S7 / roadmap 2.2) — so the live-update engine is the ONLY route a new
+         build has onto a field tablet, and when it declines the person holding
+         the tablet has no way to see that, let alone override it.
+
+         That is what happened tonight: S706 was live on the server and correct,
+         the tablet stayed on S703, and three separate explanations were offered
+         from reading code. The engine declines for good reasons — an open
+         drawing would lose markup on reload (the S528 family), photos mid-upload
+         would be re-done — but it declines SILENTLY whenever it decides the
+         change was not FRT's own.
+
+         So this stamp stops being a label and becomes the control. It already
+         reports the running build and the shell the worker is serving; a tap
+         now forces the check and applies it. The genuine data-safety refusals
+         are NOT bypassed — they are spoken, in the same corner, in plain words.
+         Unsaved work is flushed before the reload, exactly as the pill does. */
+      b.addEventListener('click', function () {
+        var say = function (m) { try { b.textContent = m; } catch (_) {} };
+        var busy = null;
+        try {
+          var dv = document.getElementById('drawing-viewer-overlay');
+          if (dv && _dvOnScreen(dv)) busy = 'close the drawing first';
+          else if (typeof BinaryOutbox !== 'undefined' && BinaryOutbox.getStatusCounts) {
+            var c = BinaryOutbox.getStatusCounts();
+            if (c && (c.uploading > 0 || c.pending > 0 || c.retrying > 0)) {
+              busy = 'photos still uploading (' + ((c.uploading || 0) + (c.pending || 0) + (c.retrying || 0)) + ')';
+            }
+          }
+        } catch (_) {}
+        if (busy) { say(busy); return; }
+        say('checking\u2026');
+        var go = function () {
+          Promise.resolve()
+            .then(function () { if (typeof Model !== 'undefined' && Model.saveNow) return Model.saveNow(); })
+            .catch(function () {})
+            .then(function () { try { window.location.reload(); } catch (_) {} });
+        };
+        try {
+          if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+            navigator.serviceWorker.getRegistration().then(function (reg) {
+              if (!reg) { go(); return; }
+              return reg.update().then(function () {
+                /* A worker that installed just now needs to take over before the
+                   reload, or the reload is answered from the outgoing cache and
+                   the build appears not to have moved (the S590 failure). */
+                if (reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {} }
+                setTimeout(go, 600);
+              }).catch(go);
+            }).catch(go);
+          } else go();
+        } catch (_) { go(); }
+      });
       document.body.appendChild(b);
       /* The worker knows which shell it is actually serving; ask it, so the
          stamp cannot claim a build the device is not running. */
