@@ -85,8 +85,38 @@ The native Samsung camera below CAN still take .6 photos.</div>
   });}
 
   document.getElementById('btnStart').addEventListener('click', function(){
-    this.disabled=true; S.textContent='Asking for camera permission\u2026';
-    navigator.mediaDevices.getUserMedia({video:true,audio:false}).then(function(s){
+    var btn=this;
+    btn.disabled=true; S.textContent='Asking for camera permission\u2026';
+    /* S702b — a NotReadableError is the OS refusing to hand over a camera that
+       something else already holds: the FRT camera open in another tab, the
+       installed app running in the background, or a previous session whose
+       stream was never released. It is not a permission refusal and not a
+       broken probe, so the old message ("Camera permission failed") sent people
+       looking in the wrong place — and the button stayed disabled, so a second
+       tap did nothing at all and the page looked dead.
+       One quiet retry handles the common case where a stream is still letting
+       go; anything else says plainly what to do, and the button always comes
+       back so it can be tried again. */
+    function _fail(err){
+      var n=(err&&err.name)||String(err||'unknown');
+      btn.disabled=false;
+      if(n==='NotAllowedError'||n==='SecurityError'){
+        S.textContent='Camera permission was refused. Allow camera access for arencon.app, then tap Start again.';
+      } else if(n==='NotReadableError'||n==='TrackStartError'||n==='AbortError'){
+        S.textContent='The camera is busy \u2014 another app or tab is using it. '+
+          'Close the ARENCON app and any other camera app, then tap Start again. ('+n+')';
+      } else if(n==='NotFoundError'||n==='OverconstrainedError'){
+        S.textContent='No usable camera was found on this device. ('+n+')';
+      } else {
+        S.textContent='Camera could not start: '+n+'. Tap Start to try again.';
+      }
+      log('START FAILED: '+n);
+    }
+    function _ask(){ return navigator.mediaDevices.getUserMedia({video:true,audio:false}); }
+    _ask().catch(function(e1){
+      log('first open failed ('+((e1&&e1.name)||e1)+') \u2014 retrying once');
+      return new Promise(function(r){ setTimeout(r, 900); }).then(_ask);
+    }).then(function(s){
       s.getTracks().forEach(function(t){t.stop();});
       return navigator.mediaDevices.enumerateDevices();
     }).then(function(ds){
@@ -98,7 +128,16 @@ The native Samsung camera below CAN still take .6 photos.</div>
           document.getElementById('ask').style.display=''; return; }
         var d=cams[i++], lbl=d.label||('camera '+i);
         S.textContent='Opening: '+lbl+' \u2026';
-        openCam(d.deviceId).then(function(stream){
+        openCam(d.deviceId).catch(function(e){
+          /* S702b — some Samsung lenses (depth, mono, front) reject the app's
+             2048x1536 profile with NotReadable rather than Overconstrained.
+             Fall back to an unconstrained open so the lens is still MEASURED —
+             its granted size is then whatever the device chose, which is itself
+             the answer we came for. Marked in the log so the two cases are
+             never confused. */
+          log('['+lbl+'] app profile refused ('+((e&&e.name)||e)+') \u2014 retrying unconstrained');
+          return navigator.mediaDevices.getUserMedia({ video:{ deviceId:{exact:d.deviceId} }, audio:false });
+        }).then(function(stream){
           return frameOf(stream).then(function(r){
             try{ stream.getTracks().forEach(function(t){t.stop();}); }catch(e){}
             var z=r.caps&&r.caps.zoom?JSON.stringify(r.caps.zoom):'n/a';
@@ -140,7 +179,7 @@ The native Samsung camera below CAN still take .6 photos.</div>
         }).catch(function(err){ log('['+lbl+'] open FAILED: '+(err&&err.name||err)); setTimeout(next,150); });
       }
       next();
-    }).catch(function(err){ S.textContent='Camera permission failed: '+(err&&err.name||err); });
+    }).catch(function(err){ _fail(err); });
   });
 
   document.getElementById('btnNone').addEventListener('click', function(){
