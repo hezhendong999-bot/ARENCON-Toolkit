@@ -4,6 +4,43 @@
 <!-- S498 #auth (Mark: "gate all of it"): universal sign-in gate. Must load FIRST,
      before any tool script, so no content paints before the session is confirmed. -->
 <script src="shared/auth-gate.js"></script>
+<script>
+/* ═══ S705 — EVERYONE LANDS ON THE DASHBOARD. ══════════════════════════════
+   Mark's decision (S692): staff must always arrive at the Dashboard, not at
+   the tools list. He suspects Elvis bookmarked THIS page, which is why a
+   sign-in redirect alone was never going to fix it — the bookmark skips
+   sign-in entirely on a device that already has a session.
+
+   The trap this avoids: S497 rebuilt this page precisely to kill a redirect
+   stub that bounced Hub -> index -> Hub. The Hub's Tools button still does a
+   plain `location.href = 'index.html'` (Hub ~11039), so a naive redirect here
+   would make that button unusable — press Tools, get thrown straight back.
+
+   So the redirect fires ONLY on a cold arrival:
+     - an explicit ?tools=1 never redirects (the Hub's button now sends it);
+     - a referrer from another page of this toolkit never redirects — that is
+       someone clicking through on purpose;
+     - a referrer that is THIS page is not "on purpose": it is the auth gate
+       reloading the same URL after sign-in, which should still land on the
+       Dashboard;
+     - a once-per-tab guard means that even if every check above were wrong,
+       the worst case is one wasted navigation, never a loop.
+   Signed-out visitors are left alone entirely; the auth gate owns them. */
+(function () {
+  try {
+    if (new URLSearchParams(location.search).get('tools') === '1') return;
+    var ref = document.referrer || '';
+    if (ref.indexOf(location.origin) === 0) {
+      var refPath = ref.split('?')[0].split('#')[0];
+      if (refPath !== (location.origin + location.pathname)) return;   // came from elsewhere in the toolkit
+    }
+    if (sessionStorage.getItem('arc-portal-sent') === '1') return;     // loop guard, per tab
+    if (!localStorage.getItem('sb-access-token')) return;              // not signed in — the gate owns this
+    sessionStorage.setItem('arc-portal-sent', '1');
+    location.replace('ARENCON_Project_Hub.html');
+  } catch (e) {}
+})();
+</script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
@@ -173,7 +210,7 @@ body::after  { top: -30vmax; right: -30vmax; background: radial-gradient(circle,
    describe the change, Claude hardcodes it here and bumps CFG_VER; no admin
    panel, ever).
    ═══════════════════════════════════════════════════════════════════════════ */
-var CFG_VER = 21;
+var CFG_VER = 22;
 
 var DEF_CATS = [
   { key: 'pm',     num: '01', title: 'Project Management' },

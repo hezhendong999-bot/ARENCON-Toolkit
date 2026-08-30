@@ -11036,7 +11036,7 @@ function initHubHeader(){
     onUser:       () => { try { openAccountPanelHub(); } catch(e){ console.warn(e); } },
     onAdmin:      () => { try { showAdmin(); } catch(e){ console.warn(e); } },
     onProfile:    () => { try { openAccountPanelHub(); } catch(e){ console.warn(e); } },
-    onTools:      () => { window.location.href = 'index.html'; },
+    onTools:      () => { window.location.href = 'index.html?tools=1'; },   // S705: ?tools=1 marks a DELIBERATE arrival so the portal does not send it straight back to the Dashboard
     onExportAll:  () => { try { exportAllProjects(); } catch(e){ console.warn(e); } },
     onExportDocs: () => { try { exportProjectDocsFromDashboard(); } catch(e){ console.warn(e); } },
     onQR:         () => { try { openHubQR(); } catch(e){ console.warn(e); } },
