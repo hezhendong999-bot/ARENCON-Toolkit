@@ -4436,7 +4436,10 @@ function _crbtStageFiles(comp, files) {
       /* S702d — same size as every other photo in the tool. A contractor
          thread photograph is evidence like any other and must not be a
          smaller class of image. */
-      ImageWorkerHost.compressFile(file, { maxW: 2048, quality: 0.85 })
+      /* S709 — raised with every other photo site in the tool. A contractor
+         thread photograph is evidence like any other and must not be a
+         smaller class of image. */
+      ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 })
         .then(function(r) {
           var cur = _crbtStage.get(comp);
           if (!cur) return;                       // composer closed mid-compress — drop it
@@ -7414,7 +7417,17 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
      actually delivers; 0.85 stops the second-generation loss. Costs storage,
      upload time and PDF size — never a WebView crash, because no camera
      constraint moves. */
-  return ImageWorkerHost.compressFile(file, { maxW: 2048, quality: 0.85 })
+  /* S709 (Mark, on the tablet: "I cannot accept this low quality photo") —
+     THE LAST PLACE THE PHOTOGRAPH WAS BEING THROWN AWAY. S702j made the camera
+     capture a real 3060×4080 sensor still instead of a screenshot of the
+     preview. This line then resized it back to 2048 and re-encoded it at 0.85 —
+     below the 0.95 the camera had just written — so the still was destroyed a
+     few milliseconds after it was won, and every earlier "the quality has not
+     changed" report was correct.
+     4096/0.95: a 3060-wide still passes through with NO resize at all, and the
+     single re-encode matches what the camera wrote rather than sitting a
+     generation below it. R2 still receives the untouched original File. */
+  return ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 })
     .then(function(r) {
       var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
       // S548: in a batch the screen repaints once, at the end, from the tick.

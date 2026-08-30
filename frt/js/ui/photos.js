@@ -1571,8 +1571,12 @@ function _compressSitePhoto(file, cb) {
     /* S702d — raised with every other photo site in the tool (see the note in
        deficiencies.js). Thumbnails are unchanged: they are for the grid, not
        for evidence. */
-    maxW: 2048,
-    quality: 0.85,
+    /* S709 — raised with every other photo site in the tool. See the note in
+       deficiencies.js: 2048/0.85 was undoing the S702j full-resolution still
+       immediately after capture. Thumbnails are unchanged: they are for the
+       grid, not for evidence. */
+    maxW: 4096,
+    quality: 0.95,
     thumbMaxW: 200,
     thumbQuality: 0.7
   }).then(function(r) {
