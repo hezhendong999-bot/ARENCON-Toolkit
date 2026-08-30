@@ -1603,7 +1603,20 @@ function _s700StartNextReport() {
     if (b) { b.disabled = false; b.textContent = label || ('Start FRT #' + (cur + 1)); }
   };
 
-  window.ReportSeed.createReport({ projectId: _projectId, toolKey: 'frt', fromInstance: cur })
+  window.ReportSeed.createReport({
+    projectId: _projectId, toolKey: 'frt', fromInstance: cur,
+    /* S702f — FIELD BUG. The seeder is a classic script and read `Auth` off
+       window; in FRT `Auth` is an ES MODULE export (lib/shared/auth.js
+       `export var Auth`) and is never assigned to window, so it saw no key and
+       refused every creation with "This page did not supply its database key".
+       Mark hit this on 1490.03 and had to fall back to the Hub. The Hub always
+       passed its own credentials, which is why only FRT was affected — and why
+       it was never caught: the seeder was exercised from the Hub side.
+       FRT now hands them over the same way. */
+    url: Auth.SUPABASE_URL,
+    anonKey: Auth.SUPABASE_ANON_KEY,
+    userId: (Auth.getUser && Auth.getUser()) ? Auth.getUser().id : null
+  })
     .then(function (out) {
       if (out && out.existingNewerDraft) {
         /* Someone already started the next one. Two people back from the same
