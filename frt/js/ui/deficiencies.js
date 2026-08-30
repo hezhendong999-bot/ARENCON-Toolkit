@@ -7452,7 +7452,35 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
      4096/0.95: a 3060-wide still passes through with NO resize at all, and the
      single re-encode matches what the camera wrote rather than sitting a
      generation below it. R2 still receives the untouched original File. */
-  return ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 })
+  /* ═══ S714 — A FINISHED PHOTOGRAPH IS NOT REPROCESSED. ═════════════════════
+     The S692 test, applied properly this time. S713 serialized this pipeline
+     to stop 99 parallel decodes killing the tab — a correct BOUND, but it
+     bounded work that mostly should not exist. A burst or Phone-button shot
+     arrives here as a finished JPEG the camera already encoded at final
+     quality. Decoding it back to a ~36MB bitmap and re-encoding it buys
+     NOTHING: same size cap, a second generation of loss, and the entire
+     memory and time cost of the batch. A photograph that is never decoded
+     cannot cost decode memory — at 99 shots or 9,000. So camera-born Files
+     (they carry _burstK from the hand-off) are read straight through,
+     byte-identical. Foreign files — gallery uploads, screenshots, oversized
+     or exotic formats — still go through the normalizer, one at a time,
+     because those genuinely need the size cap and JPEG conversion. */
+  var _ready;
+  if (file && file._burstK) {
+    _ready = new Promise(function (resolve, reject) {
+      var rd = new FileReader();
+      rd.onload = function () { resolve({ dataUrl: rd.result }); };
+      rd.onerror = function () { reject(new Error('read failed')); };
+      rd.readAsDataURL(file);
+    }).catch(function () {
+      /* Unreadable straight-through? Fall back to the normalizer rather than
+         drop the shot. */
+      return ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 });
+    });
+  } else {
+    _ready = ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 });
+  }
+  return _ready
     .then(function(r) {
       var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
       // S548: in a batch the screen repaints once, at the end, from the tick.
