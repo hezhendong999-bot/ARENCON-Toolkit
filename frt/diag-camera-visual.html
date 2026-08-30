@@ -58,8 +58,13 @@ The native Samsung camera below CAN still take .6 photos.</div>
   log('when: '+new Date().toString());
   log('agent: '+navigator.userAgent);
 
+  /* S702b — THE PROBE MUST ASK FOR WHAT THE APP ASKS FOR. This opened at
+     1280x960 while lib/ui/cameraBurst.js requests 2048x1536 at all sixteen of
+     its sites, so any "granted" resolution measured here described the probe,
+     not the camera the inspectors use. Same profile, or the number is a
+     different question's answer. */
   function openCam(id){ return navigator.mediaDevices.getUserMedia(
-    { video:{ deviceId:{exact:id}, width:{ideal:1280}, height:{ideal:960} }, audio:false }); }
+    { video:{ deviceId:{exact:id}, width:{ideal:2048}, height:{ideal:1536} }, audio:false }); }
 
   function frameOf(stream){ return new Promise(function(res){
     var v=document.createElement('video'); v.playsInline=true; v.muted=true; v.srcObject=stream;
@@ -68,9 +73,14 @@ The native Samsung camera below CAN still take .6 photos.</div>
       var w=v.videoWidth||1280, h=v.videoHeight||960, c=document.createElement('canvas');
       c.width=w; c.height=h;
       try{ c.getContext('2d').drawImage(v,0,0,w,h); }catch(e){}
-      var t=stream.getVideoTracks()[0], caps={};
+      var t=stream.getVideoTracks()[0], caps={}, sets={};
       try{ caps=t.getCapabilities?t.getCapabilities():{}; }catch(e){}
-      res({ url:c.toDataURL('image/jpeg',0.8), caps:caps });
+      /* S702b — GRANTED, not just capable. `ideal` is a hint the browser may
+         ignore, and nothing in the toolkit has ever read back what arrived. A
+         camera that CAN do 4000px but was handed 1280 looks identical to a
+         healthy one until you compare these two numbers side by side. */
+      try{ sets=t.getSettings?t.getSettings():{}; }catch(e){}
+      res({ url:c.toDataURL('image/jpeg',0.8), caps:caps, sets:sets, frameW:w, frameH:h });
     }, 900); // caps and the first real frames need the track to settle (S430/S431)
   });}
 
@@ -94,11 +104,23 @@ The native Samsung camera below CAN still take .6 photos.</div>
             var z=r.caps&&r.caps.zoom?JSON.stringify(r.caps.zoom):'n/a';
             var mw=(r.caps&&r.caps.width&&r.caps.width.max)||'?',
                 mh=(r.caps&&r.caps.height&&r.caps.height.max)||'?';
+            /* S702b — the two numbers that settle the resolution argument:
+               what this camera CAN give, and what it actually HANDED OVER for
+               the app's own 2048x1536 request. */
+            var gw=(r.sets&&r.sets.width)||r.frameW||'?',
+                gh=(r.sets&&r.sets.height)||r.frameH||'?';
+            var fm=(r.caps&&r.caps.focusMode)?r.caps.focusMode.join('/'):'none';
+            var poi=!!(r.caps&&r.caps.pointsOfInterest);
+            var expc=!!(r.caps&&r.caps.exposureCompensation);
             var torch=!!(r.caps&&r.caps.torch), facing=(r.caps&&r.caps.facingMode)?r.caps.facingMode.join(','):'?';
-            log('['+lbl+'] facing='+facing+' zoom='+z+' torch='+torch+' maxRes='+mw+'x'+mh);
+            log('['+lbl+'] facing='+facing+' zoom='+z+' torch='+torch+
+                ' maxRes='+mw+'x'+mh+' GRANTED='+gw+'x'+gh+
+                ' focus='+fm+' pointsOfInterest='+poi+' exposureComp='+expc);
             var el=document.createElement('div'); el.className='card';
             el.innerHTML='<img src="'+r.url+'"><div class="lbl">'+lbl+'</div>'+
-              '<div class="caps">facing '+facing+' \u00B7 zoom '+z+' \u00B7 torch '+torch+' \u00B7 max '+mw+'\u00D7'+mh+'</div>';
+              '<div class="caps"><b>max '+mw+'\u00D7'+mh+' \u00B7 granted '+gw+'\u00D7'+gh+'</b></div>'+
+              '<div class="caps">facing '+facing+' \u00B7 zoom '+z+' \u00B7 torch '+torch+'</div>'+
+              '<div class="caps">focus '+fm+' \u00B7 tap-to-point '+(poi?'yes':'no')+' \u00B7 exposure '+(expc?'yes':'no')+'</div>';
             if(/back|environment/i.test(facing) || /back|rear/i.test(lbl)){
               var b=document.createElement('button'); b.className='pick';
               b.textContent='This one is the wide view';
