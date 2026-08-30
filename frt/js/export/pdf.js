@@ -748,10 +748,31 @@ function _downscalePhotoForPDF(src){
         // is invisible on paper and pure file weight. The tier's photoPx stays
         // as a belt-and-suspenders ceiling (it also catches the panorama case
         // where the un-cropped dimension would otherwise balloon).
+        /* ═══ S704 — THE PRINTED CELL IS A FLOOR, NOT THE TARGET. ═════════════
+           S497 sized every report photo to the printed grid cell: 2.4in wide at
+           300 DPI, which is 720px, on the reasoning that more pixels are
+           invisible on paper. That reasoning is sound for paper and wrong for
+           this document. An FRT report is read on a SCREEN — by the client, the
+           contractor and the AHJ — and on a screen people zoom in on the
+           sprinkler head or the pump nameplate. At 200% a 720px photo is mush,
+           which is exactly the complaint (Mark, S704: "quality is horrible").
+
+           Measured proof that the cell rule was the whole ceiling: raising the
+           camera to a 4080px sensor still (S702j) changed the in-report photo
+           by ZERO pixels, because `_cw/w` bound long before either the stored
+           resolution or the tier's own photoPx ceiling did.
+
+           The tier's photoPx now binds — 1400 / 1800 / 2200, the numbers
+           SPEC_PDF_QUALITY has specified since S461 and which the shipped code
+           has never actually delivered. Balanced roughly doubles the detail and
+           still lands ~13MB for 40 photos, inside the M365 email limit. The
+           cell arithmetic is kept as the FLOOR so a small source is never
+           upscaled past what the page can show. */
         var _t=_qTierDef();
         var _cw=PDF_PHOTO_CELL_IN.w*(_t.photoDpi||300), _ch=PDF_PHOTO_CELL_IN.h*(_t.photoDpi||300);
         var _need=(w/h<=4/3)?(_cw/w):(_ch/h);
-        var scale=Math.min(1, _need, PDF_PHOTO_MAX/Math.max(w,h));
+        var _floor=Math.min(1, _need);
+        var scale=Math.max(_floor, Math.min(1, PDF_PHOTO_MAX/Math.max(w,h)));
         if(scale>=1){resolve(src);return;}
         var cw=Math.round(w*scale), ch=Math.round(h*scale);
         var cv=document.createElement('canvas');cv.width=cw;cv.height=ch;
@@ -2595,7 +2616,14 @@ function _captureExportPDF(w,D){
             if(_sw/_sh>_ar){ _ch2=_sh; _cw2=Math.max(1,Math.round(_sh*_ar)); _sx3=Math.round((_sw-_cw2)/2); _sy3=0; }
             else{ _cw2=_sw; _ch2=Math.max(1,Math.round(_sw/_ar)); _sx3=0; _sy3=Math.round((_sh-_ch2)/2); }
             // tier resolution at the printed cell; never upscale the source
-            var _ow=Math.min(_cw2, Math.round(PDF_PHOTO_CELL_IN.w*(_tt.photoDpi||300)));
+            /* S704 — same rule as _downscalePhotoForPDF: the tier's photoPx is
+               the ceiling and the printed cell is the floor. These two embed
+               paths must agree or the same photo prints at two resolutions
+               depending on which renderer produced the page. Never upscale the
+               source. */
+            var _cellPx=Math.round(PDF_PHOTO_CELL_IN.w*(_tt.photoDpi||300));
+            var _tierPx=Math.round((_tt.photoPx||1400)*(_ar>=1?1:_ar));
+            var _ow=Math.min(_cw2, Math.max(_cellPx, _tierPx));
             var _oh=Math.max(1,Math.round(_ow/_ar));
             var _cv=document.createElement('canvas'); _cv.width=_ow; _cv.height=_oh;
             var _cx2=_cv.getContext('2d');
