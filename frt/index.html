@@ -289,6 +289,14 @@ function ensurePdfJs(cb){
     <div id="mobile-storage-info" style="padding:4px 10px;font-size:11px;color:var(--silver);font-family:Calibri,sans-serif;">
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;"><span>💾</span><span id="mobile-storage-text">Calculating...</span></div>
       <div style="height:4px;background:var(--border);border-radius:2px;overflow:hidden;"><div id="mobile-storage-bar" style="height:100%;background:#5F8068;width:0%;border-radius:2px;transition:width .3s;"></div></div>
+      <!-- S702g: THE BUILD STAMP, WHERE A PERSON CAN READ IT. It was printed to
+           the console only, which on a field tablet means nowhere — there are no
+           DevTools in the installed app. So when four camera pushes shipped
+           without announcing themselves, there was no way to tell a build that
+           had not arrived from one that had arrived and changed nothing. This
+           sits at the bottom of a menu that is already opened, costs no new
+           chrome and interrupts nobody. -->
+      <div id="mobile-build-stamp" style="margin-top:4px;opacity:.8;">build —</div>
     </div>
   </div>
 </div>

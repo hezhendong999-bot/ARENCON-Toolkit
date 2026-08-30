@@ -3312,7 +3312,25 @@ window._frtPhotoAttention = function(n) {
 };
 
 // ── Boot Sequence ────────────────────────────────────────
-var FRT_BUILD = 'S692';
+/* ═══ FRT_BUILD — THE STAMP THAT DECIDES WHETHER ANYONE IS TOLD. ════════════
+   _frtOwnBuildChanged (below) fetches this file and compares this stamp. Equal
+   stamp = "shared-module change only", which stages and applies QUIETLY with no
+   pill. That is correct for a Hub- or Diesel-only worker update.
+
+   ⚠ GATE — READ BEFORE YOU PUSH. It is NOT correct when the change is FRT's
+   own. On 29 Aug, four camera pushes (S702, 702b, 702d, 702e) shipped with this
+   stamp left at 'S692', and one of them also missed the CACHE_NAME bump. Mark
+   ran the camera on a fleet tablet, saw no difference, and was told — wrongly,
+   and against S7 — to close and reopen the app. The code was fine. Nothing had
+   announced itself, because this line did not move.
+
+   THE RULE: if a push touches ANY file in FRT's precache — frt/js/app.js,
+   frt/js/ui/photos.js, frt/js/ui/deficiencies.js, lib/ui/cameraBurst.js, or any
+   other entry in the APP_FILES list in sw.js — it is an FRT build and this
+   stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
+   A shipped change nobody can see is indistinguishable from a change that never
+   shipped, and the person holding the tablet pays for the difference. */
+var FRT_BUILD = 'S702g';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3426,6 +3444,14 @@ function boot() {
   // hold. If this line says an old engine, the fix is NOT on this machine
   // yet, full stop. Shell bumps on every FRT push from S499e onward.
   console.info('%c[FRT] shell ' + FRT_BUILD + ' | pdf engine ' + PDF_PIPELINE_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');
+  /* S702g — and on screen, from the SAME constant the update check compares, so
+     what Mark reads is what the engine decided on. A second copy of the version
+     would be free to drift from this one, which is how you get a tool that
+     truthfully reports the wrong number. */
+  try {
+    var _bs = document.getElementById('mobile-build-stamp');
+    if (_bs) _bs.textContent = 'build ' + FRT_BUILD;
+  } catch (_bse) {}
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
 
