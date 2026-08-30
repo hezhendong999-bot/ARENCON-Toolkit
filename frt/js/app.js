@@ -3330,7 +3330,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S710';
+var FRT_BUILD = 'S711';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3511,16 +3511,53 @@ function boot() {
         };
         try {
           if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) {
+            /* ═══ S711 — WHY TAPPING THIS DID NOTHING. ═════════════════════════
+               S707 called reg.update(), poked reg.waiting, then reloaded after a
+               fixed 600 ms. On a real device that races and loses: precaching
+               the whole shell takes SECONDS, so immediately after update() the
+               new worker is still `installing` and `reg.waiting` is null. There
+               was nothing to poke, the reload fired under the OLD worker, and it
+               was answered from the outgoing cache — the build number never
+               moved no matter how many times it was tapped. Mark tapped it
+               repeatedly and stayed on S707, which is exactly this.
+
+               No more fixed delays. Wait for the incoming worker to reach
+               'installed', tell it to take over, then reload on the
+               `controllerchange` event — the moment the new worker is actually
+               in charge. A ceiling still applies so a stuck install cannot leave
+               the button dead; in that case we reload anyway, which is no worse
+               than before. */
+            var _done = false;
+            var once = function () { if (_done) return; _done = true; go(); };
+            var ceiling = setTimeout(once, 15000);
+            try {
+              navigator.serviceWorker.addEventListener('controllerchange', function () {
+                clearTimeout(ceiling); once();
+              });
+            } catch (_) {}
             navigator.serviceWorker.getRegistration().then(function (reg) {
-              if (!reg) { go(); return; }
+              if (!reg) { clearTimeout(ceiling); once(); return; }
+              var take = function (sw) {
+                if (!sw) return false;
+                try { sw.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {}
+                return true;
+              };
               return reg.update().then(function () {
-                /* A worker that installed just now needs to take over before the
-                   reload, or the reload is answered from the outgoing cache and
-                   the build appears not to have moved (the S590 failure). */
-                if (reg.waiting) { try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch (_) {} }
-                setTimeout(go, 600);
-              }).catch(go);
-            }).catch(go);
+                if (take(reg.waiting)) { say('updating\u2026'); return; }
+                var inc = reg.installing;
+                if (inc) {
+                  say('downloading\u2026');
+                  inc.addEventListener('statechange', function () {
+                    if (inc.state === 'installed') { say('updating\u2026'); take(inc); }
+                    else if (inc.state === 'activated') { clearTimeout(ceiling); once(); }
+                  });
+                  return;
+                }
+                /* Nothing new to install — this IS the current build. Reload so
+                   the person sees the number confirmed rather than nothing. */
+                clearTimeout(ceiling); once();
+              }).catch(function () { clearTimeout(ceiling); once(); });
+            }).catch(function () { clearTimeout(ceiling); once(); });
           } else go();
         } catch (_) { go(); }
       });
