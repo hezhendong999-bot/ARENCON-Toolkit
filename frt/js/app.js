@@ -3330,7 +3330,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S702h';
+var FRT_BUILD = 'S702i';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -3448,10 +3448,41 @@ function boot() {
      what Mark reads is what the engine decided on. A second copy of the version
      would be free to drift from this one, which is how you get a tool that
      truthfully reports the wrong number. */
+  /* S702i — THE STAMP GOES ON THE PAGE, NOT INSIDE THE MENU. S702g put it in
+     the static mobile-menu markup; FRT's shared header rebuilds that menu, so
+     the element existed in the file and never rendered. Mark could read the
+     Hub's build and nothing at all in FRT, which is exactly the diagnostic gap
+     the stamp was added to close. This mirrors the Hub's proven surface
+     (ARENCON_Project_Hub.html ~10364): a fixed corner label appended to BODY on
+     load, owned by nobody else's render pass. The menu copy is still filled if
+     that element happens to be present, but it is no longer the only home. */
   try {
     var _bs = document.getElementById('mobile-build-stamp');
     if (_bs) _bs.textContent = 'build ' + FRT_BUILD;
   } catch (_bse) {}
+  try {
+    window.addEventListener('load', function () {
+      if (document.getElementById('frt-build-stamp')) return;
+      var b = document.createElement('div');
+      b.id = 'frt-build-stamp';
+      b.textContent = 'build ' + FRT_BUILD;
+      b.style.cssText = 'position:fixed;left:10px;bottom:8px;z-index:20;pointer-events:none;' +
+        'font:400 10.5px Calibri,sans-serif;color:#928E9C;opacity:.65;';
+      document.body.appendChild(b);
+      /* The worker knows which shell it is actually serving; ask it, so the
+         stamp cannot claim a build the device is not running. */
+      try {
+        if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+          var ch = new MessageChannel();
+          ch.port1.onmessage = function (ev) {
+            var sh = ev && ev.data && (ev.data.cacheName || ev.data.stamp);
+            if (sh) b.textContent = 'build ' + FRT_BUILD + ' \u00b7 shell ' + String(sh).replace('arencon-frt-', '');
+          };
+          navigator.serviceWorker.controller.postMessage({ type: 'GET_BUILD_STAMP' }, [ch.port2]);
+        }
+      } catch (_se) {}
+    });
+  } catch (_bse2) {}
   console.log('[FRT v2] Booting...');
   var t0 = performance.now();
 
