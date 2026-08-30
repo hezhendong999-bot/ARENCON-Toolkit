@@ -4433,7 +4433,10 @@ function _crbtStageFiles(comp, files) {
   var n = 0;
   for (var i = 0; i < files.length; i++) {
     (function(file) {
-      ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
+      /* S702d — same size as every other photo in the tool. A contractor
+         thread photograph is evidence like any other and must not be a
+         smaller class of image. */
+      ImageWorkerHost.compressFile(file, { maxW: 2048, quality: 0.85 })
         .then(function(r) {
           var cur = _crbtStage.get(comp);
           if (!cur) return;                       // composer closed mid-compress — drop it
@@ -7404,7 +7407,14 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
   // instead. PROD behavior is byte-for-byte unchanged. The two branches
   // share the same compression + addObservationPhoto preamble; only the
   // R2-side enqueue differs.
-  return ImageWorkerHost.compressFile(file, { maxW: 1600, quality: 0.8 })
+  /* S702d — 1600 @ 0.8 was throwing away a fifth of the width AND re-encoding
+     BELOW the 0.95 the camera wrote. Measured on the fleet Samsung: sensor
+     4080×3060, stream granted 2048×1536, stored 1600×1200 — about 15% of the
+     available pixels reached the report. 2048 keeps everything the stream
+     actually delivers; 0.85 stops the second-generation loss. Costs storage,
+     upload time and PDF size — never a WebView crash, because no camera
+     constraint moves. */
+  return ImageWorkerHost.compressFile(file, { maxW: 2048, quality: 0.85 })
     .then(function(r) {
       var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
       // S548: in a batch the screen repaints once, at the end, from the tick.

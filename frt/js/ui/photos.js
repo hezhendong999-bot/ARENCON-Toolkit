@@ -1568,8 +1568,11 @@ function _downloadPhoto(ph, fallbackName) {
 // OffscreenCanvas support.
 function _compressSitePhoto(file, cb) {
   ImageWorkerHost.compressFile(file, {
-    maxW: 1600,
-    quality: 0.8,
+    /* S702d — raised with every other photo site in the tool (see the note in
+       deficiencies.js). Thumbnails are unchanged: they are for the grid, not
+       for evidence. */
+    maxW: 2048,
+    quality: 0.85,
     thumbMaxW: 200,
     thumbQuality: 0.7
   }).then(function(r) {
