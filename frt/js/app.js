@@ -3330,7 +3330,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S711';
+var FRT_BUILD = 'S712';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -4441,6 +4441,10 @@ initLiveUpdate({
   },
   isBusy: function () {
     try {
+      /* S712 — the native device camera is open on top of this page. A reload
+         now destroys the input element before its File arrives: the photograph
+         is lost at the moment it was taken. Wait. */
+      if (window._arcNativeCamBusy) return true;
       // Mid-markup: the drawing viewer overlay is open.
       /* S627 — THIS GUARD HAD NEVER FIRED ONCE. The old test was
          `dv.offsetParent !== null`, and offsetParent is ALWAYS null for a
@@ -4473,6 +4477,7 @@ initLiveUpdate({
      screen the crew actually lives on. */
   busyReason: function () {
     try {
+      if (window._arcNativeCamBusy) return 'camera in use \u2014 applies when it closes';
       var dv = document.getElementById('drawing-viewer-overlay');
       if (dv && _dvOnScreen(dv)) {   /* S627: same dead offsetParent test — see isBusy */
         return 'close the drawing to apply';
