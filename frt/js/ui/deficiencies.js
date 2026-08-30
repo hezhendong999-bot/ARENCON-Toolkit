@@ -7385,7 +7385,32 @@ function _addPhotoFiles(files, deficId, obsIdx) {
   }
   if (!list.length) return;
   var batched = _photoBatchBegin(list.length);
-  for (var j = 0; j < list.length; j++) _compressAndAdd(list[j], deficId, obsIdx, batched);
+  /* ═══ S713 — ONE AT A TIME, AND THE STAMP IS EARNED. ═══════════════════════
+     The old loop fired every _compressAndAdd at once. At 99 full-resolution
+     stills that is 99 simultaneous image decodes — hundreds of megabytes of
+     bitmaps in flight — and the TWA died under it, taking the whole batch's
+     bookkeeping with it (Mark, on device: burst of ~100, Done, gallery empty,
+     app crash, 1 photo of 99 survives). Serial ingest keeps exactly one decode
+     alive at a time; slower per batch, but it FINISHES.
+     And only here, after Model.addObservationPhoto has actually taken a shot,
+     is that shot's burst record stamped handedOff. A crash mid-batch leaves
+     every unreached shot unstamped, and the camera's recovery bar offers them
+     back on next open. The crash stops being a silent deletion. */
+  var chain = Promise.resolve();
+  list.forEach(function (f) {
+    chain = chain
+      .then(function () { return _compressAndAdd(f, deficId, obsIdx, batched); })
+      .then(function () {
+        if (f && f._burstK && window._arcBurstMarkHandedOff) {
+          return window._arcBurstMarkHandedOff([f._burstK]);
+        }
+      })
+      .catch(function (e) {
+        /* One bad file must not sink the rest of the batch — and a failed one
+           stays UNSTAMPED, so it is offered back rather than lost. */
+        console.warn('[Deficiencies] photo ingest failed, shot stays recoverable:', e && e.message);
+      });
+  });
 }
 
 // S548: context for the burst camera's crash-recovery bar. Without a label it
