@@ -854,9 +854,52 @@ function _prefetchR2PhotosForPDF(p,progressCb){
   _collectData(p.generalDeficiencies);
   (p.photos||[]).forEach(function(ph){if(ph&&!ph.r2Url&&ph.dataUrl)dataUrls.push(ph.dataUrl);});
   dataUrls=dataUrls.filter(function(u,i,a){return a.indexOf(u)===i;});
-  if(!urls.length&&!dataUrls.length)return Promise.resolve({});
-  var cache={};var done=0;var total=urls.length+dataUrls.length;
+  /* ═══ S715 — PHOTOS WHOSE BYTES ARE ON THE DEVICE, NOT IN THE REPORT ══════
+     Since S715 a camera photo carries a 480px preview and an id; the
+     photograph itself is in photoBlobs until R2 confirms. Without this pass
+     the export would fall through to that preview, and a report written in a
+     parkade with no signal would go to a client with thumbnail-quality
+     photographs and no warning. Collected by RECORD, not by URL — there is
+     no URL to key on yet. */
+  var localPhotos=[];
+  function _collectLocal(defics){
+    if(!defics)return;
+    defics.forEach(function(d){
+      function add(arr){(arr||[]).forEach(function(ph){
+        if(ph&&ph.id&&!ph.r2Url&&!ph.dataUrl)localPhotos.push(ph);
+      });}
+      add(d.photos);
+      if(d.observations)d.observations.forEach(function(o){add(o.photos);});
+      if(d.entries)d.entries.forEach(function(e){add(e.photos);});
+      (d.activity||[]).forEach(function(a){add(a.photos);});
+    });
+  }
+  (p.contractors||[]).forEach(function(c){_collectLocal(c.deficiencies);});
+  _collectLocal(p.generalDeficiencies);
+  (p.photos||[]).forEach(function(ph){if(ph&&ph.id&&!ph.r2Url&&!ph.dataUrl)localPhotos.push(ph);});
+  localPhotos=localPhotos.filter(function(ph,i,a){return a.indexOf(ph)===i;});
+  if(!urls.length&&!dataUrls.length&&!localPhotos.length)return Promise.resolve({});
+  var cache={};var done=0;var total=urls.length+dataUrls.length+localPhotos.length;
   if(progressCb)progressCb(0,total);
+  /* S715: STRICTLY ONE AT A TIME. These are full-size photographs read off the
+     device; resolving 104 of them in parallel would rebuild the exact pile-up
+     S715 exists to remove. Each is downscaled to the export tier and its
+     intermediate object URL is revoked immediately — only the small render
+     copy is kept. A photo that fails to resolve is skipped, never fatal: the
+     export continues and that tile falls back the way it always did. */
+  var _localChain=localPhotos.reduce(function(chain,ph){
+    return chain.then(function(){
+      return Model.resolvePhotoBytes(ph).then(function(blob){
+        if(!blob)return null;
+        var ou=URL.createObjectURL(blob);
+        return _downscalePhotoForPDF(ou).then(function(small){
+          if(small)cache['small:id:'+ph.id]=small;
+        }).catch(function(){}).finally(function(){
+          try{URL.revokeObjectURL(ou);}catch(_){}
+        });
+      }).catch(function(){}).finally(function(){done++;if(progressCb)progressCb(done,total);});
+    });
+  },Promise.resolve());
   return Promise.all(urls.map(function(url){
     return fetch(url).then(function(res){if(!res.ok)throw new Error(res.status);return res.blob();})
     .then(function(blob){
@@ -868,7 +911,7 @@ function _prefetchR2PhotosForPDF(p,progressCb){
   }).concat(dataUrls.map(function(du){
     return _downscalePhotoForPDF(du).then(function(small){cache['small:'+du]=small;})
       .catch(function(){}).finally(function(){done++;if(progressCb)progressCb(done,total);});
-  }))).then(function(){
+  }))).then(function(){return _localChain;}).then(function(){
     // S351 never-bake: composite rotation + vector strokes for the LIVE HTML PDF
     // path. The HTML <img> can't rotate/composite vectors itself, and the stored
     // image is now CLEAN, so we pre-bake a render-time dataURL per photo that has
@@ -901,7 +944,9 @@ function _prefetchR2PhotosForPDF(p,progressCb){
     return Promise.all(photosToComp.map(function(ph){
       // pick the best already-cached source for this photo (the clean image)
       var src = (ph.r2Url&&cache['small:'+ph.r2Url]) || (ph.r2Url&&cache[ph.r2Url])
-              || (ph.dataUrl&&cache['small:'+ph.dataUrl]) || ph.dataUrl || ph.r2Url || '';
+              || (ph.dataUrl&&cache['small:'+ph.dataUrl])
+              || (ph.id&&cache['small:id:'+ph.id])          // S715: device bytes
+              || ph.dataUrl || ph.r2Url || '';
       if(!src) return Promise.resolve();
       var rot=(typeof ph.rotation==='number')?(((ph.rotation%360)+360)%360):0;
       var strokes=(ph._markupStrokes&&ph._markupStrokes.length)?ph._markupStrokes:null;
@@ -956,6 +1001,10 @@ function _pdfPhotoSrc(ph,r2Cache){
     // S351 never-bake: a pre-composited (rotated + vector strokes) render-time
     // dataURL takes precedence — it already reflects p.rotation + _markupStrokes.
     if(ph.id&&r2Cache['comp:'+ph.id])return r2Cache['comp:'+ph.id];
+    // S715: bytes read off the device (no r2Url yet, no inline dataUrl). Sits
+    // directly under comp: so a composited render still wins, and above every
+    // URL-keyed entry because for these photos there is no URL to key on.
+    if(ph.id&&r2Cache['small:id:'+ph.id])return r2Cache['small:id:'+ph.id];
     if(ph.r2Url&&r2Cache['small:'+ph.r2Url])return r2Cache['small:'+ph.r2Url];
     if(!ph.r2Url&&ph.dataUrl&&r2Cache['small:'+ph.dataUrl])return r2Cache['small:'+ph.dataUrl];
     if(ph.r2Url&&r2Cache[ph.r2Url])return r2Cache[ph.r2Url];

@@ -16,6 +16,7 @@ import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selection picker (B + C)
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 import { R2 } from '../data/r2.js';
+import { IDB } from '../data/idb.js';                                 // S715: photoBlobs is where the photograph lives; the report holds a preview
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { buildThreadHtml, buildComposerHtml, buildTrayHtml, crbCountPending } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray · S498: pending-review count (read-only)
@@ -7334,6 +7335,8 @@ function _photoBatchBegin(n) {
   if (n <= 1 && !_photoBatch) return false;
   if (_photoBatch) _photoBatch.total += n;
   else _photoBatch = { total: n, done: 0, added: 0 };
+  // S715: one save at the close, not one per photo. See Model.holdSaves.
+  try { Model.holdSaves(true); } catch (_) {}
   _photoBatchPaint();
   return true;
 }
@@ -7366,10 +7369,20 @@ function _photoBatchTick(ok) {
   if (!_photoBatch) return;
   _photoBatch.done++;
   if (ok) _photoBatch.added++;
-  if (_photoBatch.done < _photoBatch.total) { _photoBatchPaint(); return; }
+  if (_photoBatch.done < _photoBatch.total) {
+    // S715: progress re-arms the hold, so the expiry means "no progress for
+    // 2 minutes" rather than a fixed ceiling a long burst could outlive.
+    try { Model.holdSaves(true); } catch (_) {}
+    _photoBatchPaint();
+    return;
+  }
   var added = _photoBatch.added, total = _photoBatch.total;
   _photoBatch = null;
   _photoBatchPaint();
+  // S715: release FIRST, then the one save that persists the whole batch.
+  // Release before save, or the save this line exists for is itself held.
+  try { Model.holdSaves(false); } catch (_) {}
+  try { Model.saveNow(); } catch (_) {}
   initDeficiencies.render();
   if (added === total) toast(added === 1 ? 'Photo added' : added + ' photos added');
   else toast('\u26A0 ' + added + ' of ' + total + ' photos added', 6000);
@@ -7465,24 +7478,54 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
      byte-identical. Foreign files — gallery uploads, screenshots, oversized
      or exotic formats — still go through the normalizer, one at a time,
      because those genuinely need the size cap and JPEG conversion. */
+  /* ═══ S715 — THE PHOTOGRAPH DOES NOT GO IN THE REPORT. ════════════════════
+     S714 was right that a finished JPEG must not be re-decoded, and wrong
+     about where the result belongs. Reading it straight through put the whole
+     photograph into the report as base64 text, and every save deep-clones the
+     report — so a 104-shot commit became a hundred-odd clones of a document
+     growing by a megabyte a shot. The tab died around 60. The decode was
+     never the ceiling; the document was.
+
+     What the tool already does for drawings, and already does for everything
+     it sends to the cloud, now applies to photos on the device:
+
+         the bytes go to photoBlobs · the report gets a preview and an id
+
+     Order is the safety property. The blob is written and READ BACK at the
+     right size before the record exists, so a record can never promise an
+     image that was never stored. If the read-back fails there is no record
+     and no handedOff stamp — the shot stays in the camera's recovery list,
+     which is exactly where an inspector can still get it.
+
+     One decode per shot, and it is the small one: the preview. The full-size
+     photograph is never decoded here at all. */
   var _ready;
   if (file && file._burstK) {
-    _ready = new Promise(function (resolve, reject) {
-      var rd = new FileReader();
-      rd.onload = function () { resolve({ dataUrl: rd.result }); };
-      rd.onerror = function () { reject(new Error('read failed')); };
-      rd.readAsDataURL(file);
-    }).catch(function () {
-      /* Unreadable straight-through? Fall back to the normalizer rather than
-         drop the shot. */
-      return ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 });
-    });
+    var _phId = 'ph_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+    _ready = IDB.put('photoBlobs', { id: _phId, dataBlob: file })
+      .then(function () { return IDB.get('photoBlobs', _phId); })
+      .then(function (rec) {
+        var stored = rec && rec.dataBlob && rec.dataBlob.size;
+        if (!stored || stored !== file.size) {
+          throw new Error('blob not durable (' + (stored || 0) + '/' + file.size + ')');
+        }
+        // Preview only — long edge 480. The photograph itself is never decoded.
+        return ImageWorkerHost.compressFile(file, { maxW: 480, quality: 0.7 });
+      })
+      .then(function (t) {
+        return { dataUrl: null, thumb: (t && t.dataUrl) || null, id: _phId, blobStored: true };
+      });
   } else {
     _ready = ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 });
   }
   return _ready
     .then(function(r) {
-      var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl);
+      /* S715: a camera photo is born with a preview, a pre-proven id and NO
+         inline image. S462 still holds — thumb is a source, so the record has
+         one at birth and can never be a ghost. Foreign files are unchanged:
+         r.thumb is null for them and they pass their dataUrl as before. */
+      var photo = Model.addObservationPhoto(deficId, obsIdx, r.dataUrl,
+        r.blobStored ? { id: r.id, thumb: r.thumb, filename: file.name } : undefined);
       // S548: in a batch the screen repaints once, at the end, from the tick.
       if (batched) _photoBatchTick(true);
       else { initDeficiencies.render(); toast('Photo added'); }

@@ -86,6 +86,25 @@ function _migrateProjectR2Hosts(node, seen){
 var _project = null;
 var _dirty = false;
 var _saveTimer = null;
+/* ═══ S715 — BATCH SAVE HOLD ═══════════════════════════════════════════════
+   A burst commit adds photos one at a time, and every add used to arm an
+   800ms debounce while the 15s sweep and each finished R2 upload fired their
+   own saves on top. Every one of those deep-clones the ENTIRE report. During
+   a 104-shot commit that is a hundred-odd full-document clones of a document
+   that is growing while they run — the OOM S715 exists to kill.
+
+   The hold gates the one place all four paths converge (_saveToIDB), so no
+   call site can forget it. Nothing is lost while held: _dirty is never
+   cleared, so the batch-close save (and the sweep, and any later edit) still
+   writes everything that accumulated.
+
+   IT EXPIRES BY ITSELF. A hold released only by a matching call is a hold
+   that leaks the first time a promise neither resolves nor rejects, and a
+   report that silently stops saving is far worse than the crash. The deadline
+   is re-armed on every tick, so it means "no progress for 2 minutes", not
+   "2 minutes total" — a 500-shot burst is safe, a wedged batch is not. */
+var _saveHoldUntil = 0;
+var _SAVE_HOLD_MS = 120000;
 var _undoStack = [];
 var _listeners = {};
 var _autoSaveInterval = null;
@@ -403,6 +422,9 @@ function _queueSave() {
 
 function _saveToIDB() {
   if (!_project) return Promise.resolve();
+  // S715: batch in flight — skip the clone. _dirty is untouched, so the
+  // batch-close saveNow() persists everything this skipped.
+  if (_saveHoldUntil && Date.now() < _saveHoldUntil) return Promise.resolve();
   /* S686 — A COMPLETED SAVE ABSORBS THE PENDING ONE.
      Two paths write this report: the 800ms debounce after an edit, and the
      15-second background sweep. The sweep asks whether anything changed; the
@@ -453,6 +475,8 @@ function _stripBlobUrls(proj) {
   catch(e) { return proj; } // fallback: persist as-is rather than lose data
   function _scrub(arr) {
     (arr || []).forEach(function(p) {
+      // S715: transient viewer object URL — session-scoped, never persisted.
+      if (p && p._localUrl) delete p._localUrl;
       if (p && typeof p.dataUrl === 'string' && p.dataUrl.indexOf('blob:') === 0) {
         delete p.dataUrl;
         // ── S462 durability save rule ──────────────────────────
@@ -2555,7 +2579,7 @@ export var Model = {
     return true;
   },
 
-  addObservationPhoto: function(deficId, obsIdx, photoData) {
+  addObservationPhoto: function(deficId, obsIdx, photoData, opts) {
     // S120: Route legacy "add to obs.photos" uploads into the pool model so
     // post-migration uploads aren't orphaned. Behavior:
     //  - Adds to defic.photos[] pool (single source of truth)
@@ -2569,7 +2593,10 @@ export var Model = {
     if (!f) return null;
     var obs = (f.defic.observations || [])[obsIdx];
     if (!obs) return null;
-    var photo = this.addPoolPhoto(deficId, photoData);
+    // S715: opts carries thumb/filename so a camera photo can be born with a
+    // preview and NO inline image. Omitted by every legacy caller — undefined
+    // lands on addPoolPhoto's existing `opts = opts || {}`, so they are unchanged.
+    var photo = this.addPoolPhoto(deficId, photoData, opts);
     if (!photo) return null;
     if (Array.isArray(obs.photoSelection)) {
       obs.photoSelection.push(photo.id);
@@ -2647,7 +2674,11 @@ export var Model = {
       }
     }
     var photo = {
-      id: _uid('ph'),
+      /* S715: the caller may supply the id. A camera photo writes its bytes to
+         photoBlobs FIRST and only then creates this record, so the id has to
+         exist before the record does — bytes-then-record is what makes the
+         record's promise of an image true at the instant it is made. */
+      id: opts.id || _uid('ph'),
       r2Key: opts.r2Key || null,
       sourceR2Key: opts.sourceR2Key || opts.r2Key || null,
       dataUrl: _dataUrl,
@@ -5162,9 +5193,45 @@ export var Model = {
     return false;
   },
 
+  /* ═══ S715 — THE ONE READ PATH FOR A PHOTOGRAPH ═══════════════════════════
+     Since S715 a camera photo's bytes live in photoBlobs and the report holds
+     only a 480px preview. Anything that needs the PHOTOGRAPH — the full-screen
+     viewer, markup, the PDF — asks here. Anything that only needs to show a
+     tile keeps reading photo.thumb and must NOT call this.
+
+     Precedence is deliberate and is not the render precedence:
+       1. photoBlobs — the local original. Correct offline, and correct in the
+          window between capture and a successful upload.
+       2. photo.dataUrl — every photo taken before S715. Untouched, still read.
+       3. null — the caller falls back to thumb/r2Url as it always did.
+
+     r2Url is NOT consulted here: it is a network fetch the callers already
+     know how to do, and preferring it would make a parkade with no signal
+     silently produce a thumbnail-quality report. Local bytes win.
+
+     Returns a Blob or null. Callers own the object URL they make from it and
+     are responsible for revoking it — this never writes one onto the record,
+     because a blob: URL on a photo is session-scoped and would be persisted
+     and synced as a dead pointer. */
+  resolvePhotoBytes: function(photo) {
+    if (!photo || !photo.id) return Promise.resolve(null);
+    return IDB.get('photoBlobs', photo.id).then(function(rec) {
+      if (rec && rec.dataBlob && rec.dataBlob.size) return rec.dataBlob;
+      return null;
+    }).catch(function() { return null; });
+  },
+
   saveNow: function() {
     if (_saveTimer) clearTimeout(_saveTimer);
     return _saveToIDB();
+  },
+
+  /* S715 — open/re-arm/close the batch save hold. Call with true on every
+     tick of a long ingest (it re-arms the expiry), false exactly once at the
+     close. Releasing does NOT save; the caller decides when, so the close
+     save and the repaint stay in one place. */
+  holdSaves: function(on) {
+    _saveHoldUntil = on ? (Date.now() + _SAVE_HOLD_MS) : 0;
   },
 
   /* S676 — read-only view of the pending-save flag. The durability door

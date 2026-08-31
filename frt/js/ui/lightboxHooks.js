@@ -55,10 +55,17 @@ export function buildFrtLightboxHooks(deps) {
   var _srcTried = new WeakMap();   // S341 ladder position per photo
 
   /* ── photo source (the live _showPhoto rule, verbatim precedence) ── */
-  function photoSrc(p) { return (p && (p.r2Url || p.dataUrl || p.thumb)) || ''; }
+  /* S715: _localUrl is a TRANSIENT object URL for the photograph read off the
+     device (photoBlobs), attached by the FRT shim just before open. It leads
+     the ladder because it is the only full-size source that exists before an
+     upload confirms — without it a photo taken in a parkade would open at its
+     480px preview. It is never written to photo.dataUrl (a blob: URL there
+     would be persisted and synced as a dead pointer) and is stripped on both
+     persist paths; see Model._stripBlobUrls and syncWorker stripBinaries. */
+  function photoSrc(p) { return (p && (p._localUrl || p.r2Url || p.dataUrl || p.thumb)) || ''; }
   function srcLadder(p) {
     var l = [];
-    if (p) { [p.r2Url, p.dataUrl, p.thumb].forEach(function (s) { if (s && l.indexOf(s) < 0) l.push(s); }); }
+    if (p) { [p._localUrl, p.r2Url, p.dataUrl, p.thumb].forEach(function (s) { if (s && l.indexOf(s) < 0) l.push(s); }); }
     return l;
   }
 
