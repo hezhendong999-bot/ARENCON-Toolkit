@@ -1093,13 +1093,90 @@ function resetAllPages() {
 
 
 
+/* S699 — a page reset removes photographs as EVENTS, never by truncating the
+   array. `force` is right here and only here: the phantom guard exists to stop
+   a just-captured photo vanishing to a stray tap, but this is a person who
+   typed "reset" against a named page, so the deletion is deliberate. Photos go
+   to Recently Deleted, restorable for the retention window. */
+function _resetSoftDeletePhotos(arr){
+  if(!Array.isArray(arr) || !arr.length) return 0;
+  var PL = window.PhotoLifecycle, n = 0, now = Date.now();
+  arr.forEach(function(ph){
+    if(!ph) return;
+    if(PL && PL.markDeleted){ if(PL.markDeleted(ph, { force:true, now:now }).ok) n++; }
+    else if(!ph.deleted){ ph.delState='deleted'; ph.delAt=new Date(now).toISOString(); ph.deleted=true; n++; }
+  });
+  return n;
+}
+/* S699 — WHAT THE GUARD PROMISES IS WHAT THE RESET DOES. The confirmation used
+   to say only "clears all data entered on this page", which named nothing and
+   quietly included photographs — a guard whose whole job is to say what
+   disappears, saying the least it could. The sentence is now BUILT from the
+   live state each branch below actually clears, so it cannot drift from the
+   code: add something to a branch and the count appears here, or it does not
+   and the omission is visible. Counts only; no photo is touched by counting. */
+function _resetInventory(active){
+  var out = [];
+  function push(n, one, many){ if(n>0) out.push(n + ' ' + (n===1?one:many)); }
+  function liveRows(rows, keys){
+    if(!Array.isArray(rows)) return 0;
+    return rows.filter(function(r){ return r && keys.some(function(k){ return r[k]!=='' && r[k]!=null; }); }).length;
+  }
+  function livePhotos(a){
+    if(!Array.isArray(a)) return 0;
+    var PL = window.PhotoLifecycle;
+    return a.filter(function(p){ return p && !(PL && PL.isDeleted ? PL.isDeleted(p) : p.deleted); }).length;
+  }
+  try{
+    if(active === 's4' || active === 's4pld'){
+      push(liveRows(typeof stdData!=='undefined'?stdData:[], ['suction','discharge','rpm','cutsheet','placard']), 'entered 3-point test row', 'entered 3-point test rows');
+      push(liveRows(typeof pldData!=='undefined'?pldData:[], ['suc_no','dis_no','rpm_no','suc_w','dis_w','rpm_w','flow']), 'entered PLD test row', 'entered PLD test rows');
+      var _cp = ((typeof pumpCurvePoints!=='undefined'?pumpCurvePoints:[]).concat(typeof pldPumpCurvePoints!=='undefined'?pldPumpCurvePoints:[]))
+        .filter(function(p){ return p && (p.flow!=='' || p.psi!==''); }).length;
+      push(_cp, 'pump curve point', 'pump curve points');
+      var _rp = 0;
+      [typeof stdData!=='undefined'?stdData:[], typeof pldData!=='undefined'?pldData:[]].forEach(function(rows){
+        (rows||[]).forEach(function(r){ _rp += livePhotos(r && r.photos); });
+      });
+      push(livePhotos(typeof flowTestPhotos!=='undefined'?flowTestPhotos:[]) +
+           livePhotos(typeof flowTestPhotosPld!=='undefined'?flowTestPhotosPld:[]) + _rp,
+           'photograph', 'photographs');
+    } else if(active === 'defic'){
+      var _d = 0;
+      try{
+        (typeof contractors!=='undefined'?contractors:[]).forEach(function(n){ _d += ((typeof deficiencies!=='undefined'&&deficiencies[n])||[]).length; });
+        _d += (typeof generalDeficiencies!=='undefined'?generalDeficiencies:[]).length;
+      }catch(_){}
+      push((typeof contractors!=='undefined'?contractors:[]).length, 'contractor', 'contractors');
+      push(_d, 'deficiency', 'deficiencies');
+    } else if(active === 'sign'){
+      var _sr = 0;
+      [typeof contractorSignRows!=='undefined'?contractorSignRows:[], typeof witnessSignRows!=='undefined'?witnessSignRows:[]]
+        .forEach(function(a){ (a||[]).forEach(function(r){ if(r && !r.deleted) _sr++; }); });
+      push(_sr, 'sign-off row', 'sign-off rows');
+    }
+  }catch(_){}
+  return out;
+}
+
 function resetCurrentPage() {
   _pushUndo();
   const active = PANELS.find(p => document.getElementById('panel-'+p)?.classList.contains('active'));
   if (!active) return;
   const label = {'proj':'Project Info','s1':'Pre-Commissioning','s2':'Visual Inspection','s3':'Controller Tests',
     's4':'Performance Test','s4pld':'Performance Test','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
-  _aTypeConfirm(`Reset "${label}" page? This permanently clears all data entered on this page. This cannot be undone.`, 'reset', function(){
+  const _inv = _resetInventory(active);
+  /* S699: name what goes. "Cannot be undone" stays true of the typed values,
+     but it was never true of photographs — they soft-delete to Recently
+     Deleted — and saying otherwise makes a person hesitate over a reversible
+     thing while glossing the irreversible ones. */
+  const _what = _inv.length
+    ? ` This removes ${_inv.join(', ')}.`
+    : '';
+  const _photoNote = _inv.some(s => /photograph/.test(s))
+    ? ' Photographs move to Recently Deleted and can be restored; entered values cannot.'
+    : ' This cannot be undone.';
+  _aTypeConfirm(`Reset "${label}" page?${_what}${_photoNote}`, 'reset', function(){
   if (active === 'proj') {
     ['pi-projno','pi-client','pi-projname','pi-addr','pi-prepby','pi-date',
      'pi-contractor','pi-version'].forEach(id => {
@@ -1125,16 +1202,40 @@ function resetCurrentPage() {
     pumpCurvePoints.length = 0; pumpCurvePoints.push({flow:'',psi:''});
     pldPumpCurvePoints.length = 0; pldPumpCurvePoints.push({flow:'',psi:''});
     // Reset flow test photos
-    flowTestPhotos.length = 0; renderFlowTestThumbs();
-    flowTestPhotosPld.length = 0; renderFlowTestThumbsPld();
+    /* S699 — these two lines used to be `flowTestPhotos.length = 0`. Truncating
+       an array is ABSENCE, and absence never deletes (doctrine I-2): the cloud
+       copy still held every photo, so the next sync unioned them all back and
+       "Reset Performance Test" quietly undid itself — the same machine that
+       made the sign rows undeletable before S695. Soft-delete instead: the slot
+       stays, the deletion is a state the merge carries, and the photos land in
+       Recently Deleted where they can be restored for the retention window
+       rather than being destroyed by a page reset. */
+    _resetSoftDeletePhotos(flowTestPhotos); renderFlowTestThumbs();
+    _resetSoftDeletePhotos(flowTestPhotosPld); renderFlowTestThumbsPld();
     // Re-render everything
     renderStdTable(); renderPldTable(); renderPumpCurveTable(); renderPldPumpCurveTable();
     calcTotalDemand3pt(); calcTotalDemandPld(); refreshAllCharts();
   } else if (active === 'defic') {
-    contractors.length = 0;
-    contractorTrades = {};
-    Object.keys(deficiencies).forEach(k => delete deficiencies[k]);
-    generalDeficiencies.length = 0;
+    /* S699 — was `deficiencies` deleted key-by-key and the arrays truncated.
+       Truncation is absence, and absence never deletes: every deficiency came
+       back on the next sync, so clearing the page did not stick. The merge
+       spec already carries `deleted`/`delAt` on deficiencies and their
+       responses (S605) — so mark them, exactly as the sign rows are marked,
+       and the clearing propagates like any other edit. */
+    (function(){
+      var at = new Date().toISOString();
+      function tomb(list){ (list||[]).forEach(function(d){ if(d && !d.deleted){ d.deleted = true; d.delAt = at; } }); }
+      contractors.forEach(function(n){ tomb(deficiencies[n]); });
+      tomb(generalDeficiencies);
+      /* `contractors` is a value-set: it merges by UNION and has no per-item
+         delete, so a name removed here would return from the cloud. Emptying
+         the local list is still right — the report shows no contractor tags,
+         and every deficiency under them is tombstoned above — but the names
+         themselves are not durably removable until the family gets item
+         semantics. Recorded rather than silently half-done. */
+      contractors.length = 0;
+      contractorTrades = {};
+    })();
     renderContractorTags(); renderDeficGroups(); renderGeneralDeficGroup(); updateDeficSummary();
   } else if (active === 'sign') {
     ['so-name','so-title','so-company','so-date'].forEach(id => { const el=document.getElementById(id);if(el)el.value=''; });

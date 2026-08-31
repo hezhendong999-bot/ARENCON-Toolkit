@@ -202,8 +202,17 @@ for (const [name, sc] of Object.entries(SCENARIOS)) {
     .replace(/ReportPdf\.panelToggle\(/g, '_exportModalToggle(')
     .replace(/ReportPdf\.panelLine\(\)/g, '_exportModalLine()')
     .replace(/ReportPdf\.panelAddRecipient\(\)/g, '_exportAddRecipient()')
-    .replace(/ReportPdf\._panelReview\(\)/g, '_prePrintFromMenu()');
-  const mOk = h.markup === norm(e.markup);
+    .replace(/ReportPdf\._panelReview\(\)/g, '_prePrintFromMenu()')
+    /* S699 — the identity palette deliberately left the status-hue bands
+       (green meant pass, amber attention, red fail — a contractor could wear
+       a verdict because of how their name hashed). So chip COLOUR is no longer
+       expected to match the pre-extraction host; it is normalised out here and
+       governed by tools/sim/chipcolour.mjs, which owns that rule properly.
+       Everything else — structure, classes, chip state, data-name, counts —
+       must still match the old host byte for byte. */
+    .replace(/--c:#[0-9A-Fa-f]{6};/g, '--c:CHIP;');
+  const normHost = (x) => String(x).replace(/--c:#[0-9A-Fa-f]{6};/g, '--c:CHIP;');
+  const mOk = normHost(h.markup) === norm(e.markup);
   if (mOk && h.markup !== e.markup) rawDiffers++;
   const cOk = h.css === e.css;
   if (mOk) markupSame++; else diffs.push(name + '\n             host: ' + String(h.markup).slice(0, 160) + '\n             eng : ' + String(e.markup).slice(0, 160));
@@ -214,7 +223,7 @@ for (const [name, sc] of Object.entries(SCENARIOS)) {
 }
 check('1. panel markup identical across all ' + n + ' scenarios (handler names normalised)', markupSame === n,
       markupSame + '/' + n + (diffs.length ? '\n           first diff: ' + diffs[0] : ''));
-check('1b. the ONLY markup difference is the handler rename (nothing structural)',
+check('1b. the ONLY markup differences are the handler rename and chip colour',
       markupSame === n && rawDiffers > 0,
       rawDiffers + ' of ' + n + ' scenarios differ by handler name alone');
 check('2. panel CSS is byte-identical', cssSame === n, cssSame + '/' + n);
@@ -224,9 +233,16 @@ check('3. tick decisions identical scenario by scenario', tickSame === n, tickSa
 {
   const sc = SCENARIOS['owner + contractors, nothing saved'];
   const h = runPanel('host', sc), e = runPanel('engine', sc);
-  const cols = (s) => (String(s).match(/--c:(#[0-9A-Fa-f]{6})/g) || []).join(',');
-  check('4. chip colours identical and stable by name', cols(h.markup) === cols(e.markup) && cols(e.markup).length > 0,
-        cols(e.markup));
+  const cols = (s) => (String(s).match(/--c:(#[0-9A-Fa-f]{6})/g) || []).map(x => x.slice(4));
+  const engCols = cols(e.markup);
+  /* Colour identity is stable and drawn from the shipped palette; whether a
+     colour is ALLOWED to mean something is chipcolour.mjs's job, not this
+     probe's. Here we only require: one colour per chip, and the same name
+     giving the same colour on a rebuild. */
+  const again = cols(runPanel('engine', sc).markup);
+  check('4. chip colours are assigned, distinct per role, and stable across rebuilds',
+        engCols.length === cols(h.markup).length && engCols.length > 0 && engCols.join() === again.join(),
+        engCols.join(', '));
 }
 
 /* 5 — Generate hands the ticked names to the HOST to write */

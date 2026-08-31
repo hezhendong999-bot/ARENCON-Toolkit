@@ -1216,3 +1216,12 @@ _s700RefuseIfIssued
 _s700StartNextReport
 _S700_DENY
 ReportSeed
+
+@ S699 — a page reset says what it takes, and what it takes stays gone. The
+@ guard's sentence is BUILT from live state (it named nothing before, and called
+@ recoverable photographs permanent); photographs soft-delete through the
+@ lifecycle and deficiencies tombstone, because truncating an array is absence
+@ and absence never deletes — the reset used to undo itself on the next sync.
+@ Removing these returns the "cleared it twice and it came back" class.
+_resetInventory
+_resetSoftDeletePhotos
