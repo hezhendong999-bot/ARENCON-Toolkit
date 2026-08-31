@@ -17,6 +17,7 @@ import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selecti
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 import { R2 } from '../data/r2.js';
 import { IDB } from '../data/idb.js';                                 // S715: photoBlobs is where the photograph lives; the report holds a preview
+import { proveBurstShot, uploadFromStore } from '../data/photoIngest.js'; // S716: ONE intake shared with the gallery
 import { BinaryOutbox } from '../data/photoOutbox.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { buildThreadHtml, buildComposerHtml, buildTrayHtml, crbCountPending } from './crbThread.js'; // S471: CRB thread render (read-only, locked demo grammar) · S477: staging tray · S498: pending-review count (read-only)
@@ -7327,7 +7328,21 @@ var _photoTargetObsIdx = 0;
 // WHAT DOES NOT CHANGE: every photo is still written to the model and queued
 // for upload the instant it is compressed. Only the repaint is deferred.
 // Data first, picture second — the S528 rule pointed the other way.
-var _photoBatch = null;   // { total, done, added }
+var _photoBatch = null;   // { total, done, added, uploadIds? }
+/* S716: records for the deferred post-batch upload, found by id in the live
+   project. Walks the pool of every deficiency; site photos are the gallery's. */
+function _collectPhotosByIds(ids) {
+  var want = {}; (ids || []).forEach(function (id) { want[id] = true; });
+  var out = [];
+  var proj = Model.getProject(); if (!proj) return out;
+  function scan(d) {
+    if (!d) return;
+    (d.photos || []).forEach(function (p) { if (p && want[p.id]) out.push(p); });   // the pool (S265)
+  }
+  (proj.contractors || []).forEach(function (c) { (c.deficiencies || []).forEach(scan); });
+  (proj.generalDeficiencies || []).forEach(scan);
+  return out;
+}
 
 // Returns true when the caller's photos belong to a batch. A batch already in
 // flight absorbs the new files rather than starting a second counter.
@@ -7377,6 +7392,7 @@ function _photoBatchTick(ok) {
     return;
   }
   var added = _photoBatch.added, total = _photoBatch.total;
+  var _uploadIds = _photoBatch.uploadIds || null;
   _photoBatch = null;
   _photoBatchPaint();
   // S715: release FIRST, then the one save that persists the whole batch.
@@ -7384,6 +7400,14 @@ function _photoBatchTick(ok) {
   try { Model.holdSaves(false); } catch (_) {}
   try { Model.saveNow(); } catch (_) {}
   initDeficiencies.render();
+  /* S716: now — and only now — the burst photographs go to the cloud, read
+     from photoBlobs one at a time. The report is already saved with every
+     record; an upload that fails leaves a retryable badge, never a gap. */
+  if (_uploadIds && _uploadIds.length) {
+    var _pid = new URLSearchParams(window.location.search).get('project');
+    var _recs = _collectPhotosByIds(_uploadIds);
+    uploadFromStore(_pid, _recs, function () { try { Model.saveNow(); } catch (_) {} });
+  }
   if (added === total) toast(added === 1 ? 'Photo added' : added + ' photos added');
   else toast('\u26A0 ' + added + ' of ' + total + ' photos added', 6000);
 }
@@ -7501,20 +7525,14 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
      photograph is never decoded here at all. */
   var _ready;
   if (file && file._burstK) {
-    var _phId = 'ph_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
-    _ready = IDB.put('photoBlobs', { id: _phId, dataBlob: file })
-      .then(function () { return IDB.get('photoBlobs', _phId); })
-      .then(function (rec) {
-        var stored = rec && rec.dataBlob && rec.dataBlob.size;
-        if (!stored || stored !== file.size) {
-          throw new Error('blob not durable (' + (stored || 0) + '/' + file.size + ')');
-        }
-        // Preview only — long edge 480. The photograph itself is never decoded.
-        return ImageWorkerHost.compressFile(file, { maxW: 480, quality: 0.7 });
-      })
-      .then(function (t) {
-        return { dataUrl: null, thumb: (t && t.dataUrl) || null, id: _phId, blobStored: true };
-      });
+    /* S716: the host does not prove bytes itself any more — the shared intake
+       does, identically for this screen and the gallery. `file` here is a
+       descriptor (key + shutter thumb), not a File; one blob is read, proven
+       into photoBlobs, and released inside proveBurstShot. Nothing is decoded
+       here: the 480 thumb was born at the shutter. */
+    _ready = proveBurstShot(file, 'ph').then(function (p) {
+      return { dataUrl: null, thumb: p.thumb, id: p.id, blobStored: true };
+    });
   } else {
     _ready = ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95 });
   }
@@ -7532,6 +7550,18 @@ function _compressAndAdd(file, deficId, obsIdx, batched) {
       var pid = new URLSearchParams(window.location.search).get('project');
       if (!(pid && photo)) return;
 
+      /* ═══ S716 — BURST PHOTOS UPLOAD FROM THE STORE, AFTER THE BATCH. ═══════
+         `file` is a descriptor, not bytes, so there is nothing to hand the
+         uploader here — and starting 140 uploads that each hold a photograph
+         is the pile-up S716 removes. The id is queued; when the batch closes
+         and the one save is done, uploadFromStore reads photoBlobs one blob at
+         a time. Foreign files (drag-drop, picker) take the paths below
+         unchanged. */
+      if (r.blobStored) {
+        if (_photoBatch) { (_photoBatch.uploadIds || (_photoBatch.uploadIds = [])).push(photo.id); }
+        else { uploadFromStore(pid, [photo], function () { try { Model.saveNow(); } catch (_) {} }); }
+        return;
+      }
       // ── S170 Fix A branch: outbox path (staging only) ──
       if (BinaryOutbox && BinaryOutbox.isEnabled && BinaryOutbox.isEnabled()) {
         BinaryOutbox.enqueue({

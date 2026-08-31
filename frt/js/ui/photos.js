@@ -9,6 +9,7 @@ import { toast } from '../shared/toast.js';
 import { showConfirm, showAlert } from '../shared/dialogs.js';
 import { Auth } from '../shared/auth.js';
 import { R2 } from '../data/r2.js';
+import { proveBurstShot, runSerial, uploadFromStore } from '../data/photoIngest.js'; // S716: ONE intake shared with deficiencies
 import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark) — also sets window.openCameraBurst for the engine (S479e)
@@ -1566,7 +1567,7 @@ function _downloadPhoto(ph, fallbackName) {
 // worker. ImageWorkerHost falls back to the legacy main-thread path if the
 // worker is unavailable, so behavior is preserved on browsers without
 // OffscreenCanvas support.
-function _compressSitePhoto(file, cb) {
+function _compressSitePhoto(file, cb, onFail) {
   ImageWorkerHost.compressFile(file, {
     /* S702d — raised with every other photo site in the tool (see the note in
        deficiencies.js). Thumbnails are unchanged: they are for the grid, not
@@ -1583,6 +1584,7 @@ function _compressSitePhoto(file, cb) {
     cb(r.dataUrl, r.thumb);
   }).catch(function(err) {
     console.warn('[Photos] Compression failed:', err && err.message);
+    if (typeof onFail === 'function') { try { onFail(err); } catch (_) {} }   // S716: serial batch must move on
   });
 }
 
@@ -1657,45 +1659,93 @@ function _readExifCaptureDate(file) {
   });
 }
 
-function _addSitePhoto(file) {
-  // S367: read the real capture date from EXIF BEFORE compression (which strips it).
-  _readExifCaptureDate(file).then(function(captureDate){
-    _compressSitePhoto(file, function(dataUrl, thumb) {
-      var proj = Model.getProject();
-      if (!proj) return;
-      if (!proj.photos) proj.photos = [];
+/* S716: _addSitePhoto retired — its body lives in _addSitePhotoSerial, which
+   the shared serial batch drives. See _handleSitePhotoFiles. */
+
+/* ═══ S716 — THE GALLERY USES THE SAME INTAKE AS A DEFICIENCY. ═══════════════
+   Until now this fanned every file out to _addSitePhoto at once: 140 shots
+   decoded together, 140 photographs written into the report as text, and a
+   whole-report save plus a gallery redraw per photo. That was the field
+   crash after S715 — S713/S714/S715 had fixed the deficiency copy of this
+   code and this copy had received none of it.
+
+   Now: strictly one at a time; saves held for the batch and written ONCE at
+   the close; burst shots proven into photoBlobs by the shared step and born
+   with the shutter's thumb and no inline image; uploads read from the store
+   afterwards, one blob at a time. Foreign files (picker, drag-drop) still go
+   through _addSitePhoto, just serially. */
+function _handleSitePhotoFiles(files) {
+  var list = Array.from(files || []).filter(function (f) {
+    return f && ((f._burstK) || (f.type && f.type.startsWith('image/')));
+  });
+  if (!list.length) return;
+  var pid = new URLSearchParams(window.location.search).get('project');
+  var uploadRecs = [], added = 0;
+  try { Model.holdSaves(true); } catch (_) {}
+  toast('Adding ' + list.length + ' photo' + (list.length === 1 ? '' : 's') + '\u2026', 2500);
+  runSerial(list, function (f) {
+    if (!f._burstK) { return _addSitePhotoSerial(f); }
+    return proveBurstShot(f, 'sph').then(function (p) {
       var photo = {
-        id: 'sph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-        filename: file.name,
-        dataUrl: dataUrl,
-        thumb: thumb,
+        id: p.id,
+        filename: p.filename,
+        dataUrl: null,                       // S715/S716: the photograph is in photoBlobs
+        thumb: p.thumb,
         caption: '',
-        // Capture date (when the photo was TAKEN) if EXIF has it; else upload date.
-        addedDate: captureDate || new Date().toISOString().split('T')[0]
+        addedDate: new Date().toISOString().split('T')[0]
       };
-      proj.photos.push(photo);
-      Model.saveNow();
-      initPhotos.render();
-      toast('Site photo added');
-      var pid = new URLSearchParams(window.location.search).get('project');
-      if (pid) {
-        // S414 (#3): S389 parity for SITE photos — upload the UNTOUCHED original
-        // File (full-res), not the compressed dataUrl. dataUrl stays compressed
-        // for in-app render + PDF embed, same contract as deficiency photos.
-        R2.uploadPhotoOriginal(pid, photo, file).then(function() { Model.saveNow(); })
-          .catch(function(err) {
-            photo.r2UploadFailed = true;   // badge shows true state; retryable
-            Model.saveNow();
-            console.warn('[R2] site photo original upload failed:', err && err.message);
-          });
-      }
+      var rec = Model.addSitePhoto(photo);
+      if (!rec) throw new Error('model refused site photo');
+      added++;
+      uploadRecs.push(rec);
+      // handedOff is EARNED here — after the bytes are proven and the record
+      // exists — never at Done.
+      if (window._arcBurstMarkHandedOff) { try { window._arcBurstMarkHandedOff([f._burstK]); } catch (_) {} }
     });
+  }, function (ok) {
+    try { Model.holdSaves(true); } catch (_) {}   // progress re-arms the expiry
+  }).then(function () {
+    try { Model.holdSaves(false); } catch (_) {}
+    try { Model.saveNow(); } catch (_) {}
+    initPhotos.render();
+    toast(added + ' site photo' + (added === 1 ? '' : 's') + ' added');
+    if (pid && uploadRecs.length) {
+      uploadFromStore(pid, uploadRecs, function () { try { Model.saveNow(); } catch (_) {} });
+    }
   });
 }
 
-function _handleSitePhotoFiles(files) {
-  Array.from(files).forEach(function(f) {
-    if (f.type.startsWith('image/')) _addSitePhoto(f);
+/* S716: a foreign file (picker / drag-drop) through the original path, but as
+   a promise so runSerial can wait for it. The body is _addSitePhoto's,
+   unchanged, minus the per-photo save and redraw the batch now owns. */
+function _addSitePhotoSerial(file) {
+  return new Promise(function (resolve) {
+    _readExifCaptureDate(file).then(function (captureDate) {
+      _compressSitePhoto(file, function (dataUrl, thumb) {
+        var proj = Model.getProject();
+        if (!proj) { resolve(); return; }
+        if (!proj.photos) proj.photos = [];
+        var photo = {
+          id: 'sph_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+          filename: file.name,
+          dataUrl: dataUrl,
+          thumb: thumb,
+          caption: '',
+          addedDate: captureDate || new Date().toISOString().split('T')[0]
+        };
+        proj.photos.push(photo);
+        var pid = new URLSearchParams(window.location.search).get('project');
+        if (pid) {
+          R2.uploadPhotoOriginal(pid, photo, file).then(function () { Model.saveNow(); })
+            .catch(function (err) {
+              photo.r2UploadFailed = true;
+              Model.saveNow();
+              console.warn('[R2] site photo original upload failed:', err && err.message);
+            });
+        }
+        resolve();
+      }, function () { resolve(); });            // S716: compression failed → skip, keep going
+    }).catch(function () { resolve(); });
   });
 }
 
