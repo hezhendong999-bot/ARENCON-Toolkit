@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202609011213';
+var CACHE_NAME = 'arencon-frt-202609011739';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -268,6 +268,7 @@ self.addEventListener('install', function(e) {
           console.warn('[SW] Failed to cache CDN asset:', url, err);
         });
       });
+      var appFailures = [];
       var appPromises = APP_FILES.map(function(url) {
         /* ═══ S622i — PRECACHE MUST BYPASS THE HTTP CACHE (Mark's PC, 06 Aug:
            "Update ready" survived three taps and countless reloads, then fixed
@@ -281,10 +282,39 @@ self.addEventListener('install', function(e) {
           if (!resp || !resp.ok) throw new Error('HTTP ' + (resp && resp.status));
           return cache.put(url, resp);
         }).catch(function(err) {
-          console.warn('[SW] Failed to cache:', url, err);
+          /* ═══ S718d — A HALF-DOWNLOADED APP MUST NEVER GO LIVE. ═════════════
+             1 Sep 2026: Mark's Android went black on a workday and recovered
+             later with no explanation. This block is why that was possible.
+
+             It used to swallow every failure and carry on. Promise.all then
+             resolved, skipWaiting() ran, and a worker holding an INCOMPLETE
+             copy of the app took over and deleted the previous complete one.
+             A phone on one bar in a moving car is exactly the case that
+             produces it, and nothing anywhere told the user.
+
+             Now a missing app file fails the install. The browser discards the
+             new worker and the device keeps running the copy it already had —
+             the last known-good build, offline-capable, untouched. It retries
+             on a later visit, so a device on better signal simply updates then.
+             Slower to update, never broken: the correct trade for a tool used
+             underground.
+
+             SCOPE: app files only. CDN assets keep their own tolerant catch
+             above — a third-party outage must not be able to block updates. */
+          appFailures.push(url + ' (' + (err && err.message || err) + ')');
         });
       });
-      return Promise.all(cdnPromises.concat(appPromises));
+      return Promise.all(cdnPromises.concat(appPromises)).then(function() {
+        if (appFailures.length) {
+          console.error('[SW] Install ABORTED — ' + appFailures.length + ' of ' +
+            APP_FILES.length + ' app files could not be downloaded. Keeping the ' +
+            'previous version; will retry on a later visit. First few: ' +
+            appFailures.slice(0, 5).join(', '));
+          return caches.delete(CACHE_NAME).catch(function() {}).then(function() {
+            throw new Error('precache incomplete: ' + appFailures.length + ' file(s) failed');
+          });
+        }
+      });
     }).then(function() {
       return self.skipWaiting();
     })
