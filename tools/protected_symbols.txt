@@ -1239,3 +1239,39 @@ storePreview
 readPreview
 uploadPreview
 previewStored
+
+@ S702j–S717 — the camera pipeline, field-proven 31 Aug 2026 (201 burst photos
+@ through the Site Photos gallery, all kept, no crash) and locked 1 Sep on
+@ Mark's word. This is the fix for the crash class that began at S709 and cost
+@ three sessions. Removing any of it returns tab-OOM on long bursts and photos
+@ that do not survive a reload.
+@   proveBurstShot      one blob to disk, read back and size-checked, BEFORE a
+@                       record exists — a shot that cannot be proven is not
+@                       recorded and stays recoverable in the camera.
+@   runSerial           strictly one photo at a time; a bad item is a false
+@                       tick, never a dead batch.
+@   uploadFromStore     post-batch uploads read from disk, never hold a File.
+@   resolvePhotoBytes   the ONE read path for a photograph (disk → legacy →
+@                       null). Never r2Url — that would silently put
+@                       thumbnail-quality images in a report from a no-signal
+@                       site.
+@   holdSaves           save gate at the single point all four save paths meet;
+@                       self-expiring, never clears the dirty flag.
+@   burstGet            hands the stored blob back by key.
+@   _addSitePhotoSerial the gallery's serial intake — the second copy whose
+@                       absence made S713–S715 look like they had failed.
+@   _collectPhotosByIds deferred-upload collection for the deficiency path.
+@ S717 reload-loop guard — two consecutive automatic reloads are mechanically
+@ impossible. The tool reload-looped several times per second in the field.
+@   _recentAutoApply    reads the cooldown mark.
+@   _markAutoApply      stamps it. A user tap is never blocked by either.
+proveBurstShot
+runSerial
+uploadFromStore
+resolvePhotoBytes
+holdSaves
+burstGet
+_addSitePhotoSerial
+_collectPhotosByIds
+_recentAutoApply
+_markAutoApply
