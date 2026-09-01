@@ -1225,3 +1225,17 @@ ReportSeed
 @ Removing these returns the "cleared it twice and it came back" class.
 _resetInventory
 _resetSoftDeletePhotos
+
+@ S718a — the preview gets a home of its own (Mark, 1 Sep 2026: "I want
+@ commercial grade"; do not cap bursts; photo count must stop mattering).
+@ Step 1 of the rule "the report is a document ABOUT photographs and never
+@ contains one": the 480px preview is written to the device store, proven by
+@ read-back, and uploaded to R2 under its own type, while the report still
+@ carries it. Step 2 (Mark present) may strip the preview from the report
+@ ONLY for a photo whose preview is proven in both places. Removing these
+@ returns the 5.5 MB / save-timeout class.
+thumbStoreKey
+storePreview
+readPreview
+uploadPreview
+previewStored

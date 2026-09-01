@@ -50,6 +50,75 @@ function _mintId(prefix) {
   return prefix + '_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
 }
 
+/* ═══ S718a — THE PREVIEW GETS A HOME OF ITS OWN ═══════════════════════════
+   Until S718 the 480px preview lived in ONE place: inside the report document,
+   as base64 text, ~28 KB per photo, copied on every save and pushed on every
+   sync. That is why a 233-photo report is 5.5 MB and why saves warn about
+   timing out. The rule S718 installs: the report is a document ABOUT
+   photographs and never contains one — nothing that grows with picture data
+   lives in it.
+
+   Step 1 (this push) gives the preview two more homes while the report STILL
+   carries it. Nothing is removed. Step 2 — Mark present — is where the report
+   stops carrying the preview, and it may only do so for a photo whose preview
+   is PROVEN in both places. Prove, then strip. Never the reverse.
+
+   Device: photoBlobs, key 'thumb:<photoId>' — the same prefixed-key pattern the
+           drawing L0 thumbs use in thumbCache.js; no schema migration.
+   Cloud:  R2 type 'thumb', filename '<photoId>.jpg'. The worker does not
+           validate the type segment (read live S718a) — no deploy needed.     */
+
+var THUMB_STORE = 'photoBlobs', THUMB_PREFIX = 'thumb:';
+
+export function thumbStoreKey(id) { return THUMB_PREFIX + id; }
+
+function _dataUrlToBlob(dataUrl) {
+  if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) return Promise.resolve(null);
+  return fetch(dataUrl).then(function (r) { return r.blob(); }).catch(function () { return null; });
+}
+
+/* Write the preview to the device store and READ IT BACK; true only when the
+   stored size matches. Never rejects — a preview that could not be stored on
+   device simply keeps living in the report until it can be. */
+export function storePreview(id, thumbDataUrl) {
+  if (!id) return Promise.resolve(false);
+  return _dataUrlToBlob(thumbDataUrl).then(function (blob) {
+    if (!blob || !blob.size) return false;
+    var expect = blob.size;
+    return IDB.put(THUMB_STORE, { id: thumbStoreKey(id), dataBlob: blob })
+      .then(function () { return IDB.get(THUMB_STORE, thumbStoreKey(id)); })
+      .then(function (rec) { return !!(rec && rec.dataBlob && rec.dataBlob.size === expect); });
+  }).catch(function () { return false; });
+}
+
+/* The preview as a Blob: device store first, then the copy still riding in
+   the report. null when neither exists. */
+export function readPreview(photo) {
+  if (!photo || !photo.id) return Promise.resolve(null);
+  return IDB.get(THUMB_STORE, thumbStoreKey(photo.id)).then(function (rec) {
+    if (rec && rec.dataBlob && rec.dataBlob.size) return rec.dataBlob;
+    return _dataUrlToBlob(photo.thumb);
+  }).catch(function () { return _dataUrlToBlob(photo.thumb); });
+}
+
+/* Upload the preview under its own type. Sets photo.thumbKey / thumbUrl in
+   place on success. Idempotent (skips when thumbUrl is set). Never rejects
+   and never blocks the original — 28 KB failing must not hold a photograph
+   back. */
+export function uploadPreview(pid, photo) {
+  if (!pid || !photo || !photo.id || photo.thumbUrl) return Promise.resolve(false);
+  return readPreview(photo).then(function (blob) {
+    if (!blob) return false;
+    return R2.upload(pid, 'thumb', blob, photo.id + '.jpg').then(function (res) {
+      blob = null;                                            // release
+      if (!res || !res.r2Key) return false;
+      photo.thumbKey = res.r2Key;
+      photo.thumbUrl = res.r2Url;
+      return true;
+    });
+  }).catch(function () { return false; });
+}
+
 /* Returns { id, thumb, filename, size }. Rejects if the bytes could not be
    proven durable. Holds exactly one blob for the duration. */
 export function proveBurstShot(desc, idPrefix) {
@@ -76,7 +145,12 @@ export function proveBurstShot(desc, idPrefix) {
       .then(function (thumb) {
         blob = null;                                            // release
         if (!thumb) throw new Error('no preview for ' + id);   // S462: a record needs a source
-        return { id: id, thumb: thumb, filename: name, size: expect };
+        // S718a: the preview also goes to the device store, proven by read-back.
+        // Not fatal — the report still carries the preview until Step 2 — so
+        // this branch never rejects; previewStored just says whether it landed.
+        return storePreview(id, thumb).then(function (ok) {
+          return { id: id, thumb: thumb, filename: name, size: expect, previewStored: !!ok };
+        });
       });
   });
 }
@@ -108,17 +182,26 @@ export function runSerial(items, step, tick) {
 export function uploadFromStore(pid, photos, onEach) {
   if (!pid) return Promise.resolve();
   return runSerial(photos, function (photo) {
-    if (!photo || photo.r2Key) return Promise.resolve();
-    return Model.resolvePhotoBytes(photo).then(function (blob) {
-      if (!blob) throw new Error('no local bytes for ' + photo.id);
-      return R2.uploadPhotoOriginal(pid, photo, blob).then(function () {
-        blob = null;
-        if (onEach) onEach(photo, true);
+    if (!photo) return Promise.resolve();
+    // S718a: the preview goes up alongside the original — its own type, its
+    // own guard, never a reason to hold the photograph back. One onEach per
+    // photo, as before, so the caller's save happens once whichever landed.
+    return uploadPreview(pid, photo).then(function (previewUp) {
+      if (photo.r2Key) {
+        if (previewUp && onEach) onEach(photo, true);
+        return;
+      }
+      return Model.resolvePhotoBytes(photo).then(function (blob) {
+        if (!blob) throw new Error('no local bytes for ' + photo.id);
+        return R2.uploadPhotoOriginal(pid, photo, blob).then(function () {
+          blob = null;
+          if (onEach) onEach(photo, true);
+        });
+      }).catch(function (err) {
+        try { photo.r2UploadFailed = true; } catch (_) {}
+        if (onEach) onEach(photo, false, err);
+        throw err;
       });
-    }).catch(function (err) {
-      try { photo.r2UploadFailed = true; } catch (_) {}
-      if (onEach) onEach(photo, false, err);
-      throw err;
     });
   }, function () {});
 }
