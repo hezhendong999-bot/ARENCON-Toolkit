@@ -2041,11 +2041,7 @@ function addSketchEntry() {
           <div class="markup-placeholder ev-clickable" id="markup-placeholder-${uid}" onclick="_boxUp(event,function(){_sketchPhotoUpload(${uid})})" ondragover="event.preventDefault();this.style.borderColor='var(--red)'" ondragleave="this.style.borderColor=''" ondrop="event.preventDefault();this.style.borderColor='';_sketchPhotoDrop(event,${uid})" style="border:2px dashed var(--border);border-radius:8px;padding:20px;min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;cursor:default;background:var(--smoke);">
             <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="13" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><polyline points="21,15 16,10 5,21"/></svg>
             <div style="font-size:13px;color:#888;">Drag & drop a site photo here to annotate</div>
-            <div style="display:flex;gap:6px;">
-              <button class="btn btn-sm" style="background:#5C7A65;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_sketchPhotoCamera(${uid})">📷 Camera</button>
-              
-              <button class="btn btn-sm" style="background:#8A7689;color:white;border:none;border-radius:6px;cursor:pointer;" onclick="_galleryReuseSketch(${uid})">🖼 Gallery</button>
-            </div>
+            ${(typeof _dslPhotoBtns==='function' ? _dslPhotoBtns('dsl-sketch',{uid:uid}) : '')}
           </div>
         </div>
         <div id="markup-toolbar-${uid}" style="display:none;">

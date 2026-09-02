@@ -164,7 +164,7 @@ window.addEventListener('load', function () {
 });
 
 </script>
-<link rel="stylesheet" href="css/diesel-01.css?v=202608100110">
+<link rel="stylesheet" href="css/diesel-01.css?v=202609020206">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
 </head>
@@ -924,11 +924,12 @@ window.addEventListener('load', function () {
           <div style="text-align:center;padding:16px;width:100%;">
             <div style="font-size:calc(12px + var(--ts));color:var(--steel);">Drag &amp; drop photos, or import from camera roll</div>
             <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
-            <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button class="pz-camera" onclick="_recCamera('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #5C7A65;background:#5C7A65;color:#fff;">📷 Camera</button>
-              <!-- S366 (Mark): camera re-added per "all 3 buttons everywhere" — supersedes S294's one-button decision. -->
-              <button class="pz-gallery" onclick="_galleryReuseRecord('site')" style="padding:7px 14px;border-radius:6px;font-size:calc(12.5px + var(--ts));font-weight:600;cursor:pointer;font-family:Calibri,sans-serif;border:1.5px solid #8A7689;background:#8A7689;color:#fff;">🖼 Gallery</button>
-            </div>
+            <!-- S718: Camera · Upload · Gallery, drawn by the shared photo-input
+                 engine. This zone is static markup and is never re-rendered, so the
+                 row is painted once from part07.js the moment the engine loads.
+                 S366 (Mark) re-added Camera per "all 3 buttons everywhere"; Upload
+                 was still missing until now. -->
+            <div id="site-pz-btns" style="margin-top:10px;"></div>
           </div>
         </div>
         <div id="photos-gallery"></div>
@@ -1027,7 +1028,7 @@ window.addEventListener('load', function () {
 <script src="js/part15.js"></script>
 
 
-<link rel="stylesheet" href="css/diesel-02.css?v=202608100110" id="arencon-bold-overlay">
+<link rel="stylesheet" href="css/diesel-02.css?v=202609020206" id="arencon-bold-overlay">
 <script src="js/part16.js"></script>
 </body>
 </html>

@@ -1797,6 +1797,26 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   .obs-media-btns .obs-drop-btn{min-height:38px;padding:8px 14px;}
 }
 
+/* ═══ S718 — THE ENGINE'S ROW INSIDE THIS TOOL'S OWN BOXES (Mark: option A) ══
+   Six surfaces drew their own Camera/Gallery pair and had no Upload button at
+   all. The row is now the shared engine's (photoInput.js buttonsOnly); each box
+   keeps its own border, hint, thumbnails and drop handler.
+
+   The two rules below are the ONLY thing the host still owns about that row, and
+   both are carried over from `.ev-tile-btns` rather than invented:
+
+   S343/S343b — the evidence tiles sit three-across and stretch to equal height,
+   so the button row is pinned to the BOTTOM of the box. Without margin-top:auto
+   a tile holding two photos puts its buttons halfway up while its neighbour puts
+   them at the foot, and the row of three reads as broken. Nothing else about the
+   buttons is redefined here: size, colour and spacing stay the engine's, so the
+   row is the same row it is in the Field Review Tool.
+
+   Scoped to the two box classes. The standalone .obs-media-col zone the engine
+   builds itself is deliberately untouched. */
+.ev-tile .obs-media-btns,
+.ev-grid-card .obs-media-btns{margin-top:auto;padding-top:10px;width:100%;}
+
 
 
 /* ═══ S582 — TEST TYPE IDENTITY + UNSET GATE (Mark) ═══

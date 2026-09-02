@@ -420,6 +420,112 @@ var _REC_KINDS = [
   ['placard','Placard Photo','🏷','Nameplate / rating placard'],
   ['site','Site Records','📁','Any other site record photo']
 ];
+/* ══ S718 — THE PHOTO BUTTON ROW IS THE ENGINE'S, EVERYWHERE ═══════════════
+   Mark, on the demo: option A. Six surfaces in this tool drew their own pair of
+   Camera/Gallery buttons and left Upload out entirely — you could only upload by
+   tapping the empty space in the box, which on a tablet in daylight with gloves
+   is not a control at all. The standard is three ways in, always.
+
+   Each of those surfaces keeps its OWN box: its border, its hint, its thumbnail
+   grid, and — critically — its own field-proven drag/drop handler. The box is
+   this tool's design and is not the engine's to replace. What was duplicated six
+   times was the row of buttons, so the row is what the engine now owns
+   (photoInput.js buttonsOnly, v1.2.0). One implementation, not six matching ones.
+
+   Drag/drop is deliberately untouched: the engine's drop delegate keys off
+   .obs-media-col, which none of these boxes have, so every existing drop path
+   keeps running exactly as it did and nothing double-fires.
+
+   STORAGE STAYS DIESEL'S, as always — the engine hands back File objects and
+   they go into the same per-file processors the Camera button already used. */
+function _dslPhotoBtns(ns, ctx){
+  return (window.PhotoInput && window.PhotoInput.html)
+    ? window.PhotoInput.html({ ns:ns, buttonsOnly:true, ctx:ctx })
+    : '';   // engine not up yet at parse time — _dslRefreshPhotoSurfaces repaints on mount (S498)
+}
+/* A sketch entry's id comes back out of the DOM as TEXT. The sketch store matches
+   it with ===, against a number. Hand it the string and the photo loads onto the
+   canvas and is then never saved to the entry — the markup is lost on the next
+   render with nothing on screen to say so. Coerce it back. */
+function _dslSketchUid(ctx){
+  var u = ctx && ctx.uid;
+  if (u === null || u === undefined || u === '') return null;
+  var n = Number(u);
+  return isNaN(n) ? u : n;
+}
+(function _mountDslPhotoRows(){
+  function go(){
+    if(!window.PhotoInput){ setTimeout(go,50); return; }
+    /* Site records + evidence tiles (pump / placard / site, 3-pt and 7-pt). */
+    window.PhotoInput.mount({
+      ns:'dsl-rec',
+      onFiles:function(files,ctx){
+        var kind=ctx&&ctx.kind; if(!kind||!files||!files.length) return;
+        Array.prototype.forEach.call(files,function(f){ _recAddFile(f,kind); });
+      },
+      onGallery:function(ctx){
+        var kind=ctx&&ctx.kind; if(!kind) return;
+        if(typeof _galleryReuseRecord==='function') _galleryReuseRecord(kind);
+      }
+    });
+    /* Flow-test evidence tiles. ctx.pld picks which of the two arrays a photo
+       belongs to; the per-file processors are the ones the Camera button used. */
+    window.PhotoInput.mount({
+      ns:'dsl-flow',
+      onFiles:function(files,ctx){
+        var isPld=(ctx&&ctx.pld==='true'); if(!files||!files.length) return;
+        Array.prototype.forEach.call(files,function(f){
+          if(isPld){ if(typeof _pfFlowTestPld==='function') _pfFlowTestPld(f); }
+          else     { if(typeof _pfFlowTest==='function')    _pfFlowTest(f); }
+        });
+      },
+      onGallery:function(ctx){
+        var isPld=(ctx&&ctx.pld==='true');
+        if(typeof _galleryReuseFlowTest==='function') _galleryReuseFlowTest(isPld);
+      }
+    });
+    /* Flow Chart & Calibrated Equipment modal. The category the photo is tagged
+       with is global state the modal already owns, so there is no ctx to carry. */
+    window.PhotoInput.mount({
+      ns:'dsl-floweq',
+      onFiles:function(files){
+        if(!files||!files.length) return;
+        Array.prototype.forEach.call(files,function(f){
+          if(typeof _flowEqReadFile==='function') _flowEqReadFile(f);
+        });
+      },
+      onGallery:function(){
+        if(typeof _flowEqGalleryReuse==='function') _flowEqGalleryReuse();
+      }
+    });
+    /* Sketch / photo markup placeholder. ctx.uid names which sketch entry the
+       photo is being dropped into — there can be several open at once. */
+    window.PhotoInput.mount({
+      ns:'dsl-sketch',
+      onFiles:function(files,ctx){
+        var uid=_dslSketchUid(ctx); if(uid===null||!files||!files.length) return;
+        /* Markup holds ONE base image, so the LAST shot wins — the same rule the
+           camera button has always used (the one the inspector settled on). */
+        var f=files[files.length-1];
+        if(!f||!/^image\//.test(f.type||'')) return;
+        var r=new FileReader();
+        r.onload=function(e){
+          if(typeof _loadSketchMarkupImg==='function') _loadSketchMarkupImg(uid, e.target.result);
+        };
+        r.readAsDataURL(f);
+      },
+      onGallery:function(ctx){
+        var uid=_dslSketchUid(ctx); if(uid===null) return;
+        if(typeof _galleryReuseSketch==='function') _galleryReuseSketch(uid);
+      }
+    });
+    /* The Photo Gallery panel's drop zone is static markup in index.html and is
+       never re-rendered, so it is painted once, here, the moment the engine lands. */
+    var gb=document.getElementById('site-pz-btns');
+    if(gb) gb.innerHTML=_dslPhotoBtns('dsl-rec',{kind:'site'});
+  }
+  go();
+})();
 function _recZoneHtml(kind){
   var def=null; _REC_KINDS.forEach(function(k){ if(k[0]===kind) def=k; });
   if(!def) return '';
@@ -429,8 +535,7 @@ function _recZoneHtml(kind){
   html+='<div style="font-size:calc(12px + var(--ts));font-weight:700;color:var(--slate);margin-bottom:7px;display:flex;align-items:center;gap:6px;">'+icon+' '+title+'</div>';
   html+='<div class="photo-zone-compact ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\')})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<span>Drag, drop or tap · '+hint+'</span>';
-  html+='<button class="pz-camera" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷 Camera</button>';
-  html+='<button class="pz-gallery" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼 Gallery</button>';
+  html+=_dslPhotoBtns('dsl-rec',{kind:kind});
   html+='</div>';
   if(thumbs.length){
     html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;">';
@@ -460,15 +565,12 @@ function _evTileHtml(kind){
     var fp=fpAll.map(function(p,i){return {p:p,i:i};}).filter(function(o){return !_isPhotoDeleted(o.p);});
     var arrName = isPld ? 'flowTestPhotosPld' : 'flowTestPhotos';
     var trig = isPld ? 'triggerFlowTestPhotoPld()' : 'triggerFlowTestPhoto()';
-    var camFn = isPld ? 'triggerFlowTestCameraPld()' : 'triggerFlowTestCamera()';
     var drop = isPld ? 'handleFlowTestDropPld(event)' : 'handleFlowTestDrop(event)';
     if(!fp.length){
       return '<div class="ev-tile ev-clickable" onclick="_boxUp(event,function(){'+trig+';})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">'
         +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
-        +'<div class="ev-tile-btns">'
-          +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-          +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
-        +'</div></div>';
+        +_dslPhotoBtns('dsl-flow',{pld:(isPld?'true':'false')})
+        +'</div>';
     }
     var fhtml='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){'+trig+';})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="event.preventDefault();this.classList.remove(\'drag-over\');'+drop+'">';
     fhtml+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+fp.length+'</span></div>';
@@ -482,10 +584,7 @@ function _evTileHtml(kind){
         +'</div>';
     });
     fhtml+='</div>';
-    fhtml+='<div class="ev-tile-btns">'
-      +'<button class="pm-b cam" onclick="event.stopPropagation();'+camFn+'">📷<span class="pm-b-txt">Camera</span></button>'
-      +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseFlowTest('+(isPld?'true':'false')+')">🖼<span class="pm-b-txt">Gallery</span></button>'
-    +'</div>';
+    fhtml+=_dslPhotoBtns('dsl-flow',{pld:(isPld?'true':'false')});
     fhtml+='</div>';
     return fhtml;
   }
@@ -495,10 +594,8 @@ function _evTileHtml(kind){
   if(!thumbs.length){
     return '<div class="ev-tile ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\');})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">'
       +'<span class="i">'+def[0]+'</span><span class="l">'+def[1]+'</span><span class="s">'+def[2]+' · tap to add</span>'
-      +'<div class="ev-tile-btns">'
-        +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-        +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
-      +'</div></div>';
+      +_dslPhotoBtns('dsl-rec',{kind:kind})
+      +'</div>';
   }
   var html='<div class="ev-grid-card ev-clickable" onclick="_boxUp(event,function(){_recUpload(\''+kind+'\');})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_recDrop(event,\''+kind+'\')">';
   html+='<div class="ev-grid-head">'+def[0]+' '+def[1]+'<span class="ev-grid-n">'+thumbs.length+'</span></div>';
@@ -512,10 +609,7 @@ function _evTileHtml(kind){
       +'</div>';
   });
   html+='</div>';
-  html+='<div class="ev-tile-btns">'
-    +'<button class="pm-b cam" onclick="event.stopPropagation();_recCamera(\''+kind+'\')">📷<span class="pm-b-txt">Camera</span></button>'
-    +'<button class="pm-b gal" onclick="event.stopPropagation();_galleryReuseRecord(\''+kind+'\')">🖼<span class="pm-b-txt">Gallery</span></button>'
-  +'</div>';
+  html+=_dslPhotoBtns('dsl-rec',{kind:kind});
   html+='</div>';
   return html;
 }

@@ -2123,7 +2123,7 @@ function _renderFlowEquipModal(){
   var activeHint=''; _FLOWEQ_CATS.forEach(function(c){ if(c.k===_flowEqActiveCat) activeHint=c.hint; });
   h+='<div class="photo-zone-compact fpm-zone ev-clickable" onclick="_boxUp(event,function(){_flowEqUpload()})" ondragover="event.preventDefault();this.classList.add(\'drag-over\');" ondragleave="this.classList.remove(\'drag-over\');" ondrop="_flowEqDrop(event)">';
   h+='<span>Drag &amp; drop — tagged <b>'+_floweqLabel(_flowEqActiveCat)+'</b>'+(activeHint?(' · '+activeHint):'')+'</span>';
-  h+='<div class="pz-row"><button class="pz-camera" onclick="event.stopPropagation();_flowEqCamera()">📷 Camera</button><button class="pz-gallery" onclick="event.stopPropagation();_flowEqGalleryReuse()">🖼 Gallery</button></div>';
+  h+=(typeof _dslPhotoBtns==='function' ? _dslPhotoBtns('dsl-floweq',{}) : '');   // S718: three ways in, shared row
   h+='</div>';
   // grouped thumbs by category
   var live=arr.filter(function(p){return !_isPhotoDeleted(p);});
