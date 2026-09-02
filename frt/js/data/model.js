@@ -1234,6 +1234,32 @@ export var Model = {
 
     _project = proj;
     _dirty = false;
+    /* ═══ S718e — RESTORE PREVIEWS INTO MEMORY, AFTER LOAD, NON-BLOCKING. ═══
+       setProject is the single funnel every load path passes through, so one
+       call here covers cloud pull, IDB load, JSON import and merge. Fire and
+       forget: the project is already live and rendering by now, tiles that
+       still carry their own preview are unaffected, and any that were stripped
+       fill in a moment later. A failure here can never block a load — it can
+       only mean a tile falls back to the full photograph, which is slower and
+       still correct. */
+    try {
+      var _pidForPreviews = '';
+      try { _pidForPreviews = new URLSearchParams(window.location.search).get('project') || ''; } catch (_u) {}
+      if (!_pidForPreviews) _pidForPreviews = proj.projectId || proj.id || '';
+      import('./photoIngest.js').then(function (PI) {
+        return PI.sweepLocalPreviews().then(function () {
+          var all = (proj.photos || []).concat(proj.sitePhotos || []);
+          (proj.contractors || []).forEach(function (c) {
+            (c.deficiencies || []).forEach(function (d) {
+              all = all.concat(d.photos || []);
+              (d.observations || []).forEach(function (o) { all = all.concat(o.photos || []); });
+              (d.entries || []).forEach(function (e) { all = all.concat(e.photos || []); });
+            });
+          });
+          return PI.hydratePreviews(_pidForPreviews, all);
+        });
+      }).catch(function (e) { console.warn('[Model] preview hydration skipped', e); });
+    } catch (_ph) { console.warn('[Model] preview hydration not started', _ph); }
     console.log('[Model] Project loaded:', buildSmartFilename(proj),
       '| contractors:', proj.contractors.length,
       '| drawings:', proj.drawings.length,

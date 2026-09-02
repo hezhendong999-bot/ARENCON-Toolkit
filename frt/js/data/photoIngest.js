@@ -87,8 +87,89 @@ export function storePreview(id, thumbDataUrl) {
     var expect = blob.size;
     return IDB.put(THUMB_STORE, { id: thumbStoreKey(id), dataBlob: blob })
       .then(function () { return IDB.get(THUMB_STORE, thumbStoreKey(id)); })
-      .then(function (rec) { return !!(rec && rec.dataBlob && rec.dataBlob.size === expect); });
+      .then(function (rec) {
+        var ok = !!(rec && rec.dataBlob && rec.dataBlob.size === expect);
+        if (ok) _localPreviewIds[id] = true;   // S718e: proven on THIS device
+        return ok;
+      });
   }).catch(function () { return false; });
+}
+
+/* ═══ S718e — WHAT THIS DEVICE ALREADY HOLDS. ══════════════════════════════
+   Step 2 may only take the preview out of a report when the preview is proven
+   to exist elsewhere — in the cloud AND on this device. The cloud half is a
+   field on the record. The device half must NOT be: it would sync to a second
+   device that holds nothing, and that device would then strip a preview it
+   cannot replace. So the device half is learned locally, every launch, and
+   never travels.
+
+   A tablet in a parkade has no signal and no cloud. The device copy is what
+   keeps tiles visible there, which is why the rule is "both places" and not
+   just "the cloud has it". */
+var _localPreviewIds = Object.create(null);
+
+export function hasLocalPreview(id) { return !!(id && _localPreviewIds[id]); }
+
+/* One key-cursor walk at launch — no blob bodies are read (S718e IDB.keys). */
+export function sweepLocalPreviews() {
+  return IDB.keys(THUMB_STORE, THUMB_PREFIX).then(function (keys) {
+    (keys || []).forEach(function (k) {
+      if (typeof k === 'string') _localPreviewIds[k.slice(THUMB_PREFIX.length)] = true;
+    });
+    try { console.info('[FRT S718e] previews held on this device: ' + (keys || []).length); } catch (e) {}
+    return (keys || []).length;
+  }).catch(function () { return 0; });
+}
+
+/* The preview's cloud address is DERIVED, never trusted from the record.
+   thumbUrl carries no pointer-protection of its own and a merge from an older
+   device can drop it — but the filename is deterministic, so the address can
+   always be rebuilt from the project and the photo id. */
+export function previewUrlFor(pid, id) {
+  if (!pid || !id) return '';
+  return 'https://files.arencon.app/photos/' + pid + '/frt/thumb/' + id + '.jpg';
+}
+
+/* ═══ S718e — PUT THE PREVIEW BACK, IN MEMORY ONLY. ════════════════════════
+   Eighteen places across four files draw a photo tile, and every one of them
+   reads photo.thumb first. Rather than teach all eighteen a new source — miss
+   one and that tile is blank on a tablet in a stairwell — the preview is
+   restored onto the record in memory right after the project loads. Every
+   existing tile, picker, lightbox and export path keeps working untouched.
+
+   What changes is only what gets WRITTEN: the save path strips these again
+   (Step 2b), so the stored and synced report carries a link instead of a
+   picture. Runtime memory is what it always was; the document is what shrinks.
+
+   Device copy first (works with no signal), cloud link second. Marked with
+   _thumbHydrated so the save path can tell a restored copy from one the report
+   legitimately still owns. */
+export function hydratePreviews(pid, photos) {
+  var list = (photos || []).filter(function (p) {
+    return p && p.id && !p.thumb && (p.thumbUrl || p.thumbKey || hasLocalPreview(p.id));
+  });
+  if (!list.length) return Promise.resolve(0);
+  var n = 0;
+  return runSerial(list, function (photo) {
+    if (!hasLocalPreview(photo.id)) {
+      var url = photo.thumbUrl || previewUrlFor(pid, photo.id);
+      if (url) { photo.thumb = url; photo._thumbHydrated = true; n++; }
+      return Promise.resolve();
+    }
+    return IDB.get(THUMB_STORE, thumbStoreKey(photo.id)).then(function (rec) {
+      if (rec && rec.dataBlob && rec.dataBlob.size) {
+        photo.thumb = URL.createObjectURL(rec.dataBlob);
+        photo._thumbHydrated = true;
+        n++;
+        return;
+      }
+      var u = photo.thumbUrl || previewUrlFor(pid, photo.id);
+      if (u) { photo.thumb = u; photo._thumbHydrated = true; n++; }
+    }).catch(function () {});
+  }, function () {}).then(function () {
+    try { console.info('[FRT S718e] previews hydrated into memory: ' + n); } catch (e) {}
+    return n;
+  });
 }
 
 /* The preview as a Blob: device store first, then the copy still riding in
