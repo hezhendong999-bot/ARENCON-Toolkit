@@ -4947,6 +4947,50 @@ export var Model = {
     return dwg;
   },
 
+  /* S719 — DRAWING FOLDERS ARE REAL RECORDS (Mark + Elvis: "New Folder does nothing").
+     Until now a folder was only a label on each drawing; the screen grouped by
+     label, so a folder with nothing in it could not exist and the New Folder
+     button could only show a toast. Folders now live in project.drawingFolders
+     as id-keyed records so an inspector can set up Level 1 / Level 2 / Roof
+     BEFORE the drawings arrive. Drawings still carry .folder as the name —
+     nothing about how a drawing is filed, uploaded or synced changes.
+     DELETE IS A TOMBSTONE, never a splice: a removed record stays in the array
+     as {deleted:true}. Two reasons — merge is item-by-item on id, so a splice
+     would come back from the other device (the photo-resurrection lesson), and
+     the array never shrinks, so no pull-path shrinkage guard is needed. */
+  getDrawingFolders: function() {
+    if (!_project) return [];
+    return (_project.drawingFolders || []).filter(function(f) { return f && !f.deleted; });
+  },
+  addDrawingFolder: function(name) {
+    if (!_project) return null;
+    name = (name || '').trim(); if (!name) return null;
+    if (!_project.drawingFolders) _project.drawingFolders = [];
+    var existing = _project.drawingFolders.filter(function(f) { return f && f.name === name; })[0];
+    if (existing) { if (existing.deleted) { existing.deleted = false; existing.modified = Date.now(); } }
+    else existing = { id: _uid('fld'), name: name, created: Date.now(), modified: Date.now(), createdBy: _currentUserId || null };
+    if (_project.drawingFolders.indexOf(existing) < 0) _project.drawingFolders.push(existing);
+    _dirty = true; _queueSave();
+    return existing;
+  },
+  removeDrawingFolder: function(name) {
+    if (!_project || !_project.drawingFolders) return false;
+    var hit = false;
+    _project.drawingFolders.forEach(function(f) {
+      if (f && f.name === name && !f.deleted) { f.deleted = true; f.deletedAt = Date.now(); f.modified = Date.now(); hit = true; }
+    });
+    if (hit) { _dirty = true; _queueSave(); }
+    return hit;
+  },
+  renameDrawingFolder: function(oldName, newName) {
+    if (!_project || !_project.drawingFolders) return;
+    newName = (newName || '').trim(); if (!newName) return;
+    _project.drawingFolders.forEach(function(f) {
+      if (f && f.name === oldName && !f.deleted) { f.name = newName; f.modified = Date.now(); }
+    });
+    _dirty = true; _queueSave();
+  },
+
   // S115: Public auto-dedup. Re-runs the folder-scoped name dedup
   // and persists+notifies if anything was removed. Returns the
   // number of duplicates removed. Safe to call any time.

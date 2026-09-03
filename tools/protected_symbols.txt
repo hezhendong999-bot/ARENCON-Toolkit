@@ -1275,3 +1275,9 @@ _addSitePhotoSerial
 _collectPhotosByIds
 _recentAutoApply
 _markAutoApply
+
+# ── S719 — Drawing folders as real records (Mark + Elvis: New Folder did nothing)
+getDrawingFolders
+addDrawingFolder
+removeDrawingFolder
+renameDrawingFolder

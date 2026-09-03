@@ -567,7 +567,8 @@ export var initDrawings = {
     if (!proj) { container.innerHTML = ''; return; }
 
     var drawings = proj.drawings || [];
-    if (!drawings.length) {
+    var storedFolders = Model.getDrawingFolders();   // S719: folders that exist on their own
+    if (!drawings.length && !storedFolders.length) {
       container.innerHTML = '<p style="color:var(--silver);font-size:calc(13px + var(--ts));padding:12px;">No drawings uploaded yet.</p>';
       return;
     }
@@ -592,6 +593,12 @@ export var initDrawings = {
       } else {
         unfiled.push(d);
       }
+    });
+    // S719: a stored folder shows even when nothing is filed in it yet. Under a
+    // search filter, only if the folder's own name matches — same rule drawings get.
+    storedFolders.forEach(function(f) {
+      if (searchQ && f.name.toLowerCase().indexOf(searchQ) < 0) return;
+      if (!folders[f.name]) folders[f.name] = [];
     });
 
     var html = '';
@@ -629,6 +636,11 @@ export var initDrawings = {
       html += '\uD83D\uDCC1 <strong style="font-size:calc(13px + var(--ts));color:var(--steel);">' + esc(fn) + '</strong>';
       html += ' <span style="font-weight:400;color:var(--silver);font-size:calc(12px + var(--ts));">(' + items.length + ' plans)</span>';
       html += '<button data-action="rename-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);margin-left:auto;" title="Rename folder">\u270F\uFE0F</button>';
+      // S719: only an EMPTY folder can be deleted — one with drawings in it is
+      // deleted by moving/deleting its drawings, which keeps this a safe action.
+      if (!items.length) {
+        html += '<button data-action="delete-folder" data-folder="' + esc(fn) + '" style="border:none;background:none;cursor:pointer;font-size:calc(12px + var(--ts));padding:2px 4px;color:var(--silver);" title="Delete empty folder">\uD83D\uDDD1\uFE0F</button>';
+      }
       html += '</div>';
       html += '<div class="dwg-folder-body dwg-card-row' + (isFolded ? ' collapsed' : '') + '" style="padding:8px;">';
       items.forEach(function(d) { html += buildDrawingCard(d, allDefics); });
@@ -1402,10 +1414,30 @@ document.addEventListener('click', function(e) {
         drawings.forEach(function(d) {
           if (d.folder === oldName) d.folder = newName.trim();
         });
+        Model.renameDrawingFolder(oldName, newName.trim());   // S719: the folder record follows
         Model.saveNow();
         initDrawings.render();
         toast('Folder renamed');
       }
+    });
+    return;
+  }
+
+  // 1b) S719: Delete EMPTY folder (MUST be before toggle-folder). Universal rule:
+  //     destructive actions confirm first via the app's own modal, one tap.
+  var delFolderBtn = e.target.closest && e.target.closest('[data-action="delete-folder"]');
+  if (delFolderBtn) {
+    e.stopPropagation();
+    e.preventDefault();
+    var delName = delFolderBtn.getAttribute('data-folder');
+    var stillHas = Model.getDrawings().some(function(d) { return d.folder === delName; });
+    if (stillHas) { toast('Folder is not empty — move or delete its drawings first'); return; }
+    showConfirm('Delete folder', 'Delete the empty folder "' + delName + '"? No drawings are affected. You can recreate it with New Folder.').then(function(yes) {
+      if (!yes) return;
+      Model.removeDrawingFolder(delName);
+      Model.saveNow();
+      initDrawings.render();
+      toast('Folder deleted');
     });
     return;
   }
@@ -1485,8 +1517,20 @@ document.addEventListener('click', function(e) {
   var t = e.target.closest && e.target.closest('button');
   if (!t || !t.id) return;
   if (t.id === 'btn-new-folder') {
+    /* S719 (Mark + Elvis): this used to show a toast and store nothing — the
+       folder only ever appeared once drawings carried its name. It now creates
+       a real folder record, so the folder shows immediately (empty) and can be
+       filled by drop, the "+ Drop plans here" card, or Move to folder. */
     showPrompt('New Folder', 'Folder name:').then(function(name) {
-      if (name && name.trim()) toast('Folder "' + name.trim() + '" ready — upload drawings or move existing ones');
+      if (!name || !name.trim()) return;
+      var nm = name.trim();
+      var already = Model.getDrawingFolders().some(function(f) { return f.name === nm; }) ||
+                    Model.getDrawings().some(function(d) { return d.folder === nm; });
+      if (already) { toast('Folder "' + nm + '" already exists'); return; }
+      Model.addDrawingFolder(nm);
+      Model.saveNow();
+      initDrawings.render();
+      toast('Folder "' + nm + '" created — drop plans into it or use Move to folder');
     });
   } else if (t.id === 'btn-dwg-select-all') {
     var cards = document.querySelectorAll('.drawing-card[data-drawing-id]');
