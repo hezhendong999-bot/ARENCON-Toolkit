@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202609030506';
+var CACHE_NAME = 'arencon-frt-202609030518';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -546,7 +546,19 @@ self.addEventListener('fetch', function(e) {
         return c.match(e.request, { ignoreSearch: true });
       }).then(function(cached) {
         var net = fetch(e.request).then(function(resp) {
-          if (resp && resp.ok) {
+          /* S719 ROOT CAUSE of "build says S719, button behaves like S718e":
+             this write-back let the background refresh REPLACE a freshly
+             precached file with whatever the HTTP cache (browser / Cloudflare
+             edge) still held — a copy of the PREVIOUS build, fresh for 10 min
+             (GitHub Pages max-age) or 4 h (edge). Install had already fetched
+             every file from origin with cache:'reload'; one open later this
+             line undid that for any file the HTTP cache still had, file by
+             file, giving a mixed build. Doctrine above stands: freshness
+             belongs to the build swap. So a body already in THIS build's cache
+             is immutable — refresh may only fill a slot that was empty (same-
+             origin files the precache did not know about, so offline still
+             works for them). */
+          if (resp && resp.ok && !cached) {
             var clone = resp.clone();
             caches.open(CACHE_NAME).then(function(c) { c.put(e.request, clone); });
           }
