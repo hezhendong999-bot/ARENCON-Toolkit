@@ -210,7 +210,7 @@ body::after  { top: -30vmax; right: -30vmax; background: radial-gradient(circle,
    describe the change, Claude hardcodes it here and bumps CFG_VER; no admin
    panel, ever).
    ═══════════════════════════════════════════════════════════════════════════ */
-var CFG_VER = 22;
+var CFG_VER = 23;
 
 var DEF_CATS = [
   { key: 'pm',     num: '01', title: 'Project Management' },
@@ -256,7 +256,13 @@ var DEF_TOOLS = [
   { cat: 'office', name: 'Intranet Portal', file: 'ARENCON_Intranet_Portal.html',
     color: '#a09aa8', lcolor: '#5E5B68', icon: 'A',
     desc: 'Company intranet — notices, links and internal resources.',
-    tags: [] }
+    tags: [] },
+  /* SPEC S1 (Mark, 4 Sep 2026): Specification Generator — master clause database,
+     job = decision set, Word = one-way publication of the NMS template. */
+  { cat: 'office', name: 'Specification Generator', file: 'ARENCON_Specification_Generator.html',
+    color: '#9C2742', lcolor: '#9C2742', icon: 'S',
+    desc: 'Project specifications from the governed master — NMS Word output.',
+    tags: [{ t: 'Office', c: '#9C2742' }, { t: 'Draft', c: '#46C5E8' }] }
 ];
 
 /* ── S497c: theme now lives on the SHARED device key ('arencon-theme'),

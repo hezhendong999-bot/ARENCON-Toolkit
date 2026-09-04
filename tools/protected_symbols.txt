@@ -1281,3 +1281,33 @@ getDrawingFolders
 addDrawingFolder
 removeDrawingFolder
 renameDrawingFolder
+
+@ SPEC S1 — Specification Generator (ARENCON_Specification_Generator.html; Mark, 4 Sep 2026).
+@   Master = clause database, job = decision set, Word = one-way publication of the NMS
+@   template. These are the load-bearing pieces of the tool; extractor-verified.
+buildModel
+exportNmsDocx
+setParaRuns
+tocParagraph
+buildHeader
+computeChecks
+renderChecks
+issue
+decisionHash
+bumpRev
+openInsertMenu
+relevel
+startEdit
+openChoice
+tokHtml
+renderInspector
+leaveGuard
+saveLocal
+applyLoadedJob
+mountStamp
+SPEC_BUILD
+.gap-btn
+.pop
+.ins-lock
+.chk
+#spec-build-stamp
