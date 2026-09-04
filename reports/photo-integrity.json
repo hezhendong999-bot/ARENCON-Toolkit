@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-03T10:02:32.508Z",
-  "rows": 66,
-  "photoPointers": 1650,
-  "uniqueUrls": 1238,
+  "generatedAt": "2026-09-04T09:52:47.006Z",
+  "rows": 67,
+  "photoPointers": 1681,
+  "uniqueUrls": 1249,
   "brokenCount": 23,
   "broken": [
     {
@@ -259,12 +259,54 @@
       "status": "404"
     }
   ],
-  "noPointerCount": 227,
+  "noPointerCount": 230,
   "noPointerBaseline": 39,
   "noPointerBytesPresent": 42,
   "noPointerBytesMissing": 0,
-  "noPointerUnknown": 185,
+  "noPointerUnknown": 188,
   "noPointer": [
+    {
+      "row_id": "823c29a6-87d5-47c5-a1be-b20c3c381e35",
+      "project_id": "955ef0f1-b9ce-4577-ba9a-bcd03471f30c",
+      "tool_key": "frt",
+      "instance": 2,
+      "photoId": "dwg_1785758360275_pg3_kcqp",
+      "r2Key": null,
+      "r2Url": null,
+      "ctx": "drawings",
+      "noPointer": true,
+      "r2v": null,
+      "rebuiltUrl": null,
+      "rebuiltStatus": "no-address"
+    },
+    {
+      "row_id": "823c29a6-87d5-47c5-a1be-b20c3c381e35",
+      "project_id": "955ef0f1-b9ce-4577-ba9a-bcd03471f30c",
+      "tool_key": "frt",
+      "instance": 2,
+      "photoId": "dwg_1785758360681_pg4_kf3s",
+      "r2Key": null,
+      "r2Url": null,
+      "ctx": "drawings",
+      "noPointer": true,
+      "r2v": null,
+      "rebuiltUrl": null,
+      "rebuiltStatus": "no-address"
+    },
+    {
+      "row_id": "823c29a6-87d5-47c5-a1be-b20c3c381e35",
+      "project_id": "955ef0f1-b9ce-4577-ba9a-bcd03471f30c",
+      "tool_key": "frt",
+      "instance": 2,
+      "photoId": "dwg_1785758386515_pg6_36lc",
+      "r2Key": null,
+      "r2Url": null,
+      "ctx": "drawings",
+      "noPointer": true,
+      "r2v": null,
+      "rebuiltUrl": null,
+      "rebuiltStatus": "no-address"
+    },
     {
       "row_id": "f55ea08d-70b3-4a30-bc9b-ca78760530c0",
       "project_id": "8b860906-6054-4b7b-acc8-672a77fa1c71",
