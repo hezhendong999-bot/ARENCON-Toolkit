@@ -1311,3 +1311,4 @@ SPEC_BUILD
 .ins-lock
 .chk
 #spec-build-stamp
+_fitAreaW

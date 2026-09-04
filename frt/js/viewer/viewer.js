@@ -310,9 +310,16 @@ function _ensureTiledInit() {
   });
 }
 
+// S720: width of the canvas area at the moment the fit was last computed.
+// The window 'resize' handler compares against it — a change in WIDTH means
+// rotation / a real window resize (refit); a change in HEIGHT ONLY means the
+// on-screen keyboard opened or closed (keep the user's zoom and pan).
+var _fitAreaW = 0;
+
 function _calcFitScaleFromDims(w, h) {
   var area = document.getElementById('dv-canvas-area');
   if (!area || !w || !h) { _fitScale = 1; return; }
+  _fitAreaW = area.clientWidth;
   var sx = area.clientWidth / w, sy = area.clientHeight / h;
   _fitScale = Math.min(sx, sy);
   if (_fitScale > 1) _fitScale = 1;
@@ -595,6 +602,7 @@ function _calcFitScale() {
   if (!img || !area || !_getDrawingNaturalW(img)) { _fitScale = 1; return; }
   var aw = area.clientWidth;
   var ah = area.clientHeight;
+  _fitAreaW = aw;
   var iw = _getDrawingNaturalW(img);
   var ih = _getDrawingNaturalH(img);
   _fitScale = Math.min(aw / iw, ah / ih);
@@ -608,15 +616,30 @@ window.addEventListener('resize', function() {
   if (!overlay || !overlay.classList.contains('open')) return;
   clearTimeout(_resizeTimer);
   _resizeTimer = setTimeout(function() {
+    // S720: decide BEFORE recomputing the fit (which overwrites _fitAreaW).
+    // On a phone the text tool's on-screen keyboard shrinks the window
+    // height only; that used to be treated as a rotation and snapped the
+    // drawing back to fit-to-screen mid-edit (Elvis, 4 Sep). A width change
+    // is a real rotation / window resize and still refits as before.
+    var _area = document.getElementById('dv-canvas-area');
+    var _widthChanged = !_area || !_fitAreaW || _area.clientWidth !== _fitAreaW;
     if (TiledPdf.isActive()) {
       var dims = TiledPdf.getDimensions();
       if (dims) _calcFitScaleFromDims(dims.drawW, dims.drawH);
     } else {
       _calcFitScale();
     }
-    _scale = _fitScale;
-    _panX = 0;
-    _panY = 0;
+    if (_widthChanged) {
+      _scale = _fitScale;
+      _panX = 0;
+      _panY = 0;
+    } else if (_scale < _fitScale) {
+      // Height grew (keyboard closed) past the current zoom — never sit
+      // below fit; same floor _frtZoomOut enforces.
+      _scale = _fitScale;
+      _panX = 0;
+      _panY = 0;
+    }
     _applyTransform();
     _renderPins();
     if (typeof Markup !== 'undefined' && Markup.resize) Markup.resize();
