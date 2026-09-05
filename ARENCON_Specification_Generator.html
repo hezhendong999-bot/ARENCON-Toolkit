@@ -374,11 +374,9 @@ body.review .draft-only { display: none; }
 .tag.chg { color: #7a5a1a; border-color: #d9b25a; background: #fff6dd; }
 .tag.gone { color: #C0445F; border-color: #e8b3bf; background: #fbeef1; }
 .tag.nii { color: #928E9C; border-color: #d5d2da; background: #f3f2f5; }
-.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
 .pane { min-width: 0; }
 .pane-label { font-size: 9.5pt; color: var(--ink2); margin: 0 0 8px 4px; }
-.pane-L .page { opacity: .96; }
-.page.flow { height: auto; min-height: 0; overflow: visible; max-width: none; }
+.page.flow { height: auto; min-height: 0; overflow: visible; }
 .page.flow .hdr > div > span:nth-child(2) { text-align: right; }
 .ln.struck .tx { text-decoration: line-through; color: #9a97a3; }
 .ln.nii .tx { color: #9a97a3; font-style: italic; }
@@ -407,7 +405,57 @@ body.review .draft-only { display: none; }
 .cmt-h .mini { margin-left: auto; opacity: 1; background: transparent; color: var(--ink2); border-color: var(--line); }
 .cmt-t { margin-top: 4px; white-space: pre-wrap; }
 .cmt-in { display: block; width: 100%; margin-top: 8px; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; resize: vertical; min-height: 56px; }
-@media (max-width: 1400px) { .cmp { grid-template-columns: 1fr; } }
+
+/* ═══ S2b — room for the paper: folding rail/inspector, toolbar, true Letter panes ═══ */
+.main-wrap { grid-template-columns: 340px minmax(0, 1fr) 300px; transition: grid-template-columns .18s ease; }
+body.rail-folded .main-wrap { grid-template-columns: 52px minmax(0, 1fr) 300px; }
+body.insp-folded .main-wrap { grid-template-columns: 340px minmax(0, 1fr) 52px; }
+body.rail-folded.insp-folded .main-wrap { grid-template-columns: 52px minmax(0, 1fr) 52px; }
+body.cmp-mode .main-wrap { max-width: none; }
+.rail, .inspector { position: relative; }
+.fold { position: absolute; top: 6px; right: 6px; z-index: 3; width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--ink2); cursor: pointer; font: 14pt/1 Calibri; }
+.inspector .fold { right: auto; left: 6px; }
+.strip { display: none; }
+body.rail-folded .rail .rail-body, body.insp-folded .inspector .insp-body, body.rail-folded .rail .fold, body.insp-folded .inspector .fold { display: none; }
+body.rail-folded .rail .strip, body.insp-folded .inspector .strip { display: flex; }
+.strip { flex-direction: column; align-items: center; gap: 10px; width: 52px; min-height: 160px; padding: 10px 0; border: 1px solid var(--line); border-radius: 16px; background: var(--card); cursor: pointer; color: var(--ink2); }
+.strip:hover { color: var(--ink); border-color: var(--brand); }
+.strip-ico { font-size: 14pt; }
+.strip-lbl { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 9.5pt; letter-spacing: .06em; text-transform: uppercase; }
+.rail .strip { position: sticky; top: 72px; }
+/* toolbar */
+.toolbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 12px; margin: 0 0 12px; border: 1px solid var(--line); border-radius: 14px; background: var(--card); backdrop-filter: blur(8px); position: sticky; top: 64px; z-index: 4; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: color-mix(in srgb, var(--bg) 60%, transparent); }
+.seg label { position: relative; cursor: pointer; }
+.seg input { position: absolute; opacity: 0; inset: 0; }
+.seg span { display: inline-block; padding: 6px 14px; border-radius: 999px; color: var(--ink2); font-weight: 600; min-width: 64px; text-align: center; }
+.seg label:has(input:checked) span { background: var(--brand); color: #fff; }
+.tb-sel { display: inline-flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 10pt; }
+.tb-sel select { font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; min-height: 36px; }
+.tb-tgl { display: inline-flex; align-items: center; gap: 6px; color: var(--ink2); font-size: 10pt; cursor: pointer; }
+.tb-tgl input { accent-color: var(--brand); width: 16px; height: 16px; }
+.tb-spacer { flex: 1; }
+.tb-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; font: 12pt/1 Calibri; }
+.tb-dev { display: inline-flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 10pt; }
+.toolbar .stat { margin: 0; font-size: 9pt; color: var(--ink3); flex-basis: 100%; }
+.legend { display: inline-flex; gap: 10px; align-items: center; color: var(--ink3); font-size: 9.5pt; }
+.lg { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 3px; vertical-align: -1px; }
+.lg.add { background: #1E8F84; } .lg.chg { background: #d9b25a; } .lg.gone { background: #C0445F; }
+.cmp-only { display: none; }
+body.cmp-mode .cmp-only { display: inline-flex; }
+body.review .review-only.tb-dev { display: inline-flex; }
+/* true Letter panes */
+#paper.cmp-on { display: block; }
+.cmp-wrap { position: relative; width: 100%; overflow: hidden; }
+.cmp { position: absolute; left: 50%; top: 0; display: grid; grid-template-columns: 8.5in 8.5in; gap: 22px; align-items: start; transform-origin: top center; transform: translateX(-50%); }
+.pane { width: 8.5in; height: calc(100vh - 150px); overflow: auto; scroll-behavior: smooth; border-radius: 4px; }
+.pane::-webkit-scrollbar { width: 8px; } .pane::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+.pane-label { height: 26px; margin: 0 0 8px; padding: 4px 12px; border-radius: 999px; font-size: 9.5pt; font-weight: 600; color: var(--ink2); border: 1px solid var(--line); justify-self: start; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 8.5in; }
+.pane-label.lab-R { color: var(--ink); border-color: var(--brand); }
+.cmp { grid-template-rows: 34px auto; }
+.page.flow { width: 8.5in; max-width: 8.5in; padding: .6in .75in .8in; box-shadow: 0 6px 24px rgba(0,0,0,.28); margin-bottom: 14px; }
+.page.flow .hdr > div { grid-template-columns: 1fr auto; }
+.diffonly .ln.sub, .diffonly .ln.lead { display: none; }
 </style>
 </head>
 <body>
@@ -415,12 +463,8 @@ body.review .draft-only { display: none; }
 
 <main class="main-wrap">
   <aside class="rail">
-    <section class="card">
-      <div class="basis mode"><label><input type="radio" name="mode" value="draft" checked>Draft</label><label><input type="radio" name="mode" value="review">Review</label></div>
-      <label class="f" style="margin-top:8px">Compare with<select id="cmpSource"><option value="none">None — single paper</option><option value="master">Current master (edits, exclusions, insertions stripped)</option><option value="issue" disabled>Last issue — issue a Draft first</option></select></label>
-      <p class="hint">Review dims unchanged master clauses. Keys: <b>R</b> review · <b>N</b>/<b>P</b> next/previous deviation.</p>
-    </section>
-
+    <button class="fold" id="foldRail" title="Fold the setup rail (F)" aria-label="Fold rail">‹</button>
+    <div class="rail-body">
     <section class="card review-only">
       <h2>Deviations <span class="who" id="trayCount"></span></h2>
       <div id="tray"></div>
@@ -490,18 +534,31 @@ body.review .draft-only { display: none; }
       <p class="hint">Each issue downloads the Word file and the decision-set JSON, and is recorded on the job. Final increments the revision. Issued records are never edited.</p>
       <div id="issues"></div>
     </section>
+    </div>
+    <div class="strip" id="railStrip" title="Open the setup rail"><span class="strip-ico">☰</span><span class="strip-lbl">Setup</span></div>
   </aside>
 
   <section class="paper-col">
-    <p class="stat" id="stat"></p>
+    <div class="toolbar" id="toolbar">
+      <div class="seg mode"><label><input type="radio" name="mode" value="draft" checked><span>Draft</span></label><label><input type="radio" name="mode" value="review"><span>Review</span></label></div>
+      <label class="tb-sel">Compare <select id="cmpSource"><option value="none">None</option><option value="master">Current master</option><option value="issue" disabled>Last issue — issue a Draft first</option></select></label>
+      <label class="tb-tgl cmp-only" title="Show only the clauses that differ, with their headings"><input type="checkbox" id="diffOnly"><span>Differences only</span></label>
+      <label class="tb-tgl cmp-only" title="Keep both papers at the same clause while scrolling"><input type="checkbox" id="lockScroll" checked><span>Lock scroll</span></label>
+      <span class="tb-spacer"></span>
+      <span class="tb-dev review-only"><button class="tb-btn" id="devPrev" title="Previous deviation (P)">‹</button><span id="devCount">0 deviations</span><button class="tb-btn" id="devNext" title="Next deviation (N)">›</button></span>
+      <span class="legend cmp-only"><i class="lg add"></i>added <i class="lg chg"></i>changed <i class="lg gone"></i>excluded</span>
+      <span class="stat" id="stat"></span>
+    </div>
     <div id="paper"></div>
   </section>
 
   <aside class="inspector">
-    <section class="card">
+    <button class="fold" id="foldInsp" title="Fold the inspector (I)" aria-label="Fold inspector">›</button>
+    <div class="insp-body"><section class="card">
       <h2>Inspector</h2>
       <div id="inspector"></div>
-    </section>
+    </section></div>
+    <div class="strip" id="inspStrip" title="Open the inspector"><span class="strip-ico">ⓘ</span><span class="strip-lbl">Inspector</span></div>
   </aside>
 </main>
 
@@ -1221,7 +1278,7 @@ function b64ToBytes(b64) {
    Deviation gutter: none = master · teal = project-scope / inserted · burgundy = edited master (none in S1). */
 (function () {
   'use strict';
-  var SPEC_BUILD = 'S2';
+  var SPEC_BUILD = 'S2b';
   window.SPEC_BUILD = SPEC_BUILD;
   var $ = function (s) { return document.querySelector(s); };
   var params = new URLSearchParams(location.search);
@@ -1254,7 +1311,7 @@ function b64ToBytes(b64) {
     };
   }
   var job = newJob();
-  var ui = { selectedId: null, hideExcluded: false, popover: null, review: false, compare: 'none', trayIdx: -1 };
+  var ui = { selectedId: null, hideExcluded: false, popover: null, review: false, compare: 'none', trayIdx: -1, diffOnly: false, lockScroll: true, railFolded: false, inspFolded: false, autoFolded: false };
   function who() { try { return localStorage.getItem('arencon-auth-name') || 'local'; } catch (e) { return 'local'; } }
 
   /* engine expects flat header fields; adapt without copying the master */
@@ -1512,7 +1569,7 @@ function b64ToBytes(b64) {
     ui.selectedId = id; paper.querySelectorAll('.cl.sel').forEach(function (e) { e.classList.remove('sel'); });
     var rows = paper.querySelectorAll('.cl[data-id="' + cssEsc(id) + '"]'); rows.forEach(function (r) { r.classList.add('sel'); });
     if (ui.compare !== 'none') {   // id-sync: bring the counterpart row into view in the other pane
-      rows.forEach(function (r) { if (scrollBoth || r.dataset.side !== ui.lastClickSide) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+      _lockBusy = true; rows.forEach(function (r) { if (scrollBoth || r.dataset.side !== ui.lastClickSide) scrollPaneTo(r, 'center', true); }); setTimeout(function () { _lockBusy = false; }, 600);
     } else if (scrollBoth && rows[0]) rows[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
     renderInspector(); highlightTray();
   }
@@ -1784,18 +1841,23 @@ function b64ToBytes(b64) {
       if (r.excluded) { b.struck = true; b.cmpTag = { cls: 'gone', text: 'excluded on this job' }; }
     });
     paper.innerHTML = ''; paper.classList.add('cmp-on');
+    var outer = document.createElement('div'); outer.className = 'cmp-wrap'; paper.appendChild(outer);
     var wrap = document.createElement('div'); wrap.className = 'cmp';
     var label = ui.compare === 'master' ? 'Baseline — current master ' + job.masterVersion + ' for this system set' : 'Baseline — issue ' + base.rev + ' (' + base.grade + ', ' + base.at + ')';
-    wrap.appendChild(buildPane(base.blocks, 'L', label, specTitle));
-    wrap.appendChild(buildPane(model.blocks, 'R', 'This job — ' + job.header.rev + ' draft', specTitle));
-    paper.appendChild(wrap);
-    wireRows(); renderInspector(); renderChecks(); renderTray();
+    var lab = function (t, cls) { var d = document.createElement('div'); d.className = 'pane-label ' + cls; d.textContent = t; return d; };
+    wrap.appendChild(lab(label, 'lab-L')); wrap.appendChild(lab('This job — ' + job.header.rev + ' draft', 'lab-R'));
+    wrap.appendChild(buildPane(base.blocks, 'L', specTitle));
+    wrap.appendChild(buildPane(model.blocks, 'R', specTitle));
+    window.scrollTo(0, 0);
+    outer.appendChild(wrap);
+    if (ui.diffOnly) wrap.classList.add('diffonly');
+    wireRows(); wireLockScroll(wrap); renderInspector(); renderChecks(); renderTray(); fitCompare();
+    if (ui.selectedId) { _lockBusy = true; ['.pane-R', '.pane-L'].forEach(function (side) { var r = paper.querySelector(side + ' .cl[data-id="' + cssEsc(ui.selectedId) + '"]'); if (r) scrollPaneTo(r, 'center', false); }); setTimeout(function () { _lockBusy = false; }, 300); }
     var chg = model.blocks.filter(function (b) { return b.cmpTag; }).length;
     $('#stat').textContent = 'Compare: ' + (ui.compare === 'master' ? 'current master' : 'last issue') + ' · ' + chg + ' differing clauses on this job · ' + job.excluded.length + ' excluded · ' + job.insertions.length + ' inserted · flowing view (no pagination in Compare) · master ' + job.masterVersion;
   }
-  function buildPane(blocks, side, label, specTitle) {
+  function buildPane(blocks, side, specTitle) {
     var pane = document.createElement('div'); pane.className = 'pane pane-' + side;
-    pane.innerHTML = '<div class="pane-label">' + esc(label) + '</div>';
     SIDE = side; var h = job.header;
     var page = null;
     blocks.forEach(function (b) {
@@ -1807,10 +1869,39 @@ function b64ToBytes(b64) {
       }
       if (!page) return;
       if (b.type === 'clause' && b.excluded && ui.hideExcluded && side === 'R') return;
+      if (ui.diffOnly && (b.type === 'clause') && !(b.cmpTag || b.excluded || b.struck || b.inserted)) return;   // differences only: keep headings for context
       var el = htmlToEl(blockHtml(b)); if (el) page.appendChild(el);
     });
     SIDE = 'R';
     return pane;
+  }
+
+  function paneScale() { var m = /scale\(([\d.]+)\)/.exec((paper.querySelector('.cmp') || {}).style ? paper.querySelector('.cmp').style.transform : ''); return m ? parseFloat(m[1]) : 1; }
+  function scrollPaneTo(el, block, smooth) {
+    var pane = el.closest('.pane'); if (!pane) { el.scrollIntoView({ block: block || 'center', behavior: smooth ? 'smooth' : 'auto' }); return; }
+    var z = paneScale(), er = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
+    var delta = (er.top - pr.top) / z - (block === 'start' ? 40 : (pr.height / z - er.height / z) / 2);
+    pane.style.scrollBehavior = smooth ? 'smooth' : 'auto'; pane.scrollTop += delta; if (!smooth) setTimeout(function () { pane.style.scrollBehavior = ''; }, 50);
+  }
+
+  /* lock scroll: id-based — the top-most clause in the pane you scroll is brought to the top of the other pane */
+  var _lockBusy = false;
+  function wireLockScroll(wrap) {
+    var L = wrap.querySelector('.pane-L'), R = wrap.querySelector('.pane-R');
+    [[L, R], [R, L]].forEach(function (pair) {
+      var src = pair[0], dst = pair[1], t = null;
+      src.addEventListener('scroll', function () {
+        if (!ui.lockScroll || _lockBusy) return;
+        clearTimeout(t); t = setTimeout(function () {
+          var top = src.getBoundingClientRect().top + 40, rows = src.querySelectorAll('.cl[data-id]'), first = null;
+          for (var i = 0; i < rows.length; i++) { if (rows[i].getBoundingClientRect().bottom >= top) { first = rows[i]; break; } }
+          if (!first) return;
+          var mate = dst.querySelector('.cl[data-id="' + cssEsc(first.dataset.id) + '"]'); if (!mate) return;
+          _lockBusy = true; scrollPaneTo(mate, 'start', false);
+          setTimeout(function () { _lockBusy = false; }, 250);
+        }, 60);
+      });
+    });
   }
 
   /* deviation tray */
@@ -1832,12 +1923,48 @@ function b64ToBytes(b64) {
     var host = $('#tray'); if (!host) return;
     var items = trayItems();
     var q = job.proposals.filter(function (p) { return p.status === 'queued'; }).length;
-    $('#trayCount').textContent = items.length + ' deviation' + (items.length === 1 ? '' : 's') + (q ? ' · ' + q + ' queued for firm' : '');
+    var label = items.length + ' deviation' + (items.length === 1 ? '' : 's') + (q ? ' · ' + q + ' queued for firm' : '');
+    $('#trayCount').textContent = label; var dc = $('#devCount'); if (dc) dc.textContent = label;
     host.innerHTML = items.length ? items.map(function (it, i) { return '<div class="tray-row k-' + it.kind + (it.id === ui.selectedId ? ' sel' : '') + '" data-id="' + esc(it.id) + '" data-i="' + i + '"><span class="tk">' + it.kind + '</span><span class="tn">' + esc(it.num) + '</span><span class="tt">' + esc(plainText(it.text)).slice(0, 90) + '</span></div>'; }).join('') : '<div class="hint">No deviations from master on this job.</div>';
     host.querySelectorAll('.tray-row').forEach(function (r) { r.addEventListener('click', function () { ui.trayIdx = +r.dataset.i; ui.lastClickSide = null; select(r.dataset.id, true); }); });
   }
   function highlightTray() { var host = $('#tray'); if (!host) return; host.querySelectorAll('.tray-row').forEach(function (r) { r.classList.toggle('sel', r.dataset.id === ui.selectedId); }); }
   function trayStep(dir) { var items = trayItems(); if (!items.length) return; ui.trayIdx = ((ui.trayIdx + dir) % items.length + items.length) % items.length; ui.lastClickSide = null; select(items[ui.trayIdx].id, true); }
+
+  /* folding rail / inspector — the paper gets the room; Compare folds both automatically once */
+  function setFold(which, folded) {
+    if (which === 'rail') ui.railFolded = folded; else ui.inspFolded = folded;
+    document.body.classList.toggle('rail-folded', ui.railFolded);
+    document.body.classList.toggle('insp-folded', ui.inspFolded);
+    fitCompare();
+  }
+  $('#foldRail').addEventListener('click', function () { setFold('rail', true); });
+  $('#railStrip').addEventListener('click', function () { setFold('rail', false); });
+  $('#foldInsp').addEventListener('click', function () { setFold('insp', true); });
+  $('#inspStrip').addEventListener('click', function () { setFold('insp', false); });
+  function setCompare(v) {
+    ui.compare = v; document.body.classList.toggle('cmp-mode', v !== 'none');
+    if (v !== 'none' && !ui.autoFolded) { ui.autoFolded = true; setFold('rail', true); setFold('insp', true); }
+    render();
+  }
+  /* scale the two Letter panes down together when the viewport cannot hold 2 × 8.5in */
+  function fitCompare() {
+    var outer = paper.querySelector('.cmp-wrap'), cmp = paper.querySelector('.cmp'); if (!cmp) return;
+    var need = 2 * 816 + 22, avail = outer.clientWidth || paper.clientWidth;
+    var z = Math.max(0.35, Math.min(1, avail / need));
+    var top = outer.getBoundingClientRect().top + window.scrollY;           // toolbar + header above the panes
+    var h = Math.max(320, window.innerHeight - top - 16);
+    outer.style.height = h + 'px';
+    cmp.style.width = need + 'px';
+    cmp.style.transform = 'translateX(-50%) scale(' + z.toFixed(4) + ')';
+    cmp.querySelectorAll('.pane').forEach(function (p) { p.style.height = ((h - 34) / z) + 'px'; });   // 34 = label row
+  }
+  window.addEventListener('resize', fitCompare);
+  document.querySelector('.main-wrap').addEventListener('transitionend', fitCompare);   // fold animation changes the available width
+  $('#diffOnly').addEventListener('change', function (e) { ui.diffOnly = e.target.checked; render(); });
+  $('#lockScroll').addEventListener('change', function (e) { ui.lockScroll = e.target.checked; });
+  $('#devPrev').addEventListener('click', function () { trayStep(-1); });
+  $('#devNext').addEventListener('click', function () { trayStep(1); });
 
   /* review mode */
   function setReview(on) {
@@ -1847,10 +1974,12 @@ function b64ToBytes(b64) {
     render();
   }
   document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', function () { setReview(r.value === 'review'); }); });
-  $('#cmpSource').addEventListener('change', function (e) { ui.compare = e.target.value; render(); });
+  $('#cmpSource').addEventListener('change', function (e) { setCompare(e.target.value); });
   document.addEventListener('keydown', function (e) {
     var t = e.target; if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable)) return;
     if (e.key === 'r' || e.key === 'R') { setReview(!ui.review); }
+    else if (e.key === 'f' || e.key === 'F') setFold('rail', !ui.railFolded);
+    else if (e.key === 'i' || e.key === 'I') setFold('insp', !ui.inspFolded);
     else if (e.key === 'n' || e.key === 'N') trayStep(1);
     else if (e.key === 'p' || e.key === 'P') trayStep(-1);
   });
