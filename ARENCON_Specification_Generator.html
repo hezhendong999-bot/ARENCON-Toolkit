@@ -456,10 +456,75 @@ body.review .review-only.tb-dev { display: inline-flex; }
 .page.flow { width: 8.5in; max-width: 8.5in; padding: .6in .75in .8in; box-shadow: 0 6px 24px rgba(0,0,0,.28); margin-bottom: 14px; }
 .page.flow .hdr > div { grid-template-columns: 1fr auto; }
 .diffonly .ln.sub, .diffonly .ln.lead { display: none; }
+
+/* ═══ S3 CHROME — opaque fixed A/B/C; only the paper column scrolls ═══════════
+   Bugs this closes: (1) white fog bleed — every chrome surface was translucent
+   (--card was rgba .04 / .72) plus backdrop-filter, so the paper read straight
+   through it; (2) chrome overlap — the header and the mode bar were two
+   independent sticky layers with no shared height budget, so page 1 slid under
+   them. Chrome is now ONE fixed block whose measured height is published as
+   --chrome-h and consumed by the layout. Nothing in the chrome is translucent. */
+:root, [data-theme="dark"] { --surface: #16141c; --surface2: #1d1b24; --chrome-h: 148px; }
+[data-theme="light"]      { --surface: #F4F2F6; --surface2: #E6E3E9; }
+
+#appchrome { position: fixed; top: 0; left: 0; right: 0; z-index: 6000; background: var(--b-chrome-bg); border-bottom: 1px solid var(--b-chrome-rule); box-shadow: 0 2px 10px rgba(0,0,0,.28); }
+#spec-header { position: static; z-index: auto; }                 /* Row A — engine renders opaque on --b-chrome-bg */
+
+/* Row B — mode / compare / stats / deviations. Opaque, NOT sticky, NOT in the paper column. */
+#appchrome .toolbar { position: static; margin: 0; border: 0; border-top: 1px solid var(--b-chrome-rule); border-radius: 0; background: var(--surface); backdrop-filter: none; padding: 8px 18px; gap: 14px; flex-wrap: nowrap; overflow-x: auto; }
+#appchrome .toolbar .stat { flex: 1 1 auto; flex-basis: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#appchrome .seg { background: var(--surface2); }
+#appchrome .tb-spacer { flex: 0 0 4px; }
+
+/* Row C — job identity only. Project · # · location · basis · master. No toggles, no choices. */
+.jobstrip { display: flex; align-items: center; gap: 12px; padding: 7px 18px; background: var(--surface2); border-top: 1px solid var(--b-chrome-rule); font-size: 10pt; color: var(--ink2); white-space: nowrap; overflow-x: auto; }
+.jobstrip .js-item { display: inline-flex; align-items: baseline; gap: 5px; }
+.jobstrip b { color: var(--ink); font-weight: 600; }
+.jobstrip i { font-style: normal; font-size: 8.5pt; color: var(--ink3); }
+.jobstrip .js-project b { font-size: 11pt; }
+.jobstrip .js-sep { width: 1px; height: 14px; background: var(--b-chrome-rule); flex: none; }
+
+/* Layout — chrome height is the paper's top offset, so page 1 can never sit under Row C. */
+/* The WINDOW never scrolls: if it did, the fixed chrome would slide over the paper's top edge
+   (the clearance is only honoured while scrollY is 0). The paper column owns all scrolling. */
+html, body { height: 100%; overflow: hidden; }
+.main-wrap { max-width: none; margin: var(--chrome-h) 0 0; padding: 14px 18px 0; gap: 16px; height: calc(100% - var(--chrome-h)); align-items: stretch; overflow: hidden; }
+body.cmp-mode .main-wrap { max-width: none; }
+.rail, .inspector { position: static; top: auto; align-self: stretch; height: 100%; max-height: none; overflow-y: auto; overflow-x: hidden; padding-bottom: 18px; }
+.paper-col { height: 100%; overflow-y: auto; overflow-x: hidden; padding-bottom: 18px; }
+.rail .strip, .inspector .strip { position: sticky; top: 0; }
+.foot { max-width: none; margin: 18px 0 0; padding: 12px 4px 0; border-top: 1px solid var(--line); }
+
+/* Opaque surfaces everywhere the paper can show through. No blur over the paper. */
+.card { background: var(--surface); backdrop-filter: none; }
+.pill { background: var(--surface2); backdrop-filter: none; }
+.strip { background: var(--surface); }
+.pane-label { background: var(--surface); backdrop-filter: none; }
+.pop { box-shadow: 0 12px 34px rgba(0,0,0,.28); }
+@media print { html, body { height: auto; overflow: visible; } #appchrome { display: none !important; } .main-wrap { height: auto; margin: 0; overflow: visible; } .paper-col { height: auto; overflow: visible; } }
 </style>
 </head>
 <body>
-<div id="spec-header"></div>
+<div id="appchrome">
+  <div id="spec-header"></div>
+  <div class="toolbar" id="toolbar">
+    <div class="seg mode"><label><input type="radio" name="mode" value="draft" checked><span>Draft</span></label><label><input type="radio" name="mode" value="review"><span>Review</span></label></div>
+    <label class="tb-sel">Compare <select id="cmpSource"><option value="none">None</option><option value="master">Current master</option><option value="issue" disabled>Last issue — issue a Draft first</option></select></label>
+    <label class="tb-tgl cmp-only" title="Show only the clauses that differ, with their headings"><input type="checkbox" id="diffOnly"><span>Differences only</span></label>
+    <label class="tb-tgl cmp-only" title="Keep both papers at the same clause while scrolling"><input type="checkbox" id="lockScroll" checked><span>Lock scroll</span></label>
+    <span class="tb-spacer"></span>
+    <span class="stat" id="stat"></span>
+    <span class="tb-dev review-only"><button class="tb-btn" id="devPrev" title="Previous deviation (P)">‹</button><span id="devCount">0 deviations</span><button class="tb-btn" id="devNext" title="Next deviation (N)">›</button></span>
+    <span class="legend cmp-only"><i class="lg add"></i>added <i class="lg chg"></i>changed <i class="lg gone"></i>excluded</span>
+  </div>
+  <div class="jobstrip" id="jobstrip">
+    <span class="js-item js-project"><b id="js_client">—</b></span>
+    <span class="js-sep"></span><span class="js-item">#<b id="js_no">—</b><i id="js_rev"></i></span>
+    <span class="js-sep"></span><span class="js-item" id="js_loc">—</span>
+    <span class="js-sep"></span><span class="js-item">Basis <b id="js_basis">—</b></span>
+    <span class="js-sep"></span><span class="js-item">Master <b id="js_master">—</b></span>
+  </div>
+</div>
 
 <main class="main-wrap">
   <aside class="rail">
@@ -539,17 +604,11 @@ body.review .review-only.tb-dev { display: inline-flex; }
   </aside>
 
   <section class="paper-col">
-    <div class="toolbar" id="toolbar">
-      <div class="seg mode"><label><input type="radio" name="mode" value="draft" checked><span>Draft</span></label><label><input type="radio" name="mode" value="review"><span>Review</span></label></div>
-      <label class="tb-sel">Compare <select id="cmpSource"><option value="none">None</option><option value="master">Current master</option><option value="issue" disabled>Last issue — issue a Draft first</option></select></label>
-      <label class="tb-tgl cmp-only" title="Show only the clauses that differ, with their headings"><input type="checkbox" id="diffOnly"><span>Differences only</span></label>
-      <label class="tb-tgl cmp-only" title="Keep both papers at the same clause while scrolling"><input type="checkbox" id="lockScroll" checked><span>Lock scroll</span></label>
-      <span class="tb-spacer"></span>
-      <span class="tb-dev review-only"><button class="tb-btn" id="devPrev" title="Previous deviation (P)">‹</button><span id="devCount">0 deviations</span><button class="tb-btn" id="devNext" title="Next deviation (N)">›</button></span>
-      <span class="legend cmp-only"><i class="lg add"></i>added <i class="lg chg"></i>changed <i class="lg gone"></i>excluded</span>
-      <span class="stat" id="stat"></span>
-    </div>
     <div id="paper"></div>
+    <footer class="foot">
+      This tool assembles the firm's specification text. It is not a professional engineering opinion, code-compliance ruling, or AHJ determination.
+      &nbsp;·&nbsp; ARENCON Inc., 1551 Caterpillar Rd Suite 206, Mississauga ON L4X 2Z6 &nbsp;·&nbsp; <a data-mail href="#"></a>
+    </footer>
   </section>
 
   <aside class="inspector">
@@ -561,11 +620,6 @@ body.review .review-only.tb-dev { display: inline-flex; }
     <div class="strip" id="inspStrip" title="Open the inspector"><span class="strip-ico">ⓘ</span><span class="strip-lbl">Inspector</span></div>
   </aside>
 </main>
-
-<footer class="foot">
-  This tool assembles the firm's specification text. It is not a professional engineering opinion, code-compliance ruling, or AHJ determination.
-  &nbsp;·&nbsp; ARENCON Inc., 1551 Caterpillar Rd Suite 206, Mississauga ON L4X 2Z6 &nbsp;·&nbsp; <a data-mail href="#"></a>
-</footer>
 
 <div class="pill" id="pill">Loading…</div>
 <div id="spec-build-stamp">SPEC —</div>
@@ -1278,7 +1332,7 @@ function b64ToBytes(b64) {
    Deviation gutter: none = master · teal = project-scope / inserted · burgundy = edited master (none in S1). */
 (function () {
   'use strict';
-  var SPEC_BUILD = 'S2b';
+  var SPEC_BUILD = 'S3';
   window.SPEC_BUILD = SPEC_BUILD;
   var $ = function (s) { return document.querySelector(s); };
   var params = new URLSearchParams(location.search);
@@ -1311,7 +1365,7 @@ function b64ToBytes(b64) {
     };
   }
   var job = newJob();
-  var ui = { selectedId: null, hideExcluded: false, popover: null, review: false, compare: 'none', trayIdx: -1, diffOnly: false, lockScroll: true, railFolded: false, inspFolded: false, autoFolded: false };
+  var ui = { chromeH: 0, selectedId: null, hideExcluded: false, popover: null, review: false, compare: 'none', trayIdx: -1, diffOnly: false, lockScroll: true, railFolded: false, inspFolded: false, autoFolded: false };
   function who() { try { return localStorage.getItem('arencon-auth-name') || 'local'; } catch (e) { return 'local'; } }
 
   /* engine expects flat header fields; adapt without copying the master */
@@ -1501,7 +1555,7 @@ function b64ToBytes(b64) {
     });
     toc += '<div class="toc-app"><b>Appendices:</b><br>' + (h.appendices || []).map(esc).join('<br>') + '</div><div class="toc-note">Page numbers are preview only — Word recalculates them when the file opens (live TOC field).</div><div class="pgno">3 · preview</div></section>';
     paper.insertAdjacentHTML('afterbegin', front + toc);
-    wireRows(); renderInspector(); renderChecks(); renderTray();
+    wireRows(); renderInspector(); renderChecks(); renderTray(); renderJobStrip();
     var n = blocks.filter(function (b) { return b.type === 'clause' && !b.excluded; }).length;
     $('#stat').textContent = sections.length + ' sections · ' + (pageNo - 1) + ' pages (preview) · ' + n + ' clauses · ' + job.excluded.length + ' excluded · ' + job.insertions.length + ' inserted · ' + Object.keys(job.edits).length + ' edited · ' + (job.fm ? 'FM Global basis' : 'standards-only basis') + ' · master ' + job.masterVersion;
   }
@@ -1848,10 +1902,10 @@ function b64ToBytes(b64) {
     wrap.appendChild(lab(label, 'lab-L')); wrap.appendChild(lab('This job — ' + job.header.rev + ' draft', 'lab-R'));
     wrap.appendChild(buildPane(base.blocks, 'L', specTitle));
     wrap.appendChild(buildPane(model.blocks, 'R', specTitle));
-    window.scrollTo(0, 0);
+    paper.parentElement.scrollTop = 0;
     outer.appendChild(wrap);
     if (ui.diffOnly) wrap.classList.add('diffonly');
-    wireRows(); wireLockScroll(wrap); renderInspector(); renderChecks(); renderTray(); fitCompare();
+    wireRows(); wireLockScroll(wrap); renderInspector(); renderChecks(); renderTray(); renderJobStrip(); fitCompare();
     if (ui.selectedId) { _lockBusy = true; ['.pane-R', '.pane-L'].forEach(function (side) { var r = paper.querySelector(side + ' .cl[data-id="' + cssEsc(ui.selectedId) + '"]'); if (r) scrollPaneTo(r, 'center', false); }); setTimeout(function () { _lockBusy = false; }, 300); }
     var chg = model.blocks.filter(function (b) { return b.cmpTag; }).length;
     $('#stat').textContent = 'Compare: ' + (ui.compare === 'master' ? 'current master' : 'last issue') + ' · ' + chg + ' differing clauses on this job · ' + job.excluded.length + ' excluded · ' + job.insertions.length + ' inserted · flowing view (no pagination in Compare) · master ' + job.masterVersion;
@@ -1931,6 +1985,29 @@ function b64ToBytes(b64) {
   function highlightTray() { var host = $('#tray'); if (!host) return; host.querySelectorAll('.tray-row').forEach(function (r) { r.classList.toggle('sel', r.dataset.id === ui.selectedId); }); }
   function trayStep(dir) { var items = trayItems(); if (!items.length) return; ui.trayIdx = ((ui.trayIdx + dir) % items.length + items.length) % items.length; ui.lastClickSide = null; select(items[ui.trayIdx].id, true); }
 
+  /* Chrome height is MEASURED, never assumed: the shared header engine renders into a shadow
+     root and its height depends on fold state and font metrics. Everything below the chrome
+     offsets by --chrome-h, so page 1 cannot sit under Row C. */
+  function measureChrome() {
+    var c = document.getElementById('appchrome'); if (!c) return;
+    var h = Math.ceil(c.getBoundingClientRect().height);
+    if (h && h !== ui.chromeH) { ui.chromeH = h; document.documentElement.style.setProperty('--chrome-h', h + 'px'); fitCompare(); }
+  }
+  window.addEventListener('resize', measureChrome);
+  if (window.ResizeObserver) { try { new ResizeObserver(measureChrome).observe(document.getElementById('appchrome')); } catch (e) {} }
+  setTimeout(measureChrome, 0); setTimeout(measureChrome, 400); setTimeout(measureChrome, 1200);   // engine mounts async
+
+  /* Row C — identity only */
+  function renderJobStrip() {
+    var h = job.header;
+    $('#js_client').textContent = h.client || '—';
+    $('#js_no').textContent = h.projectNo || '—';
+    $('#js_rev').textContent = h.rev || '';
+    $('#js_loc').textContent = [h.site, h.city].filter(Boolean).join(', ') || '—';
+    $('#js_basis').textContent = job.fm ? 'FM Global' : 'Standards only';
+    $('#js_master').textContent = job.masterVersion;
+  }
+
   /* folding rail / inspector — the paper gets the room; Compare folds both automatically once */
   function setFold(which, folded) {
     if (which === 'rail') ui.railFolded = folded; else ui.inspFolded = folded;
@@ -1952,8 +2029,8 @@ function b64ToBytes(b64) {
     var outer = paper.querySelector('.cmp-wrap'), cmp = paper.querySelector('.cmp'); if (!cmp) return;
     var need = 2 * 816 + 22, avail = outer.clientWidth || paper.clientWidth;
     var z = Math.max(0.35, Math.min(1, avail / need));
-    var top = outer.getBoundingClientRect().top + window.scrollY;           // toolbar + header above the panes
-    var h = Math.max(320, window.innerHeight - top - 16);
+    var col = paper.parentElement;                                          // .paper-col owns the scroll
+    var h = Math.max(320, col.clientHeight - 24);
     outer.style.height = h + 'px';
     cmp.style.width = need + 'px';
     cmp.style.transform = 'translateX(-50%) scale(' + z.toFixed(4) + ')';
@@ -2039,7 +2116,7 @@ try {
   /* Home: Hub when opened from a project, else the tools portal. Goes through the leave guard. */
   const homeHref = project ? ('ARENCON_Project_Hub.html?project=' + encodeURIComponent(project)) : 'index.html?tools=1';
   const cfg = {
-    title: 'Specification Generator', skin: 'chrome', logoSrc: LOGO_B64, logoTitle: 'ARENCON',
+    title: 'ARENCON · Specification Generator', skin: 'chrome', logoSrc: LOGO_B64, logoTitle: 'ARENCON',
     homeHref, defaultTheme: 'dark',
     onHome: () => { const go = () => { location.href = homeHref; }; (window.__specLeaveGuard || (f => f()))(go); },
     actions: [
