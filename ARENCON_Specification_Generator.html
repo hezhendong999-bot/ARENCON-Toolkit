@@ -353,6 +353,61 @@ textarea.edit { font:inherit; width:100%; resize:none; border:1px solid #9C2742;
 @media (max-width: 1000px) { .main-wrap { grid-template-columns: 1fr; } .rail { position: static; max-height: none; } }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 @media print { #spec-header, .rail, .inspector, .pill, .stat, .foot, #spec-build-stamp, .gap, .meta { display: none !important; } .main-wrap { display: block; padding: 0; } .page { box-shadow: none; margin: 0; page-break-after: always; } body { background: #fff; } }
+
+/* ═══ S2 — Review / Compare / Comments ═══ */
+.review-only { display: none; }
+body.review .review-only { display: block; }
+body.review .draft-only { display: none; }
+.job-drawer { padding: 0; }
+.job-drawer > summary { list-style: none; cursor: pointer; padding: 14px 16px; }
+.job-drawer > summary::-webkit-details-marker { display: none; }
+.job-drawer > summary h2 { margin: 0; }
+.job-drawer .job-card { border: 0; box-shadow: none; background: transparent; margin: 0; padding-top: 0; }
+.job-drawer:not([open]) > summary::after { content: ' ▸'; color: var(--ink3); }
+.job-drawer[open] > summary::after { content: ' ▾'; color: var(--ink3); }
+.mode label { min-height: 40px; }
+.ln.dim { opacity: .45; }
+.ln.dim:hover, .ln.dim.sel { opacity: 1; }
+.pip { display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: #E0A36A; color: #1B1A22; font-size: 8pt; font-weight: 700; }
+.tag { font-size: 8pt; padding: 1px 7px; border-radius: 999px; border: 1px solid; white-space: nowrap; }
+.tag.add { color: #1E8F84; border-color: #9fd6cf; background: #e6f6f4; }
+.tag.chg { color: #7a5a1a; border-color: #d9b25a; background: #fff6dd; }
+.tag.gone { color: #C0445F; border-color: #e8b3bf; background: #fbeef1; }
+.tag.nii { color: #928E9C; border-color: #d5d2da; background: #f3f2f5; }
+.cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.pane { min-width: 0; }
+.pane-label { font-size: 9.5pt; color: var(--ink2); margin: 0 0 8px 4px; }
+.pane-L .page { opacity: .96; }
+.page.flow { height: auto; min-height: 0; overflow: visible; max-width: none; }
+.page.flow .hdr > div > span:nth-child(2) { text-align: right; }
+.ln.struck .tx { text-decoration: line-through; color: #9a97a3; }
+.ln.nii .tx { color: #9a97a3; font-style: italic; }
+.tx ins { text-decoration: underline; color: #1f7a45; background: rgba(46,158,114,.10); text-decoration-color: #2E9E72; }
+.tx del { text-decoration: line-through; color: #a83a52; background: rgba(192,68,95,.08); }
+.tx.cmp-ph { color: #9a97a3; font-style: italic; text-decoration: none; }
+.ln.x .tx.cmp-ph { text-decoration: none; }
+.pane-L .ln.cl { cursor: pointer; }
+.pane-L .ln.cl .meta .mini { display: none; }
+#paper.cmp-on { gap: 0; }
+.tray-row { display: grid; grid-template-columns: 70px 44px 1fr; gap: 8px; align-items: baseline; padding: 6px 8px; border-radius: 8px; border: 1px solid transparent; cursor: pointer; min-height: 36px; font-size: 9.5pt; }
+.tray-row:hover { background: var(--card); }
+.tray-row.sel { border-color: var(--info); }
+.tray-row .tk { font-size: 8.5pt; text-transform: uppercase; letter-spacing: .04em; }
+.tray-row .tn { color: var(--ink2); font-family: ui-monospace, Consolas, monospace; font-size: 9pt; }
+.tray-row .tt { color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tray-row.k-edited .tk { color: var(--brand); } .tray-row.k-inserted .tk { color: var(--teal); } .tray-row.k-excluded .tk { color: var(--fail); } .tray-row.k-commented .tk { color: var(--warn); } .tray-row.k-proposed .tk { color: var(--info); }
+.ins-cap { color: var(--ink3); font-size: 9pt; text-transform: uppercase; letter-spacing: .05em; margin: 10px 0 4px; }
+.ins-txt { font-size: 10pt; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.ins-txt.small { color: var(--ink2); }
+.ins-note.prop { border-color: color-mix(in srgb, var(--info) 45%, transparent); }
+.cmt { border-top: 1px solid var(--line); padding: 8px 0; font-size: 10pt; }
+.cmt.done { opacity: .55; }
+.cmt-h { display: flex; align-items: center; gap: 8px; color: var(--ink2); font-size: 9pt; }
+.cmt-h b { color: var(--ink); }
+.cmt-h .mini { margin-left: auto; opacity: 1; background: transparent; color: var(--ink2); border-color: var(--line); }
+.cmt-t { margin-top: 4px; white-space: pre-wrap; }
+.cmt-in { display: block; width: 100%; margin-top: 8px; font: inherit; color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; resize: vertical; min-height: 56px; }
+@media (max-width: 1400px) { .cmp { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -361,7 +416,18 @@ textarea.edit { font:inherit; width:100%; resize:none; border:1px solid #9C2742;
 <main class="main-wrap">
   <aside class="rail">
     <section class="card">
-      <h2><span class="secno">01</span> Job <span class="who">decision set</span></h2>
+      <div class="basis mode"><label><input type="radio" name="mode" value="draft" checked>Draft</label><label><input type="radio" name="mode" value="review">Review</label></div>
+      <label class="f" style="margin-top:8px">Compare with<select id="cmpSource"><option value="none">None — single paper</option><option value="master">Current master (edits, exclusions, insertions stripped)</option><option value="issue" disabled>Last issue — issue a Draft first</option></select></label>
+      <p class="hint">Review dims unchanged master clauses. Keys: <b>R</b> review · <b>N</b>/<b>P</b> next/previous deviation.</p>
+    </section>
+
+    <section class="card review-only">
+      <h2>Deviations <span class="who" id="trayCount"></span></h2>
+      <div id="tray"></div>
+    </section>
+
+    <details class="card job-drawer" open><summary><h2 style="display:inline-flex"><span class="secno">01</span> Job <span class="who">decision set</span></h2></summary>
+    <section class="card job-card">
       <div class="row" style="margin-bottom:10px">
         <button class="btn" id="newJob">New job</button>
         <button class="btn" id="openJson">Open JSON</button>
@@ -377,8 +443,9 @@ textarea.edit { font:inherit; width:100%; resize:none; border:1px solid #9C2742;
       <label class="f">Prepared for (cover)<textarea id="f_preparedFor"></textarea></label>
       <label class="f">Appendices (one per line)<textarea id="f_appendices"></textarea></label>
     </section>
+    </details>
 
-    <section class="card">
+    <section class="card draft-only">
       <h2><span class="secno">02</span> Design basis</h2>
       <div class="basis"><label><input type="radio" name="basis" value="std">Standards only</label><label><input type="radio" name="basis" value="fm">FM Global</label></div>
       <p class="hint">FM Global swaps in the FM wording where the canon differs and adds the FM Data Sheets to the register.</p>
@@ -390,20 +457,20 @@ textarea.edit { font:inherit; width:100%; resize:none; border:1px solid #9C2742;
       <div id="systems"></div>
     </section>
 
-    <section class="card">
+    <section class="card draft-only">
       <h2><span class="secno">04</span> Choices</h2>
       <div id="choices"></div>
       <p class="hint">Also changeable on the paper — click any underlined value.</p>
     </section>
 
-    <section class="card">
+    <section class="card draft-only">
       <h2><span class="secno">05</span> Standards register</h2>
       <div id="standards"></div>
       <div class="addstd"><input id="ns_short" placeholder="e.g. NFPA 24" aria-label="Standard short name"><input id="ns_title" placeholder="Title" aria-label="Standard title"><input id="ns_ed" placeholder="Ed." aria-label="Edition"><button class="icon-btn" id="addStd" title="Add standard" aria-label="Add standard">+</button></div>
       <p class="hint">Editions drive every citation and the list in 21 00 00, 1.1. Greyed rows are not relevant to the systems selected and do not print.</p>
     </section>
 
-    <section class="card">
+    <section class="card draft-only">
       <h2><span class="secno">06</span> View</h2>
       <label class="tgl"><span class="sw"><input type="checkbox" id="hideExcluded"><i></i></span>Hide excluded rows</label>
       <p class="hint">Paper click selects. Exclude with −, restore with ↺. Insert with the + in the left margin: same level / sub-clause / new article.</p>
@@ -450,6 +517,13 @@ textarea.edit { font:inherit; width:100%; resize:none; border:1px solid #9C2742;
   <div class="box" role="dialog" aria-modal="true" aria-labelledby="mTitle">
     <h3 id="mTitle"></h3><p id="mBody"></p>
     <div class="row"><button class="btn" id="mNo">Cancel — go back</button><button class="btn danger" id="mYes">Remove</button></div>
+  </div>
+</div>
+<div class="modal" id="propModal" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="propTitle">
+    <h3 id="propTitle">Propose to firm master</h3><p>Why should the master adopt this wording? A reason is required. Nothing changes in the library until an Admin session publishes.</p>
+    <label class="f"><textarea id="propReason" placeholder="Reason"></textarea></label>
+    <div class="row"><button class="btn" id="propNo">Cancel — go back</button><button class="btn primary" id="propGo">Queue proposal</button></div>
   </div>
 </div>
 <div class="modal" id="leaveModal" hidden>
@@ -1147,7 +1221,7 @@ function b64ToBytes(b64) {
    Deviation gutter: none = master · teal = project-scope / inserted · burgundy = edited master (none in S1). */
 (function () {
   'use strict';
-  var SPEC_BUILD = 'S1';
+  var SPEC_BUILD = 'S2';
   window.SPEC_BUILD = SPEC_BUILD;
   var $ = function (s) { return document.querySelector(s); };
   var params = new URLSearchParams(location.search);
@@ -1176,11 +1250,12 @@ function b64ToBytes(b64) {
       systems: d.systems.slice(),
       choices: JSON.parse(JSON.stringify(d.choices)),
       standards: JSON.parse(JSON.stringify(d.standards)),
-      excluded: [], edits: {}, insertions: [], issues: [], dirty: false
+      excluded: [], edits: {}, insertions: [], issues: [], comments: [], proposals: [], dirty: false
     };
   }
   var job = newJob();
-  var ui = { selectedId: null, hideExcluded: false, popover: null };
+  var ui = { selectedId: null, hideExcluded: false, popover: null, review: false, compare: 'none', trayIdx: -1 };
+  function who() { try { return localStorage.getItem('arencon-auth-name') || 'local'; } catch (e) { return 'local'; } }
 
   /* engine expects flat header fields; adapt without copying the master */
   function engineJob() {
@@ -1231,6 +1306,7 @@ function b64ToBytes(b64) {
     job = Object.assign(newJob(), o, { dirty: false });
     job.header = Object.assign(newJob().header, o.header);
     job.excluded = o.excluded || []; job.edits = o.edits || {}; job.insertions = o.insertions || []; job.issues = o.issues || [];
+    job.comments = o.comments || []; job.proposals = o.proposals || [];
     ui.selectedId = null; bindHeaderFields(); renderRail(); render(); markClean();
   }
 
@@ -1314,9 +1390,23 @@ function b64ToBytes(b64) {
   function render() {
     var ej = engineJob(), act = activeSet();
     var model = buildModel(ej, act); lastModel = model;
+    deviationSet = computeDeviations(model);
+    if (ui.compare !== 'none') { renderCompare(model); return; }
+    renderSingle(model);
+  }
+  var deviationSet = new Set();
+  function computeDeviations(model) {
+    var d = new Set();
+    (model.blocks || []).forEach(function (b) { if (!b.id) return; if (b.inserted || b.excluded || b.edited) d.add(b.id); });
+    job.comments.forEach(function (c) { if (!c.resolved) d.add(c.clauseId); });
+    job.proposals.forEach(function (p) { d.add(p.clauseId); });
+    return d;
+  }
+  function renderSingle(model) {
+    var act = activeSet();
     var blocks = model.blocks;
     var titleLines = specTitleLines(act), specTitle = titleLines.join(' & ');
-    paper.innerHTML = '';
+    paper.innerHTML = ''; paper.classList.remove('cmp-on');
     var sections = [], cur = null;
     blocks.forEach(function (b) {
       if (b.type === 'division') return;
@@ -1354,7 +1444,7 @@ function b64ToBytes(b64) {
     });
     toc += '<div class="toc-app"><b>Appendices:</b><br>' + (h.appendices || []).map(esc).join('<br>') + '</div><div class="toc-note">Page numbers are preview only — Word recalculates them when the file opens (live TOC field).</div><div class="pgno">3 · preview</div></section>';
     paper.insertAdjacentHTML('afterbegin', front + toc);
-    wireRows(); renderInspector(); renderChecks();
+    wireRows(); renderInspector(); renderChecks(); renderTray();
     var n = blocks.filter(function (b) { return b.type === 'clause' && !b.excluded; }).length;
     $('#stat').textContent = sections.length + ' sections · ' + (pageNo - 1) + ' pages (preview) · ' + n + ' clauses · ' + job.excluded.length + ' excluded · ' + job.insertions.length + ' inserted · ' + Object.keys(job.edits).length + ' edited · ' + (job.fm ? 'FM Global basis' : 'standards-only basis') + ' · master ' + job.masterVersion;
   }
@@ -1366,14 +1456,22 @@ function b64ToBytes(b64) {
   function htmlToEl(html) { var t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
   var partKey = 0;
   function gutter(b) { return (b.inserted || b.unlocked) ? ' g-teal' : ''; }
+  function unresolvedCount(id) { return job.comments.filter(function (c) { return c.clauseId === id && !c.resolved; }).length; }
+  function pip(id) { var n = unresolvedCount(id); return n ? '<span class="pip" title="' + n + ' open comment' + (n > 1 ? 's' : '') + '">' + n + '</span>' : ''; }
+  function dimCls(b) { return (ui.review && b.id && !deviationSet.has(b.id)) ? ' dim' : ''; }
+  var SIDE = 'R';
   function blockHtml(b) {
     var sel = (b.id && b.id === ui.selectedId) ? ' sel' : '';
+    var side = ' data-side="' + SIDE + '"';
     switch (b.type) {
       case 'part': b.secKey = ++partKey; return '<div class="ln part" data-toc="part:' + b.secKey + '"><span class="n">' + b.num + '</span><span class="tx">' + esc(b.text) + '</span></div>';
-      case 'h3': return '<div class="ln h3 cl' + gutter(b) + sel + '" data-id="' + esc(b.id) + '" data-level="' + b.level + '" style="margin-left:' + IND[1] + '"><span class="n">' + b.num + '</span><span class="tx">' + esc(b.text) + '</span></div>';
+      case 'h3': return '<div class="ln h3 cl' + gutter(b) + sel + dimCls(b) + (b.notInIssue ? ' nii' : '') + '"' + side + ' data-id="' + esc(b.id) + '" data-level="' + b.level + '" style="margin-left:' + IND[1] + '"><span class="n">' + b.num + '</span><span class="tx">' + (b.cmpHtml || esc(b.text)) + '</span><span class="meta">' + pip(b.id) + (b.cmpTag ? '<span class="tag ' + b.cmpTag.cls + '">' + esc(b.cmpTag.text) + '</span>' : '') + '</span></div>';
       case 'clause':
-        if (b.excluded) return '<div class="ln x cl' + gutter(b) + sel + '" data-id="' + esc(b.id) + '" data-level="' + b.level + '" style="margin-left:' + (IND[b.level - 1] || IND[2]) + '"><span class="n">—</span><span class="tx">' + esc(b.text) + '</span><span class="meta"><button class="mini" data-act="restore" title="Restore">↺</button></span></div>';
-        return '<div class="ln cl' + gutter(b) + sel + (b.placeholder ? ' ph' : '') + '" data-id="' + esc(b.id || '') + '" data-level="' + b.level + '" style="margin-left:' + (IND[b.level - 1] || IND[2]) + '"><span class="n">' + b.num + '</span><span class="tx">' + tokHtml(b.text) + '</span><span class="meta">' + (b.id ? '<button class="mini" data-act="excl" title="Exclude">−</button>' : '') + '</span></div>';
+        if (b.excluded) {
+          if (SIDE === 'R' && ui.compare !== 'none') return '<div class="ln x cl' + sel + '"' + side + ' data-id="' + esc(b.id) + '" data-level="' + b.level + '" style="margin-left:' + (IND[b.level - 1] || IND[2]) + '"><span class="n">—</span><span class="tx cmp-ph">excluded on this job</span><span class="meta">' + pip(b.id) + '<button class="mini" data-act="restore" title="Restore">↺</button></span></div>';
+          return '<div class="ln x cl' + gutter(b) + sel + '"' + side + ' data-id="' + esc(b.id) + '" data-level="' + b.level + '" style="margin-left:' + (IND[b.level - 1] || IND[2]) + '"><span class="n">—</span><span class="tx">' + esc(b.text) + '</span><span class="meta">' + pip(b.id) + (SIDE === 'R' ? '<button class="mini" data-act="restore" title="Restore">↺</button>' : '') + '</span></div>';
+        }
+        return '<div class="ln cl' + gutter(b) + sel + dimCls(b) + (b.placeholder ? ' ph' : '') + (b.notInIssue ? ' nii' : '') + (b.struck ? ' struck' : '') + '"' + side + ' data-id="' + esc(b.id || '') + '" data-level="' + b.level + '" style="margin-left:' + (IND[b.level - 1] || IND[2]) + '"><span class="n">' + b.num + '</span><span class="tx">' + (b.cmpHtml || tokHtml(b.text)) + '</span><span class="meta">' + pip(b.id) + (b.cmpTag ? '<span class="tag ' + b.cmpTag.cls + '">' + esc(b.cmpTag.text) + '</span>' : '') + (b.id && SIDE === 'R' ? '<button class="mini" data-act="excl" title="Exclude">−</button>' : '') + '</span></div>';
       case 'sub': return '<div class="ln sub" style="margin-left:' + IND[1] + '"><span class="tx">' + esc(b.text) + '</span></div>';
       case 'lead': return '<div class="ln lead" style="margin-left:' + IND[1] + '"><span class="tx">' + esc(b.text) + '</span></div>';
       case 'end': return '<div class="end">END OF SECTION ' + b.code + '</div>';
@@ -1401,15 +1499,23 @@ function b64ToBytes(b64) {
         var btn = e.target.closest('button[data-act]');
         if (btn) { e.stopPropagation(); return act(btn.dataset.act, id); }
         var tok = e.target.closest('.tok'); if (tok) { e.stopPropagation(); return openChoice(tok, tok.dataset.choice); }
-        select(id);
+        ui.lastClickSide = el.dataset.side || 'R'; select(id);
       });
+      if (el.dataset.side === 'L') return;   // baseline pane: read-only, no insert gaps
       // hover-gap insert control (below each selectable row)
       var gap = document.createElement('div'); gap.className = 'gap'; gap.innerHTML = '<button class="gap-btn" title="Insert here">+</button>';
       gap.querySelector('button').addEventListener('click', function (e) { e.stopPropagation(); openInsertMenu(gap, el.dataset.id, el.classList.contains('h3')); });
       el.insertAdjacentElement('afterend', gap);
     });
   }
-  function select(id) { ui.selectedId = id; paper.querySelectorAll('.cl.sel').forEach(function (e) { e.classList.remove('sel'); }); var el = paper.querySelector('.cl[data-id="' + cssEsc(id) + '"]'); if (el) el.classList.add('sel'); renderInspector(); }
+  function select(id, scrollBoth) {
+    ui.selectedId = id; paper.querySelectorAll('.cl.sel').forEach(function (e) { e.classList.remove('sel'); });
+    var rows = paper.querySelectorAll('.cl[data-id="' + cssEsc(id) + '"]'); rows.forEach(function (r) { r.classList.add('sel'); });
+    if (ui.compare !== 'none') {   // id-sync: bring the counterpart row into view in the other pane
+      rows.forEach(function (r) { if (scrollBoth || r.dataset.side !== ui.lastClickSide) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); });
+    } else if (scrollBoth && rows[0]) rows[0].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    renderInspector(); highlightTray();
+  }
   function act(a, id) {
     if (a === 'excl') { if (job.excluded.indexOf(id) < 0) job.excluded.push(id); markDirty(); ui.selectedId = id; render(); }
     else if (a === 'restore') { job.excluded = job.excluded.filter(function (x) { return x !== id; }); markDirty(); ui.selectedId = id; render(); }
@@ -1467,10 +1573,25 @@ function b64ToBytes(b64) {
     if (ins) h += '<button class="btn" data-a="delins">✕ Delete insertion</button>';
     h += '</div>';
     if (ins) h += '<div class="ins-help">Tab / Shift+Tab re-level this insertion one step at a time; skipped levels are refused.</div>';
+    if (ui.compare !== 'none' && lastBaseline) {
+      var lb = (lastBaseline.blocks || []).filter(function (x) { return x.id === id; })[0];
+      h += '<div class="ins-cmp"><div class="ins-cap">Baseline</div><div class="ins-txt small">' + (lb ? (lb.notInIssue ? '<i>not in that issue</i>' : esc(plainText(lb.text))) : '<i>not in baseline</i>') + '</div><div class="ins-cap">This job</div><div class="ins-txt">' + (b ? (b.excluded ? '<i>excluded</i>' : esc(plainText(b.text))) : '') + '</div></div>';
+    }
+    var canPropose = !!(ins || job.edits[id] != null);
+    var props = job.proposals.filter(function (p) { return p.clauseId === id; });
+    if (canPropose && !props.length) h += '<div class="ins-actions"><button class="btn" data-a="propose">Propose to firm</button></div>';
+    if (props.length) h += props.map(function (p) { return '<div class="ins-note prop"><b>Proposed to firm · ' + esc(p.status) + '</b><br>' + esc(p.by) + ' · ' + esc(p.atToronto || p.at) + '<br>' + esc(p.reason) + '</div>'; }).join('');
+    var cs = job.comments.filter(function (c) { return c.clauseId === id; });
+    h += '<div class="ins-cap" style="margin-top:12px">Comments' + (cs.length ? ' (' + cs.length + ')' : '') + '</div>';
+    h += cs.map(function (c) { return '<div class="cmt' + (c.resolved ? ' done' : '') + '"><div class="cmt-h"><b>' + esc(c.by) + '</b> · ' + esc(c.atToronto || c.at) + '<button class="mini" data-res="' + esc(c.id) + '" title="' + (c.resolved ? 'Reopen' : 'Resolve') + '">' + (c.resolved ? '↺' : '✓') + '</button></div><div class="cmt-t">' + esc(c.text) + '</div></div>'; }).join('');
+    h += '<textarea class="cmt-in" id="cmtIn" rows="2" placeholder="Add a comment for this clause…"></textarea><div class="ins-actions"><button class="btn" data-a="comment">Add comment</button></div>';
     host.innerHTML = h;
+    host.querySelectorAll('button[data-res]').forEach(function (btn) { btn.addEventListener('click', function () { toggleResolved(btn.dataset.res); }); });
     host.querySelectorAll('button[data-a]').forEach(function (btn) { btn.addEventListener('click', function () {
       var a = btn.dataset.a;
       if (a === 'edit') return startEdit(id);
+      if (a === 'comment') { var ta = $('#cmtIn'); return addComment(id, ta ? ta.value : ''); }
+      if (a === 'propose') return proposeToFirm(id);
       if (a === 'revert') return confirmDanger('Revert to master wording?', 'Your project text for this clause is discarded; the master wording returns.', function () { delete job.edits[id]; markDirty(); render(); });
       act(a, id);
     }); });
@@ -1561,8 +1682,15 @@ function b64ToBytes(b64) {
     var decisions = JSON.parse(JSON.stringify(job)); delete decisions.dirty; delete decisions.issues;
     var rev = job.header.rev;
     exportNmsDocx(Object.assign(engineJob(), { rev: rev }), activeSet(), lastModel).then(function (name) {
-      var rec = { rev: rev, at: new Date().toISOString(), atToronto: nowToronto(true), grade: grade, decisionHash: decisionHash(decisions), file: name, masterVersion: job.masterVersion };
-      job.issues.push(rec);                                    // append-only; never edited
+      var texts = {}; (lastModel.blocks || []).forEach(function (b) { if (b.id && !b.excluded && (b.type === 'clause' || b.type === 'h3')) texts[b.id] = plainText(b.text); });
+      var rec = { rev: rev, at: new Date().toISOString(), atToronto: nowToronto(true), grade: grade, decisionHash: decisionHash(decisions), file: name, masterVersion: job.masterVersion,
+        by: who(),
+        header: JSON.parse(JSON.stringify(job.header)),
+        decisions: { fm: job.fm, systems: job.systems.slice(), choices: JSON.parse(JSON.stringify(job.choices)), standards: JSON.parse(JSON.stringify(job.standards)), excluded: job.excluded.slice(), edits: JSON.parse(JSON.stringify(job.edits)), insertions: JSON.parse(JSON.stringify(job.insertions)) },
+        texts: texts,                                          // frozen wording per clause id — Last-issue compare reads this
+        comments: JSON.parse(JSON.stringify(job.comments)) };  // read-only snapshot; live comments stay on the draft
+      Object.freeze(rec); job.issues.push(rec);               // append-only; never edited
+      var cmpSel = $('#cmpSource'); if (cmpSel) cmpSel.querySelector('option[value=issue]').disabled = false;
       downloadJSON(Object.assign({}, decisions, { issue: rec }), jobFileName('json'));
       if (grade === 'final') { job.header.rev = bumpRev(rev); $('#f_rev').value = job.header.rev; }
       markDirty(); return saveLocal().then(function () { setPill((grade === 'final' ? 'FINAL' : 'Draft') + ' issued ' + rev + ' · ' + rec.atToronto + ' · ' + name, 'ok'); renderIssues(); render(); });
@@ -1570,7 +1698,7 @@ function b64ToBytes(b64) {
   }
   $('#issueDraft').addEventListener('click', function () { issue('draft'); });
   $('#issueFinal').addEventListener('click', function () { issue('final'); });
-  function renderIssues() { var host = $('#issues'); host.innerHTML = job.issues.length ? job.issues.slice().reverse().map(function (r) { return '<div class="iss"><b>' + esc(r.rev) + '</b> ' + esc(r.grade) + ' · ' + esc(r.atToronto || r.at) + ' · <span class="mono">' + esc(r.decisionHash) + '</span></div>'; }).join('') : '<div class="hint">No issues yet.</div>'; }
+  function renderIssues() { var o = $('#cmpSource') && $('#cmpSource').querySelector('option[value=issue]'); if (o) o.disabled = !job.issues.length; var host = $('#issues'); host.innerHTML = job.issues.length ? job.issues.slice().reverse().map(function (r) { return '<div class="iss"><b>' + esc(r.rev) + '</b> ' + esc(r.grade) + ' · ' + esc(r.atToronto || r.at) + ' · <span class="mono">' + esc(r.decisionHash) + '</span></div>'; }).join('') : '<div class="hint">No issues yet.</div>'; }
 
   /* ── JSON buttons, new job, leave guard ── */
   $('#saveJson').addEventListener('click', function () { var d = JSON.parse(JSON.stringify(job)); delete d.dirty; downloadJSON(d, jobFileName('json')); saveLocal(); });
@@ -1590,6 +1718,156 @@ function b64ToBytes(b64) {
   window.__specLeaveGuard = leaveGuard;
   /* beforeunload: standalone only; in Hub mode the URL param suppresses it (never a _csHubMode flag) */
   window.addEventListener('beforeunload', function (e) { if (!HUB_MODE && job.dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  /* ══════════════════ S2 — Review / Compare / Comments / Propose ══════════════════ */
+  function plainText(t) { return String(t || '').replace(/«ref:\w+:([^»]*)»/g, '$1'); }
+
+  /* word diff: tokens split on whitespace/punctuation, LCS by DP (clauses are short) */
+  function tokenize(t) { return (t.match(/[A-Za-z0-9\u00C0-\u024F]+(?:[\-'’][A-Za-z0-9]+)*|\s+|[^\sA-Za-z0-9]/g) || []); }
+  function wordDiff(a, b) {
+    var A = tokenize(a), B = tokenize(b), n = A.length, m = B.length;
+    if (n * m > 250000) return [{ t: 'del', s: a }, { t: 'ins', s: b }];
+    var L = []; for (var i = 0; i <= n; i++) { L.push(new Uint16Array(m + 1)); }
+    for (i = n - 1; i >= 0; i--) for (var j = m - 1; j >= 0; j--) L[i][j] = A[i] === B[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+    var out = []; i = 0; j = 0;
+    var push = function (t, str) { var last = out[out.length - 1]; if (last && last.t === t) last.s += str; else out.push({ t: t, s: str }); };
+    while (i < n && j < m) { if (A[i] === B[j]) { push('eq', A[i]); i++; j++; } else if (L[i + 1][j] >= L[i][j + 1]) { push('del', A[i]); i++; } else { push('ins', B[j]); j++; } }
+    while (i < n) push('del', A[i++]); while (j < m) push('ins', B[j++]);
+    return out;
+  }
+  function redlineHtml(base, cur) {
+    return wordDiff(plainText(base), plainText(cur)).map(function (p) { var e = esc(p.s); return p.t === 'eq' ? e : p.t === 'ins' ? '<ins>' + e + '</ins>' : '<del>' + e + '</del>'; }).join('');
+  }
+
+  /* baseline model for Compare */
+  function lastIssue() { return job.issues.length ? job.issues[job.issues.length - 1] : null; }
+  function baselineModel() {
+    var ej = engineJob();
+    if (ui.compare === 'master') {
+      return buildModel(Object.assign({}, ej, { excluded: [], edits: {}, insertions: [] }), activeSet());     // what the firm says for this system set
+    }
+    var rec = lastIssue(); if (!rec) return null;
+    var d = rec.decisions || {};
+    var bj = Object.assign({}, rec.header || job.header, { fm: !!d.fm, systems: d.systems || job.systems, choices: d.choices || job.choices, standards: d.standards || job.standards,
+      excluded: d.excluded || [], edits: d.edits || {}, insertions: d.insertions || [], appendices: (rec.header || job.header).appendices });
+    var m = buildModel(bj, new Set(bj.systems));
+    var texts = rec.texts || {};
+    m.blocks.forEach(function (b) { if (!b.id || b.excluded || !(b.type === 'clause' || b.type === 'h3')) return; if (texts[b.id] != null) b.text = texts[b.id]; else b.notInIssue = true; });
+    m.rev = rec.rev; m.at = rec.atToronto; m.grade = rec.grade;
+    return m;
+  }
+  var lastBaseline = null;
+  function renderCompare(model) {
+    var base = baselineModel(); lastBaseline = base;
+    if (!base) { ui.compare = 'none'; render(); return; }
+    var act = activeSet(), titleLines = specTitleLines(act), specTitle = titleLines.join(' & ');
+    var baseById = {}; base.blocks.forEach(function (b) { if (b.id && (b.type === 'clause' || b.type === 'h3')) baseById[b.id] = b; });
+    var jobById = {}; model.blocks.forEach(function (b) { if (b.id && (b.type === 'clause' || b.type === 'h3')) jobById[b.id] = b; });
+    // annotate right (this job)
+    model.blocks.forEach(function (b) {
+      if (!b.id || !(b.type === 'clause' || b.type === 'h3')) return;
+      delete b.cmpHtml; delete b.cmpTag;
+      var l = baseById[b.id];
+      if (b.excluded) return;
+      if (!l) { b.cmpTag = { cls: 'add', text: 'added' }; return; }
+      if (l.excluded) { b.cmpTag = { cls: 'add', text: 'restored' }; }
+      if (l.notInIssue) { b.cmpTag = { cls: 'nii', text: 'not in that issue' }; return; }
+      if (plainText(l.text) !== plainText(b.text)) { b.cmpHtml = redlineHtml(l.text, b.text); b.cmpTag = { cls: 'chg', text: 'changed' }; }
+    });
+    // annotate left (baseline)
+    base.blocks.forEach(function (b) {
+      if (!b.id || !(b.type === 'clause' || b.type === 'h3')) return;
+      delete b.cmpHtml; delete b.cmpTag; b.struck = false;
+      var r = jobById[b.id];
+      if (b.notInIssue) { b.cmpTag = { cls: 'nii', text: 'not in that issue' }; return; }
+      if (!r) { b.struck = true; b.cmpTag = { cls: 'gone', text: 'not on this job' }; return; }
+      if (r.excluded) { b.struck = true; b.cmpTag = { cls: 'gone', text: 'excluded on this job' }; }
+    });
+    paper.innerHTML = ''; paper.classList.add('cmp-on');
+    var wrap = document.createElement('div'); wrap.className = 'cmp';
+    var label = ui.compare === 'master' ? 'Baseline — current master ' + job.masterVersion + ' for this system set' : 'Baseline — issue ' + base.rev + ' (' + base.grade + ', ' + base.at + ')';
+    wrap.appendChild(buildPane(base.blocks, 'L', label, specTitle));
+    wrap.appendChild(buildPane(model.blocks, 'R', 'This job — ' + job.header.rev + ' draft', specTitle));
+    paper.appendChild(wrap);
+    wireRows(); renderInspector(); renderChecks(); renderTray();
+    var chg = model.blocks.filter(function (b) { return b.cmpTag; }).length;
+    $('#stat').textContent = 'Compare: ' + (ui.compare === 'master' ? 'current master' : 'last issue') + ' · ' + chg + ' differing clauses on this job · ' + job.excluded.length + ' excluded · ' + job.insertions.length + ' inserted · flowing view (no pagination in Compare) · master ' + job.masterVersion;
+  }
+  function buildPane(blocks, side, label, specTitle) {
+    var pane = document.createElement('div'); pane.className = 'pane pane-' + side;
+    pane.innerHTML = '<div class="pane-label">' + esc(label) + '</div>';
+    SIDE = side; var h = job.header;
+    var page = null;
+    blocks.forEach(function (b) {
+      if (b.type === 'division') return;
+      if (b.type === 'section') {
+        page = document.createElement('section'); page.className = 'page body flow';
+        page.innerHTML = '<div class="hdr"><div><span>' + esc(h.clientShort || h.client) + ' | ' + esc(h.preparedForShort || '') + '</span><span>Division ' + DIV21.code + ' – ' + esc(DIV21.title) + '</span></div><div><span>' + esc(h.site) + ', ' + esc(h.city) + '</span><span>Section ' + b.code + ' – ' + esc(b.title) + '</span></div><div class="rule"><span>' + esc(specTitle) + ' Project Specification</span><span>Project #: ' + esc(h.projectNo) + ' <small>' + esc(h.rev) + '</small></span></div></div><div class="h1">Section ' + b.code + ' – ' + esc(b.title) + '</div>';
+        pane.appendChild(page); return;
+      }
+      if (!page) return;
+      if (b.type === 'clause' && b.excluded && ui.hideExcluded && side === 'R') return;
+      var el = htmlToEl(blockHtml(b)); if (el) page.appendChild(el);
+    });
+    SIDE = 'R';
+    return pane;
+  }
+
+  /* deviation tray */
+  function trayItems() {
+    var items = [];
+    (lastModel.blocks || []).forEach(function (b) {
+      if (!b.id || !(b.type === 'clause' || b.type === 'h3')) return;
+      if (b.inserted) items.push({ id: b.id, kind: 'inserted', num: b.num, text: b.text });
+      else if (b.excluded) items.push({ id: b.id, kind: 'excluded', num: '—', text: b.text });
+      else if (b.edited) items.push({ id: b.id, kind: 'edited', num: b.num, text: b.text });
+    });
+    var seen = new Set(items.map(function (i) { return i.id; }));
+    job.comments.forEach(function (c) { if (!c.resolved && !seen.has(c.clauseId)) { seen.add(c.clauseId); var b = blockById(c.clauseId); items.push({ id: c.clauseId, kind: 'commented', num: b ? b.num : '', text: c.text }); } });
+    job.proposals.forEach(function (p) { if (!seen.has(p.clauseId)) { seen.add(p.clauseId); items.push({ id: p.clauseId, kind: 'proposed', num: (blockById(p.clauseId) || {}).num || '', text: p.toText }); } });
+    return items;
+  }
+  function blockById(id) { return (lastModel.blocks || []).filter(function (b) { return b.id === id; })[0] || null; }
+  function renderTray() {
+    var host = $('#tray'); if (!host) return;
+    var items = trayItems();
+    var q = job.proposals.filter(function (p) { return p.status === 'queued'; }).length;
+    $('#trayCount').textContent = items.length + ' deviation' + (items.length === 1 ? '' : 's') + (q ? ' · ' + q + ' queued for firm' : '');
+    host.innerHTML = items.length ? items.map(function (it, i) { return '<div class="tray-row k-' + it.kind + (it.id === ui.selectedId ? ' sel' : '') + '" data-id="' + esc(it.id) + '" data-i="' + i + '"><span class="tk">' + it.kind + '</span><span class="tn">' + esc(it.num) + '</span><span class="tt">' + esc(plainText(it.text)).slice(0, 90) + '</span></div>'; }).join('') : '<div class="hint">No deviations from master on this job.</div>';
+    host.querySelectorAll('.tray-row').forEach(function (r) { r.addEventListener('click', function () { ui.trayIdx = +r.dataset.i; ui.lastClickSide = null; select(r.dataset.id, true); }); });
+  }
+  function highlightTray() { var host = $('#tray'); if (!host) return; host.querySelectorAll('.tray-row').forEach(function (r) { r.classList.toggle('sel', r.dataset.id === ui.selectedId); }); }
+  function trayStep(dir) { var items = trayItems(); if (!items.length) return; ui.trayIdx = ((ui.trayIdx + dir) % items.length + items.length) % items.length; ui.lastClickSide = null; select(items[ui.trayIdx].id, true); }
+
+  /* review mode */
+  function setReview(on) {
+    ui.review = !!on; document.body.classList.toggle('review', ui.review);
+    var dr = document.querySelector('.job-drawer'); if (dr) dr.open = !ui.review;
+    document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.checked = (r.value === 'review') === ui.review; });
+    render();
+  }
+  document.querySelectorAll('input[name="mode"]').forEach(function (r) { r.addEventListener('change', function () { setReview(r.value === 'review'); }); });
+  $('#cmpSource').addEventListener('change', function (e) { ui.compare = e.target.value; render(); });
+  document.addEventListener('keydown', function (e) {
+    var t = e.target; if (t && (t.tagName === 'TEXTAREA' || t.tagName === 'INPUT' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+    if (e.key === 'r' || e.key === 'R') { setReview(!ui.review); }
+    else if (e.key === 'n' || e.key === 'N') trayStep(1);
+    else if (e.key === 'p' || e.key === 'P') trayStep(-1);
+  });
+
+  /* comments */
+  function addComment(id, text) { if (!text.trim()) return; job.comments.push({ id: mintId('c'), clauseId: id, at: new Date().toISOString(), atToronto: nowToronto(true), by: who(), text: text.trim(), resolved: false }); markDirty(); render(); }
+  function toggleResolved(cid) { job.comments.forEach(function (c) { if (c.id === cid) c.resolved = !c.resolved; }); markDirty(); render(); }
+
+  /* propose to firm — queue only; the in-file master is never touched here */
+  function proposeToFirm(id) {
+    var D = window.Dlg; var ins = insertionOf(id); var found = findNode(id);
+    var fromText = ins ? '' : (found ? plainText(job.fm && found.node.fm ? found.node.fm : (found.node.p || found.node.h || '')) : '');
+    var toText = ins ? (ins.text || '') : (job.edits[id] != null ? job.edits[id] : fromText);
+    var push = function (reason) { if (!reason || !reason.trim()) return; job.proposals.push({ id: mintId('prop'), clauseId: id, at: new Date().toISOString(), atToronto: nowToronto(true), by: who(), fromText: fromText, toText: toText, reason: reason.trim(), status: 'queued' }); markDirty(); render(); setPill('Queued for the firm master — an Admin session publishes; nothing changed in the library', 'ok'); };
+    if (D && D.prompt) { D.prompt({ title: 'Propose to firm master', message: 'Why should the master adopt this wording? (required)', placeholder: 'Reason', confirmText: 'Queue proposal', validate: function (v) { return v && v.trim() ? '' : 'A reason is required.'; } }).then(function (v) { if (v) push(v); }); }
+    else { var m = $('#propModal'); $('#propReason').value = ''; m.hidden = false; $('#propGo').onclick = function () { var v = $('#propReason').value; if (!v.trim()) { $('#propReason').focus(); return; } m.hidden = true; push(v); }; $('#propNo').onclick = function () { m.hidden = true; }; }
+  }
 
   /* ── small helpers ── */
   var MAIL = 'mail' + '@' + 'arencon.com';
@@ -1617,7 +1895,7 @@ function b64ToBytes(b64) {
   /* ── boot: restore last local draft ── */
   idbGet(LAST_KEY).then(function (saved) { if (saved && saved.header) { try { applyLoadedJob(saved); setPill('Restored local draft · ' + nowToronto(), 'ok'); return; } catch (e) {} } bindHeaderFields(); renderRail(); render(); setPill('New job · master ' + job.masterVersion + (HUB_MODE ? ' · Hub sync: S2' : ' · local draft'), 'ok'); })
     .catch(function () { bindHeaderFields(); renderRail(); render(); })
-    .then(function () { renderIssues(); markClean(); });
+    .then(function () { renderIssues(); markClean(); var o = $('#cmpSource').querySelector('option[value=issue]'); o.disabled = !job.issues.length; });
 })();
 </script>
 <script type="module">
