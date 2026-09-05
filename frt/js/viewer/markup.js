@@ -2526,6 +2526,14 @@ function _getBounds(obj) {
 // ── Drawing Input ───────────────────────────────────────
 
 var _startX = 0, _startY = 0, _endX = 0, _endY = 0;
+// S720: on touch, the text tool places on RELEASE, not press (same rule as the
+// S461k polyline points). Placing on press opened the box the instant the first
+// finger landed, so a two-finger pinch/pan could never start in text mode — the
+// box was already up before the second finger arrived (Elvis, 4 Sep). A tap is
+// pending from a single-finger press until a second finger lands or the finger
+// travels more than _TEXT_TAP_SLOP px; only a still-pending release places.
+var _textTapPending = false, _textTapX = 0, _textTapY = 0;
+var _TEXT_TAP_SLOP = 10;
 
 function _startDraw(e) {
   if (!_tool || _tool === 'select') return;
@@ -5559,12 +5567,18 @@ function _wireEvents() {
       if (_isDrawing) _endDraw({});
       // S126 #5 — also cancel any in-progress click-to-draw shape
       _cancelClickToDraw();
+      _textTapPending = false;   // S720: a pinch is not a text tap
       return;
     }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'trash') { _handleTrashDown(e); return; }   // S574
     if (_tool === 'select') { _handleSelectDown(e); return; }
+    if (_tool === 'text') {                                   // S720: arm, place on release
+      _textTapPending = true;
+      _textTapX = e.touches[0].clientX; _textTapY = e.touches[0].clientY;
+      return;
+    }
     _startDraw(e);
   }, { passive: false });
 
@@ -5575,12 +5589,20 @@ function _wireEvents() {
       if (_isDrawing) _endDraw({});
       // S126 #5 — also cancel any in-progress click-to-draw shape
       _cancelClickToDraw();
+      _textTapPending = false;   // S720
       return;
     }
     if (!_tool || _tool === 'pin') return;
     e.preventDefault();
     if (_tool === 'trash') { return; }   // S574: trash has no drags
     if (_tool === 'select') { _handleSelectMove(e); return; }
+    if (_tool === 'text') {              // S720: a finger that travels is not a tap
+      if (_textTapPending) {
+        var _tdx = e.touches[0].clientX - _textTapX, _tdy = e.touches[0].clientY - _textTapY;
+        if ((_tdx * _tdx + _tdy * _tdy) > _TEXT_TAP_SLOP * _TEXT_TAP_SLOP) _textTapPending = false;
+      }
+      return;
+    }
     if (_tool === 'polyline' && PolyHost && PolyHost.count() >= 1 && !_isDrawing) {
       _drawPolylinePreview(e);
       return;
@@ -5594,6 +5616,12 @@ function _wireEvents() {
     if (_tool === 'select') { _handleSelectUp(); return; }
     // S461k: release-commit (uses changedTouches — _getPos handles touchend)
     if (_tool === 'polyline' && !_isDrawing) { _handlePolylineClick(e); return; }
+    if (_tool === 'text') {                                   // S720: place on release
+      var _wasTap = _textTapPending;
+      _textTapPending = false;
+      if (_wasTap && e.touches.length === 0) _handleTextPlace(e);
+      return;
+    }
     if (_tool === 'dimension' && _dimChainPressPending && !_isDrawing) {
       _dimChainPressPending = false; _dimChainRelease(e); return;
     }

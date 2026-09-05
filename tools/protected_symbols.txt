@@ -1312,3 +1312,5 @@ SPEC_BUILD
 .chk
 #spec-build-stamp
 _fitAreaW
+_textTapPending
+_TEXT_TAP_SLOP
