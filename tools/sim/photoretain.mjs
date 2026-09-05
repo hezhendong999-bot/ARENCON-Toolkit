@@ -165,6 +165,28 @@ before = cases;
 }
 console.log('  ' + (cases - before) + ' delegation checks');
 
+/* ── 6: S721 — one reader for "is this deleted" ─────────────────────────── */
+/* Eligibility used to read the legacy flag; the trash listing read the
+   canonical state. Load the lifecycle module into the same root and prove
+   both questions now get the same answer. Red on the pre-S721 source. */
+before = cases;
+{
+  const root2 = {};
+  new Function('window', 'module', fs.readFileSync(path.join(REPO, 'lib/data/photoLifecycle.js'), 'utf8'))(root2, undefined);
+  new Function('window', 'module', fs.readFileSync(path.join(REPO, 'lib/data/photoRetention.js'), 'utf8'))(root2, undefined);
+  const R2 = root2.PhotoRetention;
+  const old = { retentionDays: 90, now: NOW };
+  agree('canonical-only deleted record expires (legacy flag absent)', true,
+        R2.isExpired({ delState: 'deleted', delAt: iso(NOW - 100 * DAY) }, old));
+  agree('legacy-only deleted record still expires', true,
+        R2.isExpired({ deleted: true, deletedDate: iso(NOW - 100 * DAY) }, old));
+  agree('a restored photo with a stale legacy flag is NEVER purged', false,
+        R2.isExpired({ delState: 'live', deleted: true, delAt: iso(NOW - 100 * DAY) }, old));
+  agree('without the lifecycle module the legacy flag is still read', true,
+        R.isExpired({ deleted: true, delAt: iso(NOW - 100 * DAY) }, old));
+}
+console.log('  ' + (cases - before) + ' canonical-state assertions');
+
 console.log('\n' + cases + ' cases, ' + bad.length + ' failures');
 if (bad.length) {
   console.log('\nFAILURES:');

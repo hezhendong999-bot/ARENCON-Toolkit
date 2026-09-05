@@ -1,11 +1,12 @@
 /* ══════════════════════════════════════════════════════════════════════════
    DIESEL — REPORT MANIFEST                 diesel-app/js/reportManifest.js
    ──────────────────────────────────────────────────────────────────────────
-   UNIFICATION PHASE 2, Part A. THIS FILE IS NOT YET WIRED INTO THE TOOL. It is
-   built and proven beside the live code; switching collectState/_applyLoadedState
-   over to it is Part B and happens with Mark present, because it is the
-   save-and-load path and a wrong collect is invisible until a value goes
-   missing on a tablet three days later.
+   UNIFICATION PHASE 2, Part A. WIRED IN (Part B landed): collectState returns
+   dieselCollectViaManifest() and the load path runs dieselApplyViaManifest().
+   The header below is kept as the record of why it was built beside the live
+   code first — the save-and-load path is where a wrong collect is invisible
+   until a value goes missing on a tablet three days later. (S721: header was
+   still saying "not yet wired" — corrected.)
 
    WHAT IT IS. One declared list of every key a Diesel report carries: how each
    is gathered off the screen, and how each is put back. The engine that reads

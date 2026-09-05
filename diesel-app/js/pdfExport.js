@@ -1062,7 +1062,19 @@ function _realExportPDF() {
          around nothing under the flow-chart sub-header. The pointer survives because
          merge has no tombstone for this array, so the report must filter it:
          print what exists, never a frame around a hole. */
-      const _ftLive = (flowTestPhotos||[]).filter(function(p){ return p && String(p.deleted)!=='true'; });
+      /* S721 — TWO faults in one block. (1) Only the 3-point array ever printed:
+         a 7-point (PLD) test's flow-chart and gauge photos were eligible in the
+         pre-print picker, counted as "included", and then never drawn anywhere
+         in the client PDF. (2) The picker's exclusions were ignored here, and
+         "deleted" was the legacy flag rather than the canonical state. Both
+         arrays now print, each under its own sub-header, each photo passing the
+         same three tests the picker promised: live, eligible, not excluded. */
+      var _ftIsLive = function(p){ return p && !(typeof _isPhotoDeleted==='function' ? _isPhotoDeleted(p) : String(p.deleted)==='true') && !(p.id && _appendixExcl.has(p.id)); };
+      var _ftGroups = [
+        { label:'Flow Chart &amp; Equipment (3-Point)', items:(flowTestPhotos||[]).filter(_ftIsLive) },
+        { label:'Flow Chart &amp; Equipment (7-Point)', items:(typeof flowTestPhotosPld!=='undefined' ? (flowTestPhotosPld||[]) : []).filter(_ftIsLive) }
+      ].filter(function(G){ return G.items.length; });
+      const _ftLive = _ftGroups.reduce(function(a,G){ return a.concat(G.items); }, []);
       if (ftPrint && _ftLive.length > 0) {
         // S372.5: if the appendix had no eligible photos, no "Photo Appendix" band
         // was emitted — add it here so flow-test charts sit under their own section
@@ -1072,16 +1084,18 @@ function _realExportPDF() {
         // S372.7: keep the sub-header glued to its first chart (apx-keep ⇒ atomic),
         // so the header never strands at a page bottom. Remaining charts flow as
         // separate blocks and may break across pages.
-        var _ftSub = '<div class="apx-subhead" data-subhead="Flow Chart &amp; Equipment" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
+        var _ftSub = function(lbl){ return '<div class="apx-subhead" data-subhead="'+lbl+'" style="display:flex;align-items:center;gap:9px;padding:16px 0 6px;margin:0 0 11px;border-bottom:1px solid #D8DCE3;">'
           + '<span style="width:4px;height:15px;background:#9C2742;border-radius:2px;display:inline-block;flex:0 0 auto;"></span>'
-          + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">Flow Chart &amp; Equipment</span></div>';
+          + '<span style="font:700 14px Calibri,sans-serif;color:#1C2333;letter-spacing:.3px;">'+lbl+'</span></div>'; };
         var _ftCard = function(p){ return '<div style="width:228px;height:228px;background:#f2f2f2;border:1px solid #C9CDD4;border-radius:4px;overflow:hidden;">'+_lnk(p, '<img src="'+_phSrc(p)+'" style="width:100%;height:100%;object-fit:cover;display:block;">')+'</div>'; };
         // first block = subhead + first chart (atomic); rest = 3-up rows that split freely
-        ftHtml += '<div class="apx-keep">'+_ftSub+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(_ftLive[0])+'</div></div>';
-        for(var _fi=1; _fi<_ftLive.length; _fi+=3){
-          var _grp = _ftLive.slice(_fi,_fi+3).map(_ftCard).join('');
-          ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">'+_grp+'</div>';
-        }
+        _ftGroups.forEach(function(G){
+          ftHtml += '<div class="apx-keep">'+_ftSub(G.label)+'<div style="display:flex;flex-wrap:wrap;gap:12px;">'+_ftCard(G.items[0])+'</div></div>';
+          for(var _fi=1; _fi<G.items.length; _fi+=3){
+            var _grp = G.items.slice(_fi,_fi+3).map(_ftCard).join('');
+            ftHtml += '<div style="display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;">'+_grp+'</div>';
+          }
+        });
         ftPrint.innerHTML = ftHtml;
       }
       // Photos now appear inline after each checklist item (removed appendix section)

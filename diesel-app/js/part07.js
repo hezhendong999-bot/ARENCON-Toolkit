@@ -311,7 +311,7 @@ function _pgIsAdmin(){
 function _pgPurgePhoto(pid){
   if(!_pgIsAdmin()){ showToast('\u26A0 Only a principal can delete a photo permanently'); return; }
   var hit = _collectAllPhotos({includeDeleted:true}).filter(function(a){ return (a.photo.id||'')===pid; })[0];
-  if(!hit || !hit.photo.deleted){ showToast('Photo not found'); return; }
+  if(!hit || !_isPhotoDeleted(hit.photo)){ showToast('Photo not found'); return; }   // S721: canonical state, not the legacy flag
   _aConfirm('Permanently delete this photo? This cannot be undone and removes it from cloud storage.', function(){
     var ph = hit.photo;
     _pgRemovePhoto(hit);   // real splice + surface re-render (the old hard-delete path)
@@ -823,8 +823,8 @@ function _placardScan(btn, mode){
   // request for both pumps now. (If a multi-photo placard is ever needed, cap at 1
   // here and revisit the worker's image limit deliberately.)
   var take = (mode==='pld')
-    ? rp.filter(function(p){return (p.kind||'')==='placard-pld';}).slice(-1)
-    : rp.filter(function(p){return (p.kind||'')==='placard';}).slice(-1);
+    ? rp.filter(function(p){return (p.kind||'')==='placard-pld' && !_isPhotoDeleted(p);}).slice(-1)
+    : rp.filter(function(p){return (p.kind||'')==='placard' && !_isPhotoDeleted(p);}).slice(-1);   // S721: a deleted placard is not a placard
   /* S562 (Mark): the scan used to look ONLY in its own Placard box and answer
      "Capture a placard photo first" while the inspector's placard shot sat in
      plain sight in the Pump box — filed under the wrong label, which is the
@@ -836,7 +836,7 @@ function _placardScan(btn, mode){
      obviously-wrong preview, never a wrong report. The tab's own placard kind
      still wins whenever it exists (S338: each tab scans only its own pump). */
   if(!take.length){
-    take = rp.filter(function(p){return (p.kind||'')==='pump' && !p.deleted;}).slice(-1);
+    take = rp.filter(function(p){return (p.kind||'')==='pump' && !_isPhotoDeleted(p);}).slice(-1);
     if(take.length){ showToast('No photo in the Placard box \u2014 scanning the latest Pump-box photo instead'); }
   }
   if(!take.length){ showToast(mode==='pld' ? 'Capture a PLD/engine placard photo first' : 'Capture a placard photo first'); return; }

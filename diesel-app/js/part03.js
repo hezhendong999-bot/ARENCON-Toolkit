@@ -76,11 +76,13 @@ function _showInspectorModal(){
     return;
   }
   var current = getInspectorName();
-  var v = prompt('Inspector name:', current);
-  if(v !== null){
-    localStorage.setItem(LS_INSPECTOR, v.trim());
+  /* S721: the last browser prompt() in this tool. Toolkit rule — every dialog is
+     the engine's. Standalone-only path (Hub mode locks identity above). */
+  _aPrompt('Inspector name:', current, function(v){
+    if(v === null || v === undefined) return;
+    localStorage.setItem(LS_INSPECTOR, String(v).trim());
     _updateInspectorChip();
-  }
+  });
 }
 // Derive the signed-in user's real name (profiles.full_name > user_metadata > email prefix),
 // write the shared key, update + lock the chip. Mirrors FRT app.js exactly.

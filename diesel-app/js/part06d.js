@@ -2789,7 +2789,7 @@ function _dslUploadUnsentPhotos(){
   function _sweep(arr){
     if(!arr) return;
     arr.forEach(function(p){
-      if(!p || p.deleted) return;
+      if(!p || (typeof _isPhotoDeleted==='function' ? _isPhotoDeleted(p) : p.deleted)) return;   // S721: canonical state
       if(p.r2Key) return;                 // already has a home in cloud storage
       if(!p.d) return;                    // no picture here to send
       _r2EnqueuePhoto(p);

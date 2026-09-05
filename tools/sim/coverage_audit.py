@@ -3,26 +3,15 @@
 on the ACCEPTED list below. New uncovered keys FAIL the build (exit 1)."""
 import re, sys, os
 R=os.path.dirname(__file__)+'/../..'
-src=open(R+'/diesel-app/js/part06c.js').read()
-# S616c — the window used to be a flat src[i:][:9000]. collectState's return
-# block had already grown past that, so the audit was reading PART of the
-# report and reporting full coverage on the rest — the same fault as a test
-# that passes because it never reaches the code it claims to check. It is now
-# bounded by matching the return block's own braces, and it FAILS LOUDLY if it
-# cannot find the end rather than quietly auditing a fragment.
-_i=src.find('function collectState()')
-_j=src.find('return {', _i)
-if _i<0 or _j<0: sys.exit('coverage_audit: collectState return block not found')
-_d=0; _k=_j+len('return ')
-while _k<len(src):
-    if src[_k]=='{': _d+=1
-    elif src[_k]=='}':
-        _d-=1
-        if _d==0: break
-    _k+=1
-else: sys.exit('coverage_audit: unbalanced braces in collectState return block')
-ret=src[_j:_k+1]
-keys=set(re.findall(r'^\s{4}(\w+)[,:]', ret, re.M))
+# S721 — collectState no longer returns an inline object: since the manifest
+# conversion it returns dieselCollectViaManifest(). The old scan matched a later
+# function's `return {` and found ZERO keys, so this audit had been passing while
+# checking nothing. The declared list of report keys now lives in
+# diesel-app/js/reportManifest.js (`key: '...'`), and that is what is read.
+# It fails loudly on an empty read rather than quietly auditing nothing.
+man=open(R+'/diesel-app/js/reportManifest.js').read()
+keys=set(re.findall(r"\bkey:\s*'(\w+)'", man))
+if len(keys)<20: sys.exit('coverage_audit: manifest read returned %d keys — refusing to audit nothing' % len(keys))
 spec=open(R+'/lib/data/sync.js').read()
 dseg=spec[spec.find("diesel: {"):spec.find("electric:")]
 covered=set(re.findall(r'^\s+(\w+):\s*\{\s*key:', dseg, re.M))
