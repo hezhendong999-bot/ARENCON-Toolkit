@@ -68,7 +68,7 @@ console.log('\n═══ EXPORT RECORD — schema ' + RECORD_SCHEMA + ' / words 
 console.log('── PART A — every export takes a snapshot (§4) ──');
 
 const p1 = proj();
-const r1 = makeRecord(p1, 'B01', '2026-09-01T14:00:00Z', 'elvis');
+const r1 = makeRecord(p1, 'B01', '2026-09-01T14:00:00Z', 'elvis', 'exp_1');
 is(!!r1, true, 'an export produces a record');
 is(r1.v, 'B01', 'the record carries the version it was exported under');
 is(r1.at, '2026-09-01T14:00:00Z', 'the record carries when');
@@ -80,23 +80,23 @@ is(r1.words && r1.words.header ? r1.words.header.projectNumber : null, '1490.04'
 /* §4 worked example: "Export B01 at 14:00, notice an error, fix it, export
    again at 14:20 → two snapshots, both B01, both kept forever." */
 let recs = [];
-recs = appendRecord(recs, makeRecord(p1, 'B01', '2026-09-01T14:00:00Z', 'elvis'));
+recs = appendRecord(recs, makeRecord(p1, 'B01', '2026-09-01T14:00:00Z', 'elvis', 'exp_1'));
 const p1fixed = proj('Corrected note.');
-recs = appendRecord(recs, makeRecord(p1fixed, 'B01', '2026-09-01T14:20:00Z', 'elvis'));
+recs = appendRecord(recs, makeRecord(p1fixed, 'B01', '2026-09-01T14:20:00Z', 'elvis', 'exp_2'));
 is(recs.length, 2, '§4 two exports, two snapshots');
 is(recs[0].v === 'B01' && recs[1].v === 'B01', true, '§4 both are B01 — the number did not move');
 is(recs[0].digest !== recs[1].digest, true, '§4 the two snapshots hold different words');
 is(exportCount(recs, 'B01'), 2, 'B01 was exported twice');
 
-is(makeRecord(null, 'B01', 'now', 'e'), null, 'an unreadable report produces NO record, not an empty one');
-is(makeRecord(p1, '', 'now', 'e'), null, 'a record without a version is refused');
+is(makeRecord(null, 'B01', 'now', 'e', 'x'), null, 'an unreadable report produces NO record, not an empty one');
+is(makeRecord(p1, '', 'now', 'e', 'x'), null, 'a record without a version is refused');
 
 /* ── PART B — one chip per version (§4.1) ───────────────────────────────── */
 console.log('\n── PART B — one chip per version (§4.1) ──');
 
-recs = appendRecord(recs, makeRecord(proj('B02 words.'), 'B02', '2026-09-05T09:00:00Z', 'mark'));
-recs = appendRecord(recs, makeRecord(proj('B02 words fixed.'), 'B02', '2026-09-05T09:30:00Z', 'mark'));
-recs = appendRecord(recs, makeRecord(proj('B03 words.'), 'B03', '2026-09-08T11:00:00Z', 'elvis'));
+recs = appendRecord(recs, makeRecord(proj('B02 words.'), 'B02', '2026-09-05T09:00:00Z', 'mark', 'exp_3'));
+recs = appendRecord(recs, makeRecord(proj('B02 words fixed.'), 'B02', '2026-09-05T09:30:00Z', 'mark', 'exp_4'));
+recs = appendRecord(recs, makeRecord(proj('B03 words.'), 'B03', '2026-09-08T11:00:00Z', 'elvis', 'exp_5'));
 
 is(recs.length, 5, 'five exports are stored');
 is(versionsWithRecords(recs), ['B01', 'B02', 'B03'], '§4.1 the chip list is one entry per version, in order');
@@ -168,15 +168,44 @@ console.log('\n── PART F — nothing given to the store is modified ──')
 
 const snapRecs = JSON.stringify(recs);
 const snapProj = JSON.stringify(p1);
-appendRecord(recs, makeRecord(p1, 'B04', 'now', 'x'));
-makeRecord(p1, 'B04', 'now', 'x');
+appendRecord(recs, makeRecord(p1, 'B04', 'now', 'x', 'exp_9'));
+makeRecord(p1, 'B04', 'now', 'x', 'exp_9');
 compareToVersion(p1, recs, 'B01');
 is(JSON.stringify(recs), snapRecs, 'the record list is untouched');
 is(JSON.stringify(p1), snapProj, 'the report is untouched — a snapshot only reads');
 
-const grown = appendRecord(recs, makeRecord(p1, 'B04', 'now', 'x'));
+const grown = appendRecord(recs, makeRecord(p1, 'B04', 'now', 'x', 'exp_9'));
 grown.push({ v: 'JUNK' });
 is(JSON.stringify(recs), snapRecs, 'mutating a returned list cannot reach back into the input');
+
+
+/* ── PART G — SNAPSHOTS THROUGH THE REAL SYNC MERGE ─────────────────────────
+   The same hazard as the ledger, and the same reason the id exists. Two
+   inspectors export on two devices; both snapshots must survive. */
+
+const { merge3 } = await import('../../lib/data/merge.js');
+
+console.log('\n── PART G — snapshots through the real sync merge ──');
+
+const baseP = { id: 'p1', info: { projectNumber: '1490.04' }, exportRecords: [] };
+const withA = { ...baseP, exportRecords: appendRecord([], makeRecord(proj('A words.'), 'B01', 't1', 'elvis', 'exp_A')) };
+const withB = { ...baseP, exportRecords: appendRecord([], makeRecord(proj('B words.'), 'B01', 't2', 'mark', 'exp_B')) };
+
+const mg = merge3(baseP, withA, withB);
+is(mg.merged.exportRecords.map(r => r.id).sort(), ['exp_A', 'exp_B'],
+  'two devices each export — BOTH snapshots survive the merge');
+is(mg.conflicts.length, 0, 'and it is not a conflict');
+is(exportCount(mg.merged.exportRecords, 'B01'), 2, 'both are still B01, one tap deep');
+
+const stripIds = (p) => ({ ...p, exportRecords: p.exportRecords.map(({ id, ...r }) => r) });
+const mg2 = merge3(stripIds(baseP), stripIds(withA), stripIds(withB));
+is(mg2.merged.exportRecords.length < 2, true,
+  'WITHOUT ids the merge keeps only ' + mg2.merged.exportRecords.length + ' of 2 — the loss the id prevents');
+
+/* A snapshot must never be edited by a merge — it is what a PDF said. */
+const same = merge3(withA, withA, withA);
+is(JSON.stringify(same.merged.exportRecords), JSON.stringify(withA.exportRecords),
+  'a snapshot passes through the merge unchanged — history is not rewritten');
 
 /* ── result ─────────────────────────────────────────────────────────────── */
 

@@ -31,8 +31,15 @@
 
    ─── WHAT A RECORD HOLDS ───────────────────────────────────────────────────
 
-     { v:'B02', schema:1, at:'2026-09-01T14:20:00Z', by:'elvis',
+     { id:'exp_…', v:'B02', schema:1, at:'2026-09-01T14:20:00Z', by:'elvis',
        digest:'…', words:{ … } }
+
+   The id is minted by the caller and is not decoration. The sync merge keys
+   arrays by an id field and nothing else; without one, two devices that each
+   export produce two different arrays, the merge cannot match them item by
+   item, and it resolves the whole array one-side-wins — silently throwing
+   away the other device's snapshots. With an id, both survive, the same way
+   two deficiencies added on two devices both survive.
 
    The words are reportWords()'s projection — report header, deficiencies,
    comments, thread history. §7: a snapshot stores the WORDS and does NOT
@@ -82,10 +89,11 @@ function list(records) {
    Returns null for a report that cannot be read, because a record that says
    nothing is worse than no record: it would later read as "this is what B02
    said" when it is not. */
-export function makeRecord(proj, version, at, by) {
+export function makeRecord(proj, version, at, by, id) {
   var w = reportWords(proj);
-  if (!w || !version) return null;
+  if (!w || !version || !id) return null;
   return {
+    id: String(id),
     v: String(version),
     schema: RECORD_SCHEMA,
     wordsSchema: WORDS_SCHEMA,

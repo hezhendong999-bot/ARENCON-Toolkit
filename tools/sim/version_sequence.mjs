@@ -25,7 +25,7 @@ import {
   seedLedger, isInferred, SEQ_SCHEMA
 } from '../../frt/js/data/versionSeq.js';
 
-let pass = 0, fail = 0; const failures = [];
+let pass = 0, fail = 0; const failures = []; let _n = 0;
 function is(actual, expected, label) {
   const ok = JSON.stringify(actual) === JSON.stringify(expected);
   if (ok) { pass++; console.log('  ✓ ' + label); }
@@ -108,11 +108,11 @@ is(refused.version, 'B02', 'a refused delete changes nothing');
 console.log('\n── PART C — repeated Issue mints nothing (§4) ──');
 
 let led = L('A01', 'A02');
-const first = issue(led, 'words-1', { at: '2026-09-01T10:00:00Z', by: 'elvis' });
+const first = issue(led, 'words-1', { id:'v_a', at: '2026-09-01T10:00:00Z', by: 'elvis' });
 is(first.version, 'B01', 'first Issue gives B01');
 is(first.minted, true, 'first Issue mints');
 
-const again = issue(first.ledger, 'words-1', { at: '2026-09-01T10:05:00Z', by: 'elvis' });
+const again = issue(first.ledger, 'words-1', { id:'v_b', at: '2026-09-01T10:05:00Z', by: 'elvis' });
 is(again.version, 'B01', '§4 pressing Issue again on unchanged words returns B01');
 is(again.minted, false, '§4 nothing is minted');
 is(again.ledger.length, first.ledger.length, '§4 no second copy appears in the ledger');
@@ -120,20 +120,20 @@ is(again.ledger.length, first.ledger.length, '§4 no second copy appears in the 
 /* §4: "Mashing the button on A02 yields B01 every time." */
 let mash = L('A01', 'A02'), mashLedger = mash, mashResults = [];
 for (let i = 0; i < 5; i++) {
-  const r = issue(mashLedger, 'words-1', {});
+  const r = issue(mashLedger, 'words-1', { id:'v_'+(++_n) });
   mashLedger = r.ledger; mashResults.push(r.version);
 }
 is(mashResults, ['B01', 'B01', 'B01', 'B01', 'B01'], '§4 mashing Issue five times yields B01 every time');
 is(mashLedger.filter(e => e.issued).length, 1, '§4 five presses leave exactly one issued copy');
 
-const moved = issue(first.ledger, 'words-2', {});
+const moved = issue(first.ledger, 'words-2', { id:'v_'+(++_n) });
 is(moved.version, 'B02', '§4 B02 appears only when the words actually changed');
 is(moved.minted, true, '§4 a real change mints');
 
-const noDigest = issue(first.ledger, '', {});
+const noDigest = issue(first.ledger, '', { id:'v_'+(++_n) });
 is(noDigest.version, 'B02', 'an uncomputable digest mints rather than assuming "unchanged"');
 
-const revised = revise(first.ledger, {});
+const revised = revise(first.ledger, { id:'v_r1' });
 is(revised.version, 'B01A01', 'revising after B01 gives B01A01');
 is(lastIssued(revised.ledger).v, 'B01', 'the last issued copy is still B01');
 is(currentVersion(revised.ledger), 'B01A01', 'the tip is the revision');
@@ -141,13 +141,13 @@ is(currentVersion(revised.ledger), 'B01A01', 'the tip is the revision');
 /* A full walk, the way a real report moves. */
 let w = [];
 const walk = [];
-let r1 = revise(w, {}); w = r1.ledger; walk.push(r1.version);          /* A01 */
-let r2 = revise(w, {}); w = r2.ledger; walk.push(r2.version);          /* A02 */
-let r3 = issue(w, 'v1', {}); w = r3.ledger; walk.push(r3.version);     /* B01 */
-let r4 = revise(w, {}); w = r4.ledger; walk.push(r4.version);          /* B01A01 */
-let r5 = issue(w, 'v2', {}); w = r5.ledger; walk.push(r5.version);     /* B02 */
+let r1 = revise(w, { id:'v_'+(++_n) }); w = r1.ledger; walk.push(r1.version);          /* A01 */
+let r2 = revise(w, { id:'v_'+(++_n) }); w = r2.ledger; walk.push(r2.version);          /* A02 */
+let r3 = issue(w, 'v1', { id:'v_'+(++_n) }); w = r3.ledger; walk.push(r3.version);     /* B01 */
+let r4 = revise(w, { id:'v_'+(++_n) }); w = r4.ledger; walk.push(r4.version);          /* B01A01 */
+let r5 = issue(w, 'v2', { id:'v_'+(++_n) }); w = r5.ledger; walk.push(r5.version);     /* B02 */
 let r6 = remove(w, 'B02', false); w = r6.ledger; walk.push(currentVersion(w)); /* back to B01A01 */
-let r7 = issue(w, 'v3', {}); w = r7.ledger; walk.push(r7.version);     /* B02 again */
+let r7 = issue(w, 'v3', { id:'v_'+(++_n) }); w = r7.ledger; walk.push(r7.version);     /* B02 again */
 is(walk, ['A01', 'A02', 'B01', 'B01A01', 'B02', 'B01A01', 'B02'], 'a full walk matches the ruling end to end');
 
 /* ── PART D — entering the system (§17.1) ───────────────────────────────── */
@@ -221,15 +221,69 @@ console.log('\n── PART F — the engine never modifies what it is given ─�
 
 const original = L('A01', 'B01');
 const snapshot = JSON.stringify(original);
-issue(original, 'x', { at: 'now' });
+issue(original, 'x', { id:'v_p1', at: 'now' });
 revise(original, {});
 remove(original, 'B01', false);
 nextIssue(original); nextDraft(original); isLocked(original, 'B01', false);
 is(JSON.stringify(original), snapshot, 'the input ledger is untouched by every operation');
 
-const out = issue(original, 'x', {}).ledger;
+const out = issue(original, 'x', { id:'v_'+(++_n) }).ledger;
 out.push({ v: 'JUNK', issued: false });
 is(JSON.stringify(original), snapshot, 'mutating a returned ledger cannot reach back into the input');
+
+
+/* ── PART G — SURVIVES THE REAL SYNC MERGE ──────────────────────────────────
+   Not a mock. This imports lib/data/merge.js — the merge engine that actually
+   runs when two devices sync — and puts the ledger through it.
+
+   Why this section exists: the merge keys arrays by an `id` field and nothing
+   else. An array whose items have no id cannot be matched item by item, so
+   two devices that both added something fall through to a whole-array
+   conflict and one side's entries are thrown away. That is silent version-
+   history loss, on a fleet where two inspectors on one project is normal.  */
+
+const { merge3 } = await import('../../lib/data/merge.js');
+
+console.log('\n── PART G — the ledger through the real sync merge ──');
+
+const baseLedger = [
+  { id: 'v_1', v: 'A01', issued: false },
+  { id: 'v_2', v: 'B01', issued: true, digest: 'd1' }
+];
+const asProj = (led) => ({ id: 'p1', info: { projectNumber: '1490.04' }, versions: led });
+
+/* Two devices, both busy. Elvis issues B02 on the tablet; Mark starts a
+   revision on the PC. Neither has seen the other. */
+const mine = asProj(issue(baseLedger, 'd2', { id: 'v_3', at: 't1', by: 'elvis' }).ledger);
+const theirs = asProj(revise(baseLedger, { id: 'v_4', at: 't2', by: 'mark' }).ledger);
+const m1 = merge3(asProj(baseLedger), mine, theirs);
+const merged1 = m1.merged.versions.map(e => e.id).sort();
+is(merged1, ['v_1', 'v_2', 'v_3', 'v_4'], 'two devices each add an entry — BOTH survive the merge');
+is(m1.conflicts.length, 0, 'and it is not even a conflict');
+
+/* The same scenario with the ids stripped — the design as it was before this
+   was caught. Kept as a live demonstration, not a story. */
+const strip = (p) => ({ ...p, versions: p.versions.map(({ id, ...rest }) => rest) });
+const m2 = merge3(strip(asProj(baseLedger)), strip(mine), strip(theirs));
+const lostCount = m2.merged.versions.length;
+is(lostCount < 4, true, 'WITHOUT ids the same merge keeps only ' + lostCount + ' of 4 entries — this is the loss the id prevents');
+
+/* A delete must travel, not bounce back. Elvis deletes the tip; Mark's device
+   still has it live and syncs afterwards. */
+const deleted = asProj(remove(issue(baseLedger, 'd2', { id: 'v_3', at: 't1' }).ledger, 'B02', false, 't3').ledger);
+const untouched = asProj(issue(baseLedger, 'd2', { id: 'v_3', at: 't1' }).ledger);
+const m3 = merge3(untouched, deleted, untouched);
+const v3 = m3.merged.versions.find(e => e.id === 'v_3');
+is(!!v3, true, 'the deleted entry is still PRESENT after merge — it is a tombstone, not a hole');
+is(v3.deleted, true, 'and it is still marked deleted — the delete travelled');
+is(currentVersion(m3.merged.versions), 'B01', 'the other device now agrees the tip is B01 — no resurrection');
+is(nextIssue(m3.merged.versions), 'B02', 'and B02 is available again, exactly as §3.1 requires');
+
+/* Two devices open the same un-seeded report at the same time. */
+const seedA = asProj(seedLedger('B01A02'));
+const seedB = asProj(seedLedger('B01A02'));
+const m4 = merge3({ id: 'p1', info: {} }, seedA, seedB);
+is(m4.merged.versions.length, 1, 'two devices seeding independently produce ONE entry, not a doubled ledger');
 
 /* ── result ─────────────────────────────────────────────────────────────── */
 

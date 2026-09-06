@@ -92,7 +92,19 @@ export function formatVersion(p) {
 
 /* ── reading a ledger ───────────────────────────────────────────────────── */
 
-function entries(ledger) { return Array.isArray(ledger) ? ledger.filter(function (e) { return e && typeof e.v === 'string'; }) : []; }
+/* Every entry the ledger holds, tombstones included. This is what gets SAVED
+   and what the merge sees — a deleted entry must survive as a marker or the
+   other device re-adds it on the next sync. */
+function allEntries(ledger) {
+  return Array.isArray(ledger) ? ledger.filter(function (e) { return e && typeof e.v === 'string'; }) : [];
+}
+
+/* The live sequence — what the tool shows and what every number is derived
+   from. Tombstones are invisible here, which is what makes a deleted number
+   available again. */
+function entries(ledger) {
+  return allEntries(ledger).filter(function (e) { return e.deleted !== true; });
+}
 
 export function tip(ledger) {
   var l = entries(ledger);
@@ -168,7 +180,7 @@ export function nextDraft(ledger) {
 /* ── moving the sequence ────────────────────────────────────────────────────
    Each returns a NEW ledger. None mutates its input.                        */
 
-function copy(ledger) { return entries(ledger).map(function (e) { return Object.assign({}, e); }); }
+function copy(ledger) { return allEntries(ledger).map(function (e) { return Object.assign({}, e); }); }
 
 /* §4 — pressing Issue repeatedly mints nothing. Issue compares the report in
    front of you against the last issued copy; unchanged words return the same
@@ -182,24 +194,41 @@ export function issue(ledger, digest, meta) {
   if (li && digest && li.digest && li.digest === digest) {
     return { ledger: l, version: li.v, minted: false };
   }
+  if (!meta || !meta.id) return { ledger: l, version: currentVersion(l), minted: false, error: 'id required' };
   var v = nextIssue(l);
-  l.push(Object.assign({ v: v, issued: true, digest: digest || '' }, meta || {}));
+  l.push(Object.assign({}, meta, { v: v, issued: true, digest: digest || '' }));
   return { ledger: l, version: v, minted: true };
 }
 
-/* Start revising on top of the newest issued copy. */
+/* Start revising on top of the newest issued copy. Same id requirement. */
 export function revise(ledger, meta) {
-  var l = copy(ledger), v = nextDraft(l);
-  l.push(Object.assign({ v: v, issued: false }, meta || {}));
+  var l = copy(ledger);
+  if (!meta || !meta.id) return { ledger: l, version: currentVersion(l), error: 'id required' };
+  var v = nextDraft(l);
+  l.push(Object.assign({}, meta, { v: v, issued: false }));
   return { ledger: l, version: v };
 }
 
 /* §3.1/§6 — delete the tip and the copy before it opens again. Refuses
-   anything that is not the tip; refusing is the whole point of the rule. */
-export function remove(ledger, v, hasLaterReport) {
-  if (!canDelete(ledger, v, hasLaterReport)) return { ledger: copy(ledger), removed: false, version: currentVersion(ledger) };
+   anything that is not the tip; refusing is the whole point of the rule.
+
+   A TOMBSTONE, never a splice. The same law the drawing folders settled at
+   S719: the merge matches items by id, so an entry that simply vanishes on
+   this device is seen as absent-here-present-there and is re-added on the
+   next sync. A deleted version would come back. Marking it deleted travels;
+   removing it does not. The array therefore never shrinks, which also means
+   the pull path needs no shrinkage guard for it. */
+export function remove(ledger, v, hasLaterReport, at) {
+  if (!canDelete(ledger, v, hasLaterReport)) {
+    return { ledger: copy(ledger), removed: false, version: currentVersion(ledger) };
+  }
   var l = copy(ledger);
-  l.pop();
+  for (var i = l.length - 1; i >= 0; i--) {
+    if (l[i].v === v && l[i].deleted !== true) {
+      l[i] = Object.assign({}, l[i], { deleted: true, deletedAt: at || '' });
+      break;
+    }
+  }
   return { ledger: l, removed: true, version: currentVersion(l) };
 }
 
@@ -207,7 +236,12 @@ export function remove(ledger, v, hasLaterReport) {
    §17.1 — not retroactive. One entry, marked inferred, carrying no digest. */
 export function seedLedger(revision) {
   var v = parseVersion(revision) ? String(revision).trim().toUpperCase() : 'A01';
-  return [{ v: v, issued: !!(parseVersion(v) || {}).issued, inferred: true }];
+  /* DETERMINISTIC id, deliberately not a minted one. Two devices that open the
+     same un-seeded report each build this entry independently; a random id
+     would give the merge two different entries for one copy and the ledger
+     would double. Derived from the version, both devices agree, the merge
+     sees one item. */
+  return [{ id: 'ver_seed_' + v, v: v, issued: !!(parseVersion(v) || {}).issued, inferred: true }];
 }
 
 export function isInferred(ledger, v) {
