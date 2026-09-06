@@ -20,14 +20,17 @@ import { Presence } from './data/presence.js';
 // path. Stub-only in S169; real behavior lands incrementally in
 // S170+. See FIX_A_ARCHITECTURE.md.
 import { BinaryOutbox } from './data/photoOutbox.js';
-/* S724 — REPORT VERSIONING, ADOPTION STEP ONE (recording only).
-   The ledger starts recording what the existing Issue flow already decides,
-   so that real history exists for the navigator and for the
-   no-new-number-unless-the-words-changed rule to read later. Nothing here
-   DECIDES a version number yet — _calcIssueRevision still does that, and is
-   deleted at step two when the engine takes over. See
-   LOCKED_REPORT_VERSIONING.md §3.1/§4 and frt/js/data/versionSeq.js. */
-import { seedLedger, record as recordVersion, currentVersion as ledgerTip } from './data/versionSeq.js';
+/* S724 — REPORT VERSIONING.
+   The report keeps a LEDGER of every version it has had, and the engine
+   decides what comes next from it. A single stored value could not say
+   whether a copy was locked, what a delete should fall back to, or whether
+   the words had moved — so the questions the ruling asks were unanswerable.
+   The engine now owns the grammar outright; app.js has no copy of it.
+   See LOCKED_REPORT_VERSIONING.md §3.1/§4 and frt/js/data/versionSeq.js. */
+import { seedLedger, record as recordVersion, currentVersion as ledgerTip,
+         issueTarget as ledgerIssueTarget, revertPlan as ledgerRevertPlan,
+         remove as ledgerRemove, nextDraft as ledgerNextDraft,
+         parseVersion as ledgerParse } from './data/versionSeq.js';
 import { wordsDigest } from './data/reportWords.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
@@ -1131,8 +1134,8 @@ function _updateHeaderForProject() {
   var pbBadge = document.getElementById('pb-badge');
   if (pbBadge) {
     var rev = (proj.info && proj.info.revision) || 'A01';
-    var parsed = _parseRevision(rev);
-    var st = parsed.issued ? (parsed.hasSuffix ? 'REVISION' : 'ISSUED') : 'DRAFT';
+    var parsed = ledgerParse(rev);
+    var st = !parsed ? 'DRAFT' : (parsed.issued ? 'ISSUED' : (parsed.onIssue ? 'REVISION' : 'DRAFT'));
     pbBadge.textContent = st;
     var colors = { DRAFT: '#E67E22', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
     pbBadge.style.background = colors[st] || '#E67E22';
@@ -3339,7 +3342,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S724';
+var FRT_BUILD = 'S724b';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -4163,12 +4166,20 @@ function _frtVersionEntryId() {
   return 'ver_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
 }
 
+/* The report's ledger, seeded on first touch. Every version flow reads it
+   through here so there is one idea of where the history lives. */
+function _frtLedger(proj) {
+  if (!proj) return [];
+  if (!Array.isArray(proj.versions) || !proj.versions.length) {
+    proj.versions = seedLedger((proj.info && proj.info.revision) || 'A01');
+  }
+  return proj.versions;
+}
+
 function _recordVersionMove(proj, newRev, issued) {
   try {
     if (!proj || !newRev) return;
-    if (!Array.isArray(proj.versions) || !proj.versions.length) {
-      proj.versions = seedLedger((proj.info && proj.info.revision) || 'A01');
-    }
+    _frtLedger(proj);
     var meta = { id: _frtVersionEntryId(), at: new Date().toISOString(), by: (window._frtCurrentUserId || null) };
     /* Only an issued copy carries a fingerprint of its words — a working copy
        and the on-screen preview record nothing (§4). */
@@ -4180,47 +4191,23 @@ function _recordVersionMove(proj, newRev, issued) {
   }
 }
 
-function _parseRevision(rev) {
-  var m;
-  // B##A## pattern (revision of issued)
-  m = rev.match(/^([B-Z])(\d{2,})A(\d{2,})$/);
-  if (m) return { issued: true, hasSuffix: true, letter: m[1], major: parseInt(m[2]), suffixNum: parseInt(m[3]) };
-  // B## pattern (issued)
-  m = rev.match(/^([B-Z])(\d{2,})$/);
-  if (m) return { issued: true, hasSuffix: false, letter: m[1], major: parseInt(m[2]), suffixNum: 0 };
-  // A## pattern (draft)
-  m = rev.match(/^A(\d{2,})$/);
-  if (m) return { issued: false, hasSuffix: false, letter: 'A', major: parseInt(m[1]), suffixNum: 0 };
-  return { issued: false, hasSuffix: false, letter: 'A', major: 1, suffixNum: 0 };
-}
-
-function _calcIssueRevision(parsed) {
-  if (!parsed.issued) return 'B01';
-  if (parsed.hasSuffix) {
-    var next = parsed.major + 1;
-    return parsed.letter + (next < 10 ? '0' : '') + next;
-  }
-  var next2 = parsed.major + 1;
-  return parsed.letter + (next2 < 10 ? '0' : '') + next2;
-}
-
-function _calcRevertDraft(proj) {
-  var highest = 0;
-  var info = proj.info || {};
-  if (info._lastDraftNum) { highest = info._lastDraftNum; }
-  else {
-    var m = (info.revision || '').match(/^A(\d+)$/);
-    if (m) highest = parseInt(m[1]);
-  }
-  var next = highest + 1;
-  return 'A' + (next < 10 ? '0' : '') + next;
-}
+/* S724 — the three grammar functions that used to live here are GONE.
+   _parseRevision, _calcIssueRevision and _calcRevertDraft now live once, in
+   frt/js/data/versionSeq.js, and this file CALLS them. The old copies could
+   not express a locked copy or fall back after a delete, because they read a
+   single stored value with no history behind it. Do not reintroduce them:
+   two implementations of a grammar drift, and the drift is silent. */
 
 function _issueReport() {
   var proj = Model.getProject();
   if (!proj) { toast('No project loaded'); return; }
   var rev = (proj.info && proj.info.revision) || 'A01';
-  var parsed = _parseRevision(rev);
+  var _led = _frtLedger(proj);
+  var _digest = '';
+  try { _digest = wordsDigest(proj); } catch (_) { _digest = ''; }
+  var _offer = ledgerIssueTarget(_led, _digest);
+  var _revert = ledgerRevertPlan(_led, false, (proj.info && proj.info._lastDraftNum) || 0);
+  var _isIssued = /^[B-Z]\d{2,}$/.test(rev);
   var isDark = document.body.classList.contains('dark-mode');
   var bg = isDark ? '#1e2533' : '#fff';
   var fg = isDark ? '#d0d8f0' : '#1C2333';
@@ -4234,22 +4221,32 @@ function _issueReport() {
   html += '<div style="font-size:18px;font-weight:700;margin-bottom:4px;">\uD83D\uDCCB Report Status</div>';
   html += '<div style="font-size:calc(13px + var(--ts));color:' + fg2 + ';margin-bottom:20px;">Current revision: <b style="color:' + fg + ';">' + rev + '</b></div>';
 
-  // Option 1: Issue
-  var issueTarget = _calcIssueRevision(parsed);
+  // Option 1: Issue. §4 — if the words have not moved since the last issued
+  // copy, the honest offer is the SAME number. No arrow, nothing minted.
+  var issueTarget = _offer.version;
   html += '<button data-issue-action="issue" data-rev="' + issueTarget + '" class="btn-muted-ok" style="width:100%;margin-bottom:10px;text-align:left;padding:12px 16px;font-size:calc(14px + var(--ts));">';
-  html += '\uD83D\uDCCB Issue Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + issueTarget + '</b></span></button>';
+  html += '\uD83D\uDCCB Issue Report<span style="float:right;font-weight:400;opacity:.85;">' +
+          (_offer.wouldMint ? (rev + ' \u2192 <b>' + issueTarget + '</b>') : ('<b>' + issueTarget + '</b>')) +
+          '</span></button>';
 
-  // Option 2: Revise (only if issued B## without A suffix)
-  if (parsed.issued && !parsed.hasSuffix) {
-    var reviseTarget = rev + 'A01';
+  // Option 2: Revise (only if issued B## without an A suffix)
+  if (_isIssued) {
+    var reviseTarget = ledgerNextDraft(_led);
     html += '<button data-issue-action="revise" data-rev="' + reviseTarget + '" class="btn-muted-warn" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
     html += '\u270F\uFE0F Revise Issued Report<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + reviseTarget + '</b></span></button>';
   }
 
-  // Option 3: Revert to draft (only if B-series)
-  if (parsed.issued) {
-    var draftTarget = _calcRevertDraft(proj);
-    html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" class="btn-muted-neutral" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
+  // Option 3: Revert to draft (only from an issued copy). §3.1 — with real
+  // history this DELETES the issued copy and drafting resumes at whatever it
+  // was made from, leaving the number available again. A report from before
+  // the ledger has nothing behind it, so it falls back to the old behaviour.
+  if (_isIssued || /^[B-Z]\d{2,}A\d{2,}$/.test(rev)) {
+    var draftTarget = _revert.version;
+    if (_revert.mode === 'delete') {
+      var _back = ledgerRemove(_led, _revert.version, false, '');
+      draftTarget = ledgerTip(_back.ledger) || _revert.version;
+    }
+    html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" data-revert-mode="' + _revert.mode + '" class="btn-muted-neutral" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
     html += '\u21A9\uFE0F Revert to Draft<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + draftTarget + '</b></span></button>';
   }
 
@@ -4281,13 +4278,20 @@ function _doIssue(newRev) {
   var proj = Model.getProject();
   if (!proj) return;
   var curRev = (proj.info && proj.info.revision) || 'A01';
+  /* §4 — pressing Issue on unchanged words returns the same number: no new
+     copy, no second entry, and NO message. The modal already offered this
+     number, so the screen simply does not move. */
+  var _reIssue = (newRev === curRev);
   var draftMatch = curRev.match(/^A(\d+)$/);
   if (draftMatch) {
     if (!proj.info) proj.info = {};
     proj.info._lastDraftNum = parseInt(draftMatch[1]);
   }
   proj.info.revision = newRev;
-  proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
+  /* Not on a re-issue. The date of issue PRINTS, so restamping it would move
+     the words — and the next press would then mint a number after all,
+     defeating the rule this branch exists to honour. */
+  if (!_reIssue) proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
   proj.status = 'issued';
   _recordVersionMove(proj, newRev, true);   /* S724 — before the save, so the entry rides the same write */
   Model.saveNow();
@@ -4299,7 +4303,8 @@ function _doIssue(newRev) {
   if (doiEl) doiEl.value = proj.info.dateOfIssue;
   // Update Supabase status
   _syncIssueStatus('issued');
-  toast('Report issued as ' + newRev);
+  /* §4 — a re-issue mints nothing and says nothing. */
+  if (!_reIssue) toast('Report issued as ' + newRev);
 }
 
 function _doRevise(newRev) {
@@ -4340,9 +4345,23 @@ function _doRevertDraft(newRev) {
   var proj = Model.getProject();
   if (!proj) return;
   if (!proj.info) proj.info = {};
-  proj.info.revision = newRev;
-  proj.status = 'draft';
-  _recordVersionMove(proj, newRev, false);   /* S724 */
+  /* §3.1 — reverting is DELETING the newest issued copy: drafting resumes at
+     whatever it was made from and the number becomes available again. The
+     entry is tombstoned, never spliced, or the other device re-adds it on the
+     next sync. A report from before the ledger has nothing behind it, so it
+     falls back to the pre-ledger behaviour and records the draft it lands on. */
+  var _led = _frtLedger(proj);
+  var _plan = ledgerRevertPlan(_led, false, proj.info._lastDraftNum || 0);
+  if (_plan.mode === 'delete') {
+    proj.versions = ledgerRemove(_led, _plan.version, false, new Date().toISOString()).ledger;
+    newRev = ledgerTip(proj.versions) || newRev;
+    proj.info.revision = newRev;
+    proj.status = 'draft';
+  } else {
+    proj.info.revision = newRev;
+    proj.status = 'draft';
+    _recordVersionMove(proj, newRev, false);   /* S724 */
+  }
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;

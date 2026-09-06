@@ -252,6 +252,42 @@ export function record(ledger, version, issued, meta) {
   return l;
 }
 
+/* What the Issue button should OFFER, without changing anything. The modal
+   must say the truth before it is pressed: if the words have not moved since
+   the last issued copy, the honest offer is the SAME number, not the next
+   one. §4 — repeated Issue mints nothing, and does so silently; a button that
+   promises B02 and then produces B01 is the confusing version of that rule. */
+export function issueTarget(ledger, digest) {
+  var li = lastIssued(ledger);
+  if (li && digest && li.digest && li.digest === digest) {
+    return { version: li.v, wouldMint: false };
+  }
+  return { version: nextIssue(ledger), wouldMint: true };
+}
+
+/* What Revert to Draft should DO.
+
+   With a real ledger, reverting is deleting the newest issued copy: drafting
+   resumes at whatever it was made from and the number becomes available again
+   (§3.1). That is the ruling's behaviour and it burns nothing.
+
+   A report that predates the ledger has no history behind its one seeded
+   entry, so there is nothing to fall back TO. For those, and only those, the
+   answer is the pre-ledger one — the next unused draft number. It is kept
+   here rather than in the app so there is still exactly ONE implementation of
+   the grammar; lastDraftNum is the value the old flow already stored.
+
+   'none' means there is nothing to revert. */
+export function revertPlan(ledger, hasLaterReport, lastDraftNum) {
+  var t = tip(ledger);
+  if (!t) return { mode: 'none', version: '' };
+  if (canDelete(ledger, t.v, hasLaterReport)) {
+    return { mode: 'delete', version: t.v };
+  }
+  var n = (typeof lastDraftNum === 'number' && lastDraftNum > 0) ? lastDraftNum : 0;
+  return { mode: 'fresh', version: 'A' + pad(n + 1), legacy: true };
+}
+
 /* ── entering the system ────────────────────────────────────────────────────
    §17.1 — not retroactive. One entry, marked inferred, carrying no digest. */
 export function seedLedger(revision) {

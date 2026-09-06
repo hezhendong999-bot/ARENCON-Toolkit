@@ -22,7 +22,7 @@
 import {
   parseVersion, formatVersion, tip, currentVersion, lastIssued,
   isLocked, canDelete, nextIssue, nextDraft, issue, revise, remove,
-  seedLedger, isInferred, record, SEQ_SCHEMA
+  seedLedger, isInferred, record, issueTarget, revertPlan, SEQ_SCHEMA
 } from '../../frt/js/data/versionSeq.js';
 
 let pass = 0, fail = 0; const failures = []; let _n = 0;
@@ -301,6 +301,45 @@ is(rec0.length, 3, 'and the issued copy stays underneath it');
 is(isLocked(rec0, 'B01', false), true, 'the recorded history makes locking answerable — which one value never could');
 is(record(rec0, 'B02', true, {}).length, 3, 'an entry with no id is refused — the merge could not keep it');
 is(record(rec0, '', true, { id: 'x' }).length, 3, 'an entry with no version is refused');
+
+
+/* ── PART I — what the buttons should SAY and DO (adoption step two) ────── */
+console.log('\n── PART I — the engine decides: the offer, and revert ──');
+
+const iss = [
+  { id: 'a', v: 'A01', issued: false },
+  { id: 'b', v: 'B01', issued: true, digest: 'words-1' }
+];
+is(issueTarget(iss, 'words-1'), { version: 'B01', wouldMint: false },
+  '§4 unchanged words — the button offers B01, the SAME number');
+is(issueTarget(iss, 'words-2'), { version: 'B02', wouldMint: true },
+  '§4 changed words — the button offers B02');
+is(issueTarget(iss, ''), { version: 'B02', wouldMint: true },
+  'an uncomputable fingerprint offers a new number rather than claiming "unchanged"');
+is(issueTarget([], 'x'), { version: 'B01', wouldMint: true }, 'a fresh report offers B01');
+is(issueTarget(seedLedger('B01'), 'x'), { version: 'B02', wouldMint: true },
+  'a pre-ledger report has no stored fingerprint, so it always offers the next number');
+
+/* Revert on a report WITH history: delete the tip, fall back, number reusable. */
+const withHist = [
+  { id: 'a', v: 'A01', issued: false },
+  { id: 'b', v: 'A02', issued: false },
+  { id: 'c', v: 'B01', issued: true, digest: 'd' }
+];
+is(revertPlan(withHist, false, 2), { mode: 'delete', version: 'B01' },
+  '§3.1 with history, Revert DELETES the issued copy');
+const reverted = remove(withHist, 'B01', false, 't').ledger;
+is(currentVersion(reverted), 'A02', 'and drafting resumes at A02 — the draft it was issued from');
+is(nextIssue(reverted), 'B01', 'and B01 is available again — nothing was burned');
+
+/* Revert on a report that predates the ledger: nothing to fall back to. */
+const legacy = seedLedger('B01');
+is(revertPlan(legacy, false, 1), { mode: 'fresh', version: 'A02', legacy: true },
+  'a pre-ledger report has nothing behind it, so Revert behaves exactly as it did before');
+is(revertPlan(legacy, false, 0).version, 'A01', 'with no stored draft number it lands on A01');
+is(revertPlan([], false, 0), { mode: 'none', version: '' }, 'an empty ledger has nothing to revert');
+is(revertPlan(withHist, true, 2).mode, 'fresh',
+  '§3.1 a later REPORT blocks the delete — Revert cannot reach back through it');
 
 /* ── result ─────────────────────────────────────────────────────────────── */
 

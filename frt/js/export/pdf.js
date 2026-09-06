@@ -16,6 +16,10 @@ import { CARLITO_BOLD_B64 } from './carlitoBold.js';
 // window._frtCrbLive, set by the admin "live (real data)" export toggle.
 import { crbBuildRealThread, crbRoundChip } from './crbRender.js';
 import { esc } from '../lib/esc.js'; // S454: shared HTML-escape (0-case verified unreachable here; output identical)
+/* S724 — an issued PDF records what it said. Not the preview: this module
+   renders on screen first and only reaches the device on the Export tap, and
+   the record belongs on that tap alone (LOCKED_REPORT_VERSIONING.md §4). */
+import { makeRecord, appendRecord } from '../data/exportRecord.js';
 
 // esc() imported from ../lib/esc.js (S454 — shared; numeric-0 case verified unreachable in this file)
 // S154 Bug #4: closed-status now derived from Model.getEffectiveStatus
@@ -3195,7 +3199,31 @@ function _captureExportPDF(w,D){
 }
 // S457: export chrome (Export/Close cluster, counter-scaled, close-cleanup)
 // now lives in the shared library — lib/export/exportPreview.js.
-try{ mountExportChrome(w,D,{onExport:function(){_captureExportPDF(w,D);}}); }catch(_uc){}
+/* S724 — WHAT THIS PDF SAID.
+   §4: every export takes a snapshot; it is a consequence, not a prompt. The
+   number does not move and nobody is asked anything. Exporting B01 three
+   times leaves three snapshots, all B01, all kept (§7), shown as ONE chip
+   with the repeats one tap deep (§4.1).
+
+   A snapshot holds the words and never a picture (§7/§8) — a photograph
+   belongs to the site visit and is referenced, not copied, which is why
+   keeping every snapshot forever costs almost nothing.
+
+   Failure here must never cost the export: an inspector pressing Export gets
+   their PDF whatever the record does. */
+function _frtRecordExportSnapshot(){
+  try{
+    var proj=Model.getProject(); if(!proj) return;
+    var ver=(proj.info&&proj.info.revision)||''; if(!ver) return;
+    var id='exp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
+    var rec=makeRecord(proj,ver,new Date().toISOString(),(window._frtCurrentUserId||null),id);
+    if(!rec) return;
+    proj.exportRecords=appendRecord(proj.exportRecords,rec);
+    try{ Model.saveNow(); }catch(_s){}
+  }catch(_e724){}
+}
+
+try{ mountExportChrome(w,D,{onExport:function(){_frtRecordExportSnapshot();_captureExportPDF(w,D);}}); }catch(_uc){}
 // S457: the S338 full-width banner is retired. Its zoom problem is now solved
 // by the unified counter-scaled cluster above (page zoom measured via
 // outerWidth/innerWidth — the readable signal S338's DPR attempt lacked —
