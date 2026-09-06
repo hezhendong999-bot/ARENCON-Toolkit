@@ -247,6 +247,12 @@ function _dvRefreshTrashBar() {
 // Items keep their data-dv-action attribute so the existing delegated action
 // handler below is untouched.
 var _dvMoreMenuEl = null;
+// S721c: diagnostics are not for staff (Mark). The two diagnostic rows stay in
+// the ONE menu but render only when the ⋯ button was HELD (≈650ms) before the
+// tap — an in-app gesture, per the TWA rule that diagnostics never ride on a
+// URL param. A normal tap shows only working rows. Nothing protected is removed.
+var _dvDiagArmed = false, _dvDiagTimer = null;
+var _DV_DIAG_HOLD_MS = 650;
 function _dvEnsureMoreMenu() {
   if (_dvMoreMenuEl) return _dvMoreMenuEl;
   var slot = document.getElementById('dv-more-menu-slot');
@@ -254,10 +260,10 @@ function _dvEnsureMoreMenu() {
   var items = [
     // S527: on-screen markup diagnostic — an in-app row, never a URL param
     // (field tablets run the Android TWA where the address bar is not editable).
-    { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag' },
+    { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag', diag: true },
     { label: '\uD83D\uDCCC Tasks', sub: 'Open the task panel for this drawing', action: 'tasks' },
     // S587: on-tablet pin evidence — the crew has no console in the TWA
-    { label: '\uD83D\uDCCD Pin Write Log', sub: 'Did a pin move on its own? Check here', action: 'pinlog' }
+    { label: '\uD83D\uDCCD Pin Write Log', sub: 'Did a pin move on its own? Check here', action: 'pinlog', diag: true }
   ];
   /* S582: shadow:true — the menu gets the same host-CSS immunity the header's
      dropdown has always had by living in a shadow root. Without it the
@@ -269,6 +275,7 @@ function _dvEnsureMoreMenu() {
   var btns = menu.querySelectorAll('button');
   for (var i = 0; i < btns.length && i < items.length; i++) {
     btns[i].setAttribute('data-dv-action', items[i].action);
+    if (items[i].diag) { btns[i].setAttribute('data-dv-diag', '1'); btns[i].style.display = 'none'; }   // S721c
     /* Clicks inside a shadow root do bubble, but e.target is retargeted to the
        HOST — so the document-level [data-dv-action] delegation can no longer
        see the row. Wire each row directly; the action names are unchanged. */
@@ -284,6 +291,23 @@ function _dvEnsureMoreMenu() {
   _dvMoreMenuEl = wrap;
   return wrap;
 }
+
+// S721c: hold-to-arm for the ⋯ diagnostics. Delegated at document level so it
+// survives the slot→host swap above. The click that follows pointerup reads
+// _dvDiagArmed; a released or cancelled hold disarms. contextmenu is suppressed
+// on the button so Android's long-press menu cannot swallow the gesture.
+(function _dvWireDiagHold() {
+  function _isMore(t) { return !!(t && t.closest && t.closest('#dv-more-btn')); }
+  function _cancel() { if (_dvDiagTimer) { clearTimeout(_dvDiagTimer); _dvDiagTimer = null; } }
+  document.addEventListener('pointerdown', function (e) {
+    if (!_isMore(e.target)) return;
+    _cancel(); _dvDiagArmed = false;
+    _dvDiagTimer = setTimeout(function () { _dvDiagTimer = null; _dvDiagArmed = true; }, _DV_DIAG_HOLD_MS);
+  }, true);
+  document.addEventListener('pointerup', function (e) { if (_isMore(e.target)) _cancel(); }, true);
+  document.addEventListener('pointercancel', function () { _cancel(); _dvDiagArmed = false; }, true);
+  document.addEventListener('contextmenu', function (e) { if (_isMore(e.target)) e.preventDefault(); }, true);
+})();
 
 // S582: one place that runs a ⋯ menu action, called by the shadow-built rows
 // (whose clicks are retargeted to the host and so cannot use the document-level
@@ -5432,7 +5456,15 @@ function _wireEvents() {
     // More menu — S581: rows BUILT by the shared header engine, not written here.
     if (e.target.closest && e.target.closest('#dv-more-btn')) {
       var mm = _dvEnsureMoreMenu();
-      if (mm) mm.classList.toggle('open');
+      if (mm) {
+        // S721c: reveal diagnostic rows only when this tap followed a hold.
+        var _showDiag = _dvDiagArmed; _dvDiagArmed = false;
+        if (!mm.classList.contains('open') && mm._menu) {
+          var _dr = mm._menu.querySelectorAll('[data-dv-diag]');
+          for (var _k = 0; _k < _dr.length; _k++) _dr[_k].style.display = _showDiag ? '' : 'none';
+        }
+        mm.classList.toggle('open');
+      }
       e.stopPropagation();
       return;
     }
