@@ -2,7 +2,7 @@
 // Wrap CloudSync.save to stamp _cloudSyncedAt for self-trigger prevention
 if(typeof _wrapCloudSyncSave==='function') setTimeout(_wrapCloudSyncSave, 2000);
 /* ============ AI Text Review (S219) — diesel-adapted port of FRT assistant.js ============ */
-/* Reuses the live worker arencon-ai-worker; context.tool='diesel_pump'. Inline IIFE (single-file tool). */
+/* Reuses the live worker arencon-ai-worker; context.tool='electric_pump'. Inline IIFE (single-file tool). */
 var AIAssist = (function(){
   'use strict';
   var WORKER_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co/functions/v1/ai-proxy'; // S397: same Edge relay as placard scan (CORS fix)
@@ -252,7 +252,7 @@ var AIAssist = (function(){
     if(body) body.innerHTML='<div class="ai-panel-loading"><div class="ai-spinner"></div><br>'+modeLabel+'<br>Reviewing '+fields.length+' field'+(fields.length!==1?'s':'')+'\u2026</div>';
     var aaBtn=document.getElementById('ai-accept-all'); if(aaBtn)aaBtn.style.display='none';
     var ctr=document.getElementById('ai-counter'); if(ctr)ctr.textContent=modeLabel+' \u2014 Sending\u2026';
-    var context={ tool:'diesel_pump', projectNumber:_projNum(), projectName:_projName() };
+    var context={ tool:'electric_pump', projectNumber:_projNum(), projectName:_projName() };
     fetch(WORKER_URL, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ fields:fields, context:context, mode:mode }) })
     .then(function(res){ if(!res.ok) return res.json().then(function(e){ throw new Error(e.error||'API error '+res.status); }); return res.json(); })
     .then(function(data){

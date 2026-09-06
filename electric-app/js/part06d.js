@@ -132,7 +132,7 @@ function _dieselOrphanPurge(confirmFlag){
   if(!rep.total){ console.log('[Orphans] nothing to purge'); return rep; }
   if(confirmFlag!==true){ console.warn('[Orphans] DRY RUN ONLY — call _dieselOrphanPurge(true) to execute'); return rep; }
   // 1. Backup everything we are about to remove, and download it.
-  var backup = {ts:new Date().toISOString(), tool:'diesel', photos:[], clState:{}};
+  var backup = {ts:new Date().toISOString(), tool:'electric', photos:[], clState:{}};
   rep.photos.forEach(function(r){
     var res = _pgResolveByPid(r.pid);
     if(res && res.item && res.item.photo) backup.photos.push({section:res.item.section, type:res.item.type, photo:JSON.parse(JSON.stringify(res.item.photo))});
@@ -411,8 +411,8 @@ async function _dieselR2OrphanReport(){
   // 1. Protected keys = everything any live record could legitimately own.
   var keep={};
   var keepDerived=function(id){ if(!id) return;
-    keep['photos/'+pid+'/diesel/original/'+id+'.jpg']=true;          // base original
-    keep['photos/'+pid+'/diesel/marked/marked_'+id+'.jpg']=true;     // annotated variant
+    keep['photos/'+pid+'/electric/original/'+id+'.jpg']=true;          // base original
+    keep['photos/'+pid+'/electric/marked/marked_'+id+'.jpg']=true;     // annotated variant
   };
   var scan=function(arr){ if(!arr) return;
     arr.forEach(function(p){ if(!p) return;
@@ -497,7 +497,7 @@ async function _dieselR2OrphanPurge(confirmFlag){
   }
   // Manifest download first (record of what we delete — not a restore point).
   try{
-    var manifest={ when:new Date().toISOString(), project:_r2FolderId, tool:'diesel', deleted:orphans };
+    var manifest={ when:new Date().toISOString(), project:_r2FolderId, tool:'electric', deleted:orphans };
     var blob=new Blob([JSON.stringify(manifest,null,2)],{type:'application/json'});
     var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
     a.download='diesel_r2_orphan_purge_'+Date.now()+'.json'; a.click();
@@ -558,7 +558,7 @@ async function _dieselDeadRefRepair(confirmFlag){
   if(!dead.length){ console.log('[DeadRef] nothing to repair'); return dead; }
   if(confirmFlag!==true){ console.warn('[DeadRef] DRY RUN ONLY \u2014 call _dieselDeadRefRepair(true) to execute'); return dead; }
   // 1. Backup the dead records (re-resolve live so indices are current).
-  var backup = {ts:new Date().toISOString(), tool:'diesel', photos:[], clState:{}};
+  var backup = {ts:new Date().toISOString(), tool:'electric', photos:[], clState:{}};
   dead.forEach(function(d){
     var res = (typeof _pgResolveByPid==='function') ? _pgResolveByPid(d.pid) : null;
     if(res && res.item && res.item.photo) backup.photos.push({section:res.item.section, type:res.item.type, photo:JSON.parse(JSON.stringify(res.item.photo))});
@@ -683,7 +683,7 @@ async function _r2CleanupOrphans(){
   if(!_csHubMode || !_r2FolderId || typeof R2Photos==='undefined'){ showToast('Must be in Hub mode',2000); return; }
   try{
     var workerUrl='https://arencon-r2-worker.hezhendong999.workers.dev';
-    var listUrl=workerUrl+'/list/'+_r2FolderId+'/diesel/original/';
+    var listUrl=workerUrl+'/list/'+_r2FolderId+'/electric/original/';
     var resp=await fetch(listUrl,{headers:_authHeaders()}); // S343 SECURITY
     if(!resp.ok)throw new Error('R2 list failed: '+resp.status);
     var data=await resp.json();
@@ -1514,7 +1514,7 @@ window.addEventListener('load', () => {
       // Initialize CloudSync
       CloudSync.init({
         projectId: _csProjectId,
-        toolKey: 'diesel',
+        toolKey: 'electric',
         instanceId: _csInstanceId,
         onStatusChange: function(status, msg){
           var _c = window.__dslHeaderCtl;
@@ -2445,7 +2445,7 @@ function _mergeCloudLocal(cloud, local){
      S488/S601 require. Structure, arrays and photos are untouched by this. */
   try {
     if (cloud && local && typeof window !== 'undefined' && typeof window.ArcBootArbitrate === 'function') {
-      var _arb = window.ArcBootArbitrate(cloud, local, 'diesel');
+      var _arb = window.ArcBootArbitrate(cloud, local, 'electric');
       if (_arb && _arb.took) {
         console.log('[merge S627] boot: kept ' + _arb.took + ' locally-typed value(s) with a newer entry time — ' + _arb.keys.join(', '));
       }

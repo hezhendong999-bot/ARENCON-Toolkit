@@ -237,7 +237,7 @@ var KEYS = [
 ];
 
 var manifest = {
-  tool: 'diesel',
+  tool: 'electric',
   version: '1.0.0',
   projFieldIds: PROJ_FIELD_IDS,
   keys: KEYS

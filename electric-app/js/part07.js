@@ -887,7 +887,7 @@ function _placardScan(btn, mode){
     // AI usage log showed '-' for project #).
     var up=(typeof CloudSync!=='undefined' && CloudSync.readUrlParams)?CloudSync.readUrlParams():{};
     var body=JSON.stringify({ mode:'placard_read', photos:imgs,
-      context:{ tool:'diesel_pump', projectNumber:up.projectNumber||null, projectName:up.projectName||null } });
+      context:{ tool:'electric_pump', projectNumber:up.projectNumber||null, projectName:up.projectName||null } });
     function call(tok){
       return fetch(AI_WORKER_URL,{ method:'POST',
         headers:{'Content-Type':'application/json','Authorization':'Bearer '+tok}, body:body });
@@ -1728,7 +1728,7 @@ async function _expGo(){
     // 2) Full JSON (redundant by design — the machine-reloadable copy).
     try{
       var state=collectState();
-      var wrapped={ _arenconExport:{ tool:'diesel', toolCode:_EXPORT_TOOLCODE, version:_EXPORT_VERSION,
+      var wrapped={ _arenconExport:{ tool:'electric', toolCode:_EXPORT_TOOLCODE, version:_EXPORT_VERSION,
                      exportedAt:new Date().toISOString(), project:_expProjNum(), instance:_expInstance() },
                     data: state };
       top.file(_expProjNum()+' '+_EXPORT_TOOLCODE+'-'+_expInstance()+' data.json', JSON.stringify(wrapped,null,2));

@@ -1892,7 +1892,7 @@ function _collectCloudState(){
 var _r2FolderId = null; // set during Hub init
 // S360: resolve the best image source for a photo, READ-ONLY (never mutates the
 // photo). Order: local blob (.d) → saved r2Url → reconstruct from the photo id.
-// The R2 object key is deterministic — photos/{projectId}/diesel/original/{id}.jpg
+// The R2 object key is deterministic — photos/{projectId}/electric/original/{id}.jpg
 // — so even if a record lost its r2Key/r2Url (an upload whose pointer-write
 // failed), we can still locate the file that's actually sitting in R2. This is
 // pure string computation: worst case it returns '' exactly like before, so it
@@ -2157,7 +2157,7 @@ function _r2EnqueuePhoto(photoObj){
   photoObj.id = photoObj.id || ('ph_' + Date.now() + '_' + Math.random().toString(36).substr(2,6));
   if(typeof _csInstanceId!=='undefined' && _csInstanceId) photoObj.r2v = 2;   // S398: instance-owned key shape
   var fname = _r2Fname(photoObj);
-  var r2Key = 'photos/' + _r2FolderId + '/diesel/original/' + fname;
+  var r2Key = 'photos/' + _r2FolderId + '/electric/original/' + fname;
   photoObj.r2Key = r2Key;
   photoObj.r2Status = 'pending';
   photoObj.r2Url = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', fname);
@@ -2166,16 +2166,16 @@ function _r2EnqueuePhoto(photoObj){
   if(typeof R2Outbox!=='undefined'){
     R2Outbox.put({
       key: r2Key,
-      projectId: _r2FolderId, tool: 'diesel', type: 'original', filename: fname,
+      projectId: _r2FolderId, tool: 'electric', type: 'original', filename: fname,
       blob: blob, status: 'pending', attempts: 0, createdAt: Date.now()
     }).then(function(){ R2Outbox.drive(); }).catch(function(e){
       // Outbox write failed (private mode / quota) — fall back to in-memory queue
       console.warn('[Outbox] put failed, using in-memory queue:', e&&e.message);
-      R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
+      R2Photos.enqueue({ projectId:_r2FolderId, tool:'electric', type:'original', filename:fname, blob:blob,
         onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
     });
   } else {
-    R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'original', filename:fname, blob:blob,
+    R2Photos.enqueue({ projectId:_r2FolderId, tool:'electric', type:'original', filename:fname, blob:blob,
       onComplete:function(err){ photoObj.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
   }
 }
@@ -2429,7 +2429,7 @@ async function _dslMarkupPersist(p, mk){
       if(typeof recordPhotos !== 'undefined') recordPhotos.push(backup);
       backupId = backup.id;
       // S372.4: guarantee the backup is openable. _r2EnqueuePhoto repoints the
-      // record to its OWN /diesel/original/{id}.jpg key and uploads the bytes, so
+      // record to its OWN /electric/original/{id}.jpg key and uploads the bytes, so
       // the backup never depends on the live photo's key (which the stamp below
       // moves to /marked/). Call it whenever we have bytes — even if the photo had
       // a preKey — so the (original) copy gets its own durable object and the
@@ -2448,7 +2448,7 @@ async function _dslMarkupPersist(p, mk){
   // ── Marked R2 location (deterministic key — stable across re-saves) ──
   var hub = (typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId);
   var markedFname = 'marked_' + _r2Fname(p).replace(/\.jpg$/,'') + '.jpg';
-  var markedKey = hub ? ('photos/' + _r2FolderId + '/diesel/marked/' + markedFname) : '';
+  var markedKey = hub ? ('photos/' + _r2FolderId + '/electric/marked/' + markedFname) : '';
   var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'diesel', 'marked', markedFname) : '';
 
   // ── Stamp the photo (and any same-id references) ──
@@ -2482,15 +2482,15 @@ async function _dslMarkupPersist(p, mk){
     var blob = R2Photos.dataUrlToBlob(markedD);
     if(blob){
       if(typeof R2Outbox!=='undefined'){
-        R2Outbox.put({ key: markedKey, projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname,
+        R2Outbox.put({ key: markedKey, projectId:_r2FolderId, tool:'electric', type:'marked', filename:markedFname,
                        blob: blob, status:'pending', attempts:0, createdAt:Date.now()
         }).then(function(){ R2Outbox.drive(); }).catch(function(e){
           console.warn('[DLB] persist: marked outbox put failed, in-memory queue:', e&&e.message);
-          R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname, blob:blob,
+          R2Photos.enqueue({ projectId:_r2FolderId, tool:'electric', type:'marked', filename:markedFname, blob:blob,
             onComplete:function(err){ if(p.r2Key===markedKey) p.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
         });
       } else {
-        R2Photos.enqueue({ projectId:_r2FolderId, tool:'diesel', type:'marked', filename:markedFname, blob:blob,
+        R2Photos.enqueue({ projectId:_r2FolderId, tool:'electric', type:'marked', filename:markedFname, blob:blob,
           onComplete:function(err){ if(p.r2Key===markedKey) p.r2Status = err ? 'failed' : 'uploaded'; if(typeof _pgRepaintCloudSoon==='function') _pgRepaintCloudSoon(); } });
       }
     }

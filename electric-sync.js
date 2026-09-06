@@ -1,59 +1,79 @@
 /* ============================================================================
- * ARENCON Electric — CloudSync facade over the SHARED sync engine (S567)
+ * ARENCON Diesel — CloudSync facade over the SHARED sync engine (S492)
  * ----------------------------------------------------------------------------
- * Replaces the inline last-write-wins CloudSync IIFE in the Electric tool —
- * the same S491/S492 move Diesel made, on Mark's S566 ruling that ALL tools
- * get the shared engine and change-scoped saves. This file is an adaptation
- * of the field-proven diesel-sync.js facade; deltas are Electric-only:
- *   - no journal (Electric has no Recent Saves yet), no photo outbox here
- *     (Electric's photo store + rescue live in the tool's own module block,
- *     S552/S556, and are untouched), no R2 heal adapter.
- *   - partialSave outcomes go to the console until Electric grows a record.
- *   - sync-meta database: ARENCON_ELECTRIC_SYNC (syncMeta + syncQueue).
- *   - offline cache: SAME arencon_cloud_cache/tool_state DB and SAME
- *     projectId|toolKey|instanceId key the inline IIFE used — existing
- *     device caches carry over with zero migration.
+ * Replaces the inline last-write-wins CloudSync IIFE in the Diesel tool.
+ * Mark's decision (S491): Diesel moves to MERGE-BASED sync, matching FRT and
+ * the shared engine. This module is that move.
  *
- * WHAT THIS BUYS ELECTRIC, in field terms: every push now carries If-Match
- * (no more silent last-writer-wins overwrites), a stale push 3-way merges
- * instead of clobbering, ancestor snapshots survive reloads, boot discipline
- * refuses to overwrite cloud from a context with no baseline, unsent work is
- * durably marked and recovered after a crash, and saves are change-scoped —
- * a device that edited the checklist cannot rewrite photos it never touched.
+ * WHAT IS SHARED (one implementation, /lib/):
+ *   - lib/data/sync.js   createSync — pull/push, If-Match optimistic
+ *     concurrency, 412 → 3-way merge → silent retry or conflict modal,
+ *     syncMeta ancestor snapshots persisted to IDB (survives reload).
+ *   - lib/data/merge.js  merge3 / applyResolutions / summarizeConflict —
+ *     THE shared 3-way merge engine (model-neutral; id-keyed structures).
+ *   - lib/data/idb.js    createIDB — a NEW, sync-only metadata database
+ *     (ARENCON_DIESEL_SYNC). Diesel's own ARENCON_DIESEL database and its
+ *     ADB layer are NOT touched.
+ *   - lib/shared/auth.js Auth — Supabase transport with the S91/S395
+ *     401 → silent-refresh → retry chain. Same sb-access-token /
+ *     sb-refresh-token keys Diesel's sign-in already writes (verified).
+ *   - lib/ui/dialogEngine.js — the conflict-resolution screen.
  *
- * WHAT STAYS ELECTRIC'S (per-tool personality — do NOT converge):
- *   - _collectCloudState(): strips ALL photo bytes (R2 holds the images) —
- *     unlike Diesel's _keepD rule. serializePush stays CLONE-ONLY.
- *   - _mergeCloudLocal + the host heartbeat's union merge protections.
- *   - The S564 photo-durability save, photo store, and rescue wiring.
+ * WHAT STAYS DIESEL'S (locked per-tool personality — do NOT converge):
+ *   - The photo save path. _collectCloudState() applies the S393 _keepD rule
+ *     (photo bytes stay in the cloud payload until r2Status==='uploaded').
+ *     Because Diesel's collect already produces the correct cloud shape,
+ *     this module's serializePush is CLONE-ONLY — it must NEVER apply the
+ *     FRT stripBinaries walk (different photo model; byte field is `.d`).
+ *   - ADB (ARENCON_DIESEL) local persistence, R2Photos, R2Outbox — untouched.
+ *   - _mergeCloudLocal — Diesel's field-proven union merge, still the
+ *     protective layer for every SILENT cloud apply (S25 empty-cloud guard +
+ *     S335 photo union + S488 "real local" canon).
+ *   - The arencon_cloud_cache offline-load fallback (devices already have it).
  *
- * PUBLIC SHAPE: window.CloudSync with the exact API the inline call sites
- * use — init/load/save/startAutoSave/stopAutoSave/syncNow/destroy/
- * readUrlParams/request/heartbeatTick/recoverUnsentWork + the same getters.
+ * PUBLIC SHAPE: window.CloudSync with the exact API the ~40 inline call
+ * sites use: init/load/save/startAutoSave/stopAutoSave/syncNow/destroy/
+ * readUrlParams/request + projectId/instanceId/instanceNumber/projectInfo/
+ * userId/isInitialized/isOnline/hasPendingSync getters. Zero call-site
+ * churn beyond the three surgical host edits documented in the handoff.
+ *
+ * CONCURRENCY MODEL (the change Mark decided):
+ *   OLD: PATCH with no precondition — two editors, last save silently wins.
+ *   NEW: every push carries If-Match on the last-seen cloud timestamp.
+ *        If someone else saved first → 412 → 3-way merge (base = last-seen
+ *        snapshot) → non-overlapping edits auto-merge silently; true
+ *        same-field conflicts surface ONE dialog where the inspector picks
+ *        per-field. Bounded to 3 retries; on abandonment the save stays
+ *        pending and re-tries on the next save/reconnect — never lost,
+ *        never silently overwritten.
  * ========================================================================== */
 
 import { Auth } from './lib/shared/auth.js';
 import { createIDB } from './lib/data/idb.js';
 import { createSync, contentEquals } from './lib/data/sync.js';   // S583: canonical no-change comparison
-import { createChangeJournal } from './lib/data/changeJournal.js';  // S574
+import { createBinaryOutbox } from './lib/data/photoOutbox.js';   // S544: shared photo rescue
+import { createChangeJournal } from './lib/data/changeJournal.js'; // S555: what did that save do
+import { createRealtime } from './lib/data/realtime.js';           // S629: live change notifications
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
 /* ── Sync-only metadata DB (NEW — never touches ARENCON_DIESEL) ─────────── */
-/* Sync metadata ONLY: Electric's report autosave, its photo store and its
-   blobs live in the tool's own databases and are not involved. */
+/* S544: version 2 adds 'photoOutbox' — the bookkeeping store the shared photo
+   engine needs. Upgrades here are additive-only (createIDB never touches an
+   existing store), and this database holds sync metadata ONLY: Diesel's report
+   database ARENCON_DIESEL, its photos and its blobs are not involved. */
 const SyncIDB = createIDB({
-  dbName: 'ARENCON_ELECTRIC_SYNC',
-  version: 2,                                   /* S574: +changeJournal */
-  stores: ['syncMeta', 'syncQueue', 'changeJournal']
+  dbName: 'ARENCON_DIESEL_SYNC',
+  version: 3,
+  stores: ['syncMeta', 'syncQueue', 'photoOutbox', 'changeJournal']
 });
 
 /* ── Worker-host adapter ────────────────────────────────────────────────────
- * Electric payloads are small — _collectCloudState strips ALL photo bytes
- * (R2 holds the images) — so no background worker is needed. merge3Worker
- * still runs THE shared merge engine — same brain as Diesel and FRT.
+ * Diesel payloads are small (uploaded photo bytes already stripped by
+ * _collectCloudState), so no background worker is needed. merge3Worker
+ * still runs THE shared merge engine — same brain as FRT, same results.
  * serializePush is CLONE-ONLY by design (see header). */
-const ElectricWorkerHost = {
+const DieselWorkerHost = {
   parseLarge: function (text) {
     return Promise.resolve(JSON.parse(text));
   },
@@ -74,39 +94,103 @@ const ElectricWorkerHost = {
 };
 
 /* ── Model adapter (the canonical 4-method contract) ────────────────────────
- * getProject  → _collectCloudState(): Electric's cloud-shaped payload —
- *               all photo bytes already stripped (R2 holds the images).
+ * getProject  → _collectCloudState(): the cloud-shaped payload WITH Diesel's
+ *               S393 photo-byte rules already applied.
  * setProject  → silent-pull apply. Boot uses capture mode (the host's S488
  *               boot block does its own IDB merge — unchanged); heartbeat
  *               pulls run through _applyCloudSilent, which keeps ALL of
- *               Electric's protections: S25 empty-cloud guard + the union
+ *               Diesel's protections: S25 empty-cloud guard + S335 union
  *               via _mergeCloudLocal against the REAL current local state.
  * applyMerged → 412-path apply of a 3-way merged result. The merged object
  *               already contains local's newer edits by merge semantics.
- * saveNow     → Electric's own saveState (field-proven local persistence,
- *               includes the S564 photo-store sweep). */
-/* S567 — Electric has no host _stateHasContent; the S25 empty-cloud guard in
-   _applyCloudSilent needs one. "Has content" = any answered checklist item,
-   any deficiency, any photo record, or any flow-test value. Published guarded
-   so a future host implementation wins. */
-function _elecStateHasContent(s) {
-  try {
-    if (!s || typeof s !== 'object') return false;
-    if (s.clState && Object.keys(s.clState).some(function (k) {
-      var v = s.clState[k]; return v && (v.status || (v.photos && v.photos.length));
-    })) return true;
-    if (s.deficiencies && Object.keys(s.deficiencies).some(function (k) {
-      return Array.isArray(s.deficiencies[k]) && s.deficiencies[k].length;
-    })) return true;
-    if (Array.isArray(s.generalDeficiencies) && s.generalDeficiencies.length) return true;
-    if (Array.isArray(s.flowTestPhotos) && s.flowTestPhotos.length) return true;
-    if (Array.isArray(s.sketchEntries) && s.sketchEntries.length) return true;
-    return false;
-  } catch (_) { return false; }
-}
-try { if (typeof window._stateHasContent !== 'function') window._stateHasContent = _elecStateHasContent; } catch (_) {}
-
+ * saveNow     → Diesel's own saveState (field-proven local persistence). */
 let _captureNext = false;
+
+/* ═══ S590 — CHANGE OBSERVER for the badge system (PURE READ) ══════════════
+   Whenever the engine replaces on-screen state (silent pull, silent merge,
+   resolved 412), diff the flow readings row-by-row and hand every changed
+   field to the badge module together with the incoming write's device
+   receipt (S589 _dev/_via/_wroteAt). Never touches the save path — a badge
+   bug can cost a badge, never a reading. */
+function _flowDiffEvents(prev, next) {
+  var evts = [];
+  if (!prev || !next) return evts;
+  var FIELDS = ['suction', 'discharge', 'rpm', 'flow', 'cutsheet', 'placard', 'bfUp', 'bfDown'];
+  ['stdData', 'pldData'].forEach(function (tbl) {
+    var pa = Array.isArray(prev[tbl]) ? prev[tbl] : [];
+    var na = Array.isArray(next[tbl]) ? next[tbl] : [];
+    var byPct = {};
+    pa.forEach(function (r) { if (r && r.pct != null) byPct[r.pct] = r; });
+    na.forEach(function (r, ni) {
+      if (!r || r.pct == null) return;
+      var p = byPct[r.pct]; if (!p) return;
+      FIELDS.forEach(function (f) {
+        var a = (p[f] == null) ? '' : String(p[f]);
+        var b = (r[f] == null) ? '' : String(r[f]);
+        if (a !== b) {
+          evts.push({ path: tbl + ':' + r.pct + ':' + f, tbl: tbl, idx: ni, pct: r.pct,
+                      field: f, prev: a, next: b,
+                      dev: next._dev || '', via: next._via || 'sync',
+                      wroteAt: next._wroteAt || new Date().toISOString() });
+        }
+      });
+    });
+  });
+  return evts;
+}
+function _noteFlowChanges(prev, next) {
+  try {
+    var evts = _flowDiffEvents(prev, next);
+    if (evts.length && window._dslChangeBadges) window._dslChangeBadges.noteChanges(evts);
+  } catch (e) { console.warn('[DieselSync] change-badge diff skipped:', e && e.message); }
+}
+
+/* ═══ S598 — PULL TELEMETRY (automatic; nothing for anyone to run) ═════════
+   Two days of failures have all had the same shape: the cloud holds the right
+   number, the device pulls, and the screen keeps the old one — and every
+   attempt to reproduce it off-device has passed. So the device now reports the
+   decision itself. On any pull where the cloud copy differs from the screen,
+   one small row goes to sync_diag with both values, both entry stamps, and
+   what was applied. Fire-and-forget, never blocks or fails a sync. This is
+   read from the database; it is not a panel and needs no one's attention. */
+/* S602 — module-scope mirrors of the three identifiers _diag needs; set once
+   in init(). Kept deliberately small and write-once so they cannot drift. */
+let _diagTool = null, _diagProject = null, _diagInstance = null;
+
+function _diag(event, detail) {
+  try {
+    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+    if (!tok) return;
+    fetch(Auth.SUPABASE_URL + '/rest/v1/sync_diag', {
+      method: 'POST',
+      headers: { 'apikey': Auth.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+      body: JSON.stringify({
+        device: (function(){ try { return localStorage.getItem('arencon-device-id'); } catch(_) { return null; } })(),
+        /* ═══ S602 — WHY THIS TABLE HAS ALWAYS BEEN EMPTY ═══════════════════
+           This function sits at module scope; _toolKey, _projectId and
+           _instanceId are declared INSIDE the CloudSync closure below. Reading
+           them from here throws ReferenceError on the very first line of the
+           payload — swallowed by the catch, so every call has failed silently
+           since the telemetry was added. S599 moved the reporting deeper in
+           order to explain an empty table; the table was empty because the
+           writer itself never ran. An empty sync_diag has therefore NOT been
+           evidence that a code path did not execute. Mirrors, set in init(),
+           are visible from here. */
+        tool: _diagTool, project_id: _diagProject || null,
+        instance_id: (engine && engine.instanceId) || _diagInstance || null,
+        event: event, detail: detail
+      })
+    }).catch(function () {});
+  } catch (_) {}
+}
+
+function _pick100(state) {
+  try {
+    var r = (state && state.stdData || []).filter(function (x) { return x && x.pct === '100%'; })[0];
+    return r ? { disch: r.discharge, ts: r._ts } : null;
+  } catch (_) { return null; }
+}
 
 function _applyCloudSilent(cloudState) {
   const w = window;
@@ -114,56 +198,43 @@ function _applyCloudSilent(cloudState) {
     const local = (typeof w._collectCloudState === 'function') ? w._collectCloudState() : null;
     /* S583 — NO-CHANGE GATE (Mark's ruling: identical content produces total
        silence). If the cloud copy matches what this window already shows —
-       compared canonically, bookkeeping ignored — apply NOTHING. */
-    if (local && contentEquals(cloudState, local)) return;
+       compared canonically, bookkeeping ignored — apply NOTHING: no merge, no
+       _applyLoadedState, no re-render of every table. The engine-level gate
+       usually catches this first; this is the belt on Diesel's own door. */
+    var _c100 = _pick100(cloudState), _l100 = _pick100(local);
+    var _differs = !!(_c100 && _l100 && String(_c100.disch) !== String(_l100.disch));
+    if (local && contentEquals(cloudState, local)) {
+      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      return;
+    }
     // S25 EMPTY-CLOUD GUARD — never let a materially-empty cloud row
     // overwrite a non-empty local report. Local wins; the next push
     // repopulates cloud (If-Match will match — we HAVE seen this row).
     if (typeof w._stateHasContent === 'function' && local &&
         !w._stateHasContent(cloudState) && w._stateHasContent(local)) {
-      console.warn('[ElectricSync] S25 guard: cloud row empty, local has content — keeping local.');
+      console.warn('[DieselSync] S25 guard: cloud row empty, local has content — keeping local.');
       return;
     }
     const merged = (typeof w._mergeCloudLocal === 'function' && local)
       ? w._mergeCloudLocal(cloudState, local)
       : cloudState;
     w._applyLoadedState(JSON.stringify(merged));
+    _noteFlowChanges(local, merged);   // S590: badge what this apply changed
+    if (_differs) _diag('applied', { cloud: _c100, screen: _l100, applied: _pick100(merged),
+      build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
   } catch (e) {
-    console.warn('[ElectricSync] silent apply failed:', e && e.message);
+    console.warn('[DieselSync] silent apply failed:', e && e.message);
+    /* S643 — the outer half of the same blindness. A throw HERE (the host
+       merge, the collect, the stringify) means the screen never even reached
+       _applyLoadedState, so that function's own reporting cannot fire. Two
+       layers, two reports; between them there is no longer a way for a cloud
+       update to fail to reach the screen without saying so. */
+    try { _diag('apply_failed', { step: 'facade-apply', err: String((e && e.message) || e).slice(0, 200) }); } catch (_) {}
   }
 }
 
-/* ── S574 — the change journal for Electric ────────────────────────────────
- * Same module, same rules as Diesel: one small entry per save saying what each
- * part of the report went from and to, flagged when something loses a lot at
- * once. Collection names are PLAIN LANGUAGE because a person reads them on a
- * tablet. Records only; the acting half is the cloud-door gate further down. */
-const ElectricJournal = createChangeJournal({
-  IDB: SyncIDB,
-  collections: function (s) {
-    s = s || {};
-    var defs = 0;
-    try {
-      Object.keys(s.deficiencies || {}).forEach(function (k) {
-        if (Array.isArray(s.deficiencies[k])) defs += s.deficiencies[k].length;
-      });
-    } catch (_) {}
-    return {
-      'checklist items':      s.clState,
-      'deficiencies':         defs,
-      'general deficiencies': s.generalDeficiencies,
-      'flow test photos':     s.flowTestPhotos,
-      'sketches':             s.sketchEntries
-    };
-  },
-  whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
-  build:  function () { try { return window.ELEC_BUILD || ''; } catch (_) { return ''; } },
-  tag: '[electric]'
-});
-try { window._elecJournal = ElectricJournal; } catch (_) {}
-
 const model = {
-  /* S643b — Electric's getProject() is a FRESH collect of what the inspector is
+  /* S643b — Diesel's getProject() is a FRESH collect of what the inspector is
      actually looking at, so a failed repaint CAN leave the screen
      disagreeing with what the engine applied. That is the one condition
      under which the ledger may be anchored to the device. FRT must never
@@ -182,13 +253,138 @@ const model = {
     _applyCloudSilent(data);
   },
   applyMerged: function (merged) {
-    try { window._applyLoadedState(JSON.stringify(merged)); }
-    catch (e) { console.warn('[ElectricSync] applyMerged failed:', e && e.message); }
+    try {
+      var _prevB = (typeof window._collectCloudState === 'function') ? window._collectCloudState() : null;
+      window._applyLoadedState(JSON.stringify(merged));
+      _noteFlowChanges(_prevB, merged);   // S590: badge what the merge changed
+    }
+    catch (e) { console.warn('[DieselSync] applyMerged failed:', e && e.message); }
   },
   saveNow: function () {
     try { if (typeof window.saveState === 'function') window.saveState(); } catch (_) {}
   }
 };
+
+/* ── S544 — DIESEL JOINS THE SHARED PHOTO ENGINE ────────────────────────────
+ * What this buys, in field terms: a photo whose stored file has gone missing
+ * (upload never really landed, object deleted, key written before the file
+ * existed) is re-uploaded automatically from THIS device's own copy of the
+ * image the next time the report is opened here — and a photo that has no
+ * image anywhere is reported instead of silently occupying a tile. S537 built
+ * the copy that makes that possible; until now nothing read from it.
+ *
+ * WHAT IS NOT TURNED ON: Diesel keeps its own upload queue (R2Outbox). Nothing
+ * is ever enqueued into this engine, so its upload processor, retry ladder and
+ * pull-time re-injection stay dormant — those paths walk FRT's report shape and
+ * are not Diesel's. The rescue pass is the part that is tool-neutral (S534),
+ * and it is the part being used.
+ *
+ * The R2 adapter below exists because the shared engine speaks a different
+ * upload signature than Diesel's R2Photos, and because Diesel photos carry
+ * their bytes in `.d` rather than `.dataUrl`. Uploading through R2Photos keeps
+ * the token-refresh behaviour Diesel already relies on in the field. */
+const DieselR2 = {
+  TOOL_KEY: 'electric',
+  get WORKER_URL() {
+    try { return (window.R2Photos && window.R2Photos.WORKER_URL) || ''; } catch (_) { return ''; }
+  },
+  /** upload(projectId, type, blob, filename) -> {r2Key, r2Url} | null */
+  upload: function (projectId, type, blob, filename) {
+    const R2P = window.R2Photos;
+    if (!R2P || !projectId || !blob) return Promise.resolve(null);
+    const fname = filename || R2P.generateFilename('heal');
+    return Promise.resolve(R2P.upload(projectId, 'electric', type || 'original', fname, blob))
+      .then(function () {
+        return {
+          r2Key: 'photos/' + projectId + '/diesel/' + (type || 'original') + '/' + fname,
+          r2Url: R2P.getUrl(projectId, 'electric', type || 'original', fname)
+        };
+      })
+      .catch(function (e) {
+        console.warn('[DieselSync] heal upload failed:', e && e.message);
+        return null;
+      });
+  },
+  /** uploadPhoto(projectId, photo, type) — Diesel photos hold bytes in `.d`. */
+  uploadPhoto: function (projectId, photo, type) {
+    const R2P = window.R2Photos;
+    if (!R2P || !photo || !photo.d) return Promise.resolve(null);
+    const blob = R2P.dataUrlToBlob(photo.d);
+    if (!blob) return Promise.resolve(null);
+    return DieselR2.upload(projectId, type || 'original', blob, R2P.generateFilename('heal'))
+      .then(function (result) {
+        if (result) { photo.r2Key = result.r2Key; photo.r2Url = result.r2Url; photo.r2Status = 'uploaded'; }
+        return photo;
+      });
+  }
+};
+
+const DieselPhotoEngine = createBinaryOutbox({
+  IDB: SyncIDB,
+  R2: DieselR2,
+  Auth: Auth,
+  toast: function (m) { try { if (typeof window.showToast === 'function') window.showToast(m); } catch (_) {} },
+  model: {
+    getProject: model.getProject,
+    saveNow: model.saveNow
+  },
+  // The three S534 injection points + the S544 project resolver.
+  photoWalk: function (proj) {
+    try {
+      if (typeof window._collectAllPhotos !== 'function') return [];
+      return window._collectAllPhotos({ includeDeleted: true, includeBackups: true })
+        .map(function (it) { return it && it.photo; })
+        .filter(Boolean);
+    } catch (_) { return []; }
+  },
+  photoFields: { bytes: 'd', thumb: 't' },
+  localBytes: function (id) {
+    try {
+      return (typeof window._dieselLocalBytes === 'function')
+        ? window._dieselLocalBytes(id)
+        : Promise.resolve(null);
+    } catch (_) { return Promise.resolve(null); }
+  },
+  // Diesel's report payload has no top-level id (verified against the live
+  // collect). The R2 folder the host established at Hub init is the truth.
+  projectId: function () {
+    try { return window._r2FolderId || null; } catch (_) { return null; }
+  }
+});
+
+/* ── S555 — the change journal (stage one of change-based sync) ──────────
+ * Records what each save changed. It does NOT block a save, does not travel to
+ * the server, and does not feed the merge — those come only once this has been
+ * watched against real inspections. `collections` is where Diesel says what its
+ * report is made of; the journal itself has no idea what a flow reading is.
+ * Named in plain language because these entries are read by a person on a
+ * tablet, not by a developer. */
+const DieselJournal = createChangeJournal({
+  IDB: SyncIDB,
+  collections: function (s) {
+    s = s || {};
+    var defs = 0;
+    try {
+      Object.keys(s.deficiencies || {}).forEach(function (k) {
+        if (Array.isArray(s.deficiencies[k])) defs += s.deficiencies[k].length;
+      });
+    } catch (_) {}
+    return {
+      'site photos':      s.recordPhotos,
+      'flow test photos': s.flowTestPhotos,
+      'flow readings':    s.stdData,
+      'PLD readings':     s.pldData,
+      'checklist items':  s.clState,
+      'deficiencies':     defs,
+      'general deficiencies': s.generalDeficiencies,
+      'sketches':         s.sketchEntries
+    };
+  },
+  whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
+  build:  function () { try { return window.DIESEL_BUILD || ''; } catch (_) { return ''; } },
+  tag: '[diesel]'
+});
+try { window._dslJournal = DieselJournal; } catch (_) {}
 
 /* ── The shared engine instance ─────────────────────────────────────────── */
 const engine = createSync({
@@ -196,20 +392,21 @@ const engine = createSync({
   Auth: Auth,
   IDB: SyncIDB,
   model: model,
-  SyncWorkerHost: ElectricWorkerHost,
-  /* S566/S567 — CHANGE-SCOPED SAVES: ON for Electric (Mark's call, all
-     tools). The engine sends only the report sections that differ from the
-     pinned ancestor; any doubt = the full-document push, byte for byte.
-     Outcomes go to the console until Electric grows an on-screen record. */
+  SyncWorkerHost: DieselWorkerHost,
+  BinaryOutbox: DieselPhotoEngine,   // S544: rescue + dead-key heal only (see above)
+  // Per-tool presentation of "photos in this report have no image on this
+  // device". The shared engine counts; Diesel's existing banner shows it.
+  onPhotoAttention: function (remaining) {
+    try { if (typeof window._phRenderBanner === 'function') window._phRenderBanner(remaining || 0); } catch (_) {}
+  },
+  /* S566 — CHANGE-SCOPED SAVES: ON for Diesel (Mark's call, all tools).
+     The engine sends only the report sections that differ from the pinned
+     ancestor; every outcome — scoped or full, and why — lands in the journal
+     so Recent Saves shows what each push actually did on a real job. */
   partialSave: {
     onPartialPush: function (info) {
       try {
-        if (info && info.mode === 'partial') {
-          console.info('[ElectricSync] change-scoped save: ' + (info.sent || []).join(', ') +
-                       ' (' + (info.sentKB || 0) + ' KB of ' + (info.fullKB || 0) + ' KB)');
-        } else if (info) {
-          console.info('[ElectricSync] full save' + (info.reason ? ' (' + info.reason + ')' : ''));
-        }
+        DieselJournal.note(Object.assign({ kind: 'push', pinned: true }, info || {}));
       } catch (_) {}
     }
   }
@@ -220,7 +417,10 @@ const engine = createSync({
  * them on every save, so they can conflict without any human meaning) in
  * favour of MINE, and only shows the dialog for real field conflicts. */
 const _NOISE_PATHS = { '_build': 1, 'dateModified': 1 };
-/* S583: stamp paths are bookkeeping — auto-resolve, never ask a person. */
+/* S583: per-item stamps and field-stamp maps are bookkeeping — merge3 now
+   resolves them deterministically (newer wins) and no longer emits them, but
+   older payloads in flight can still carry them. Belt: any path whose leaf is
+   _ts or _fts auto-resolves and never reaches a person. */
 function _isNoisePath(p) {
   if (_NOISE_PATHS[p]) return true;
   /* S592: the S589 device-receipt fields are bookkeeping — they were showing
@@ -250,7 +450,7 @@ engine.onConflict = function (conflicts, mergeResult) {
   });
   try {
     if (conflicts.length) {
-      console.info('[ElectricSync S590] ' + conflicts.length + ' contested field(s) auto-resolved, latest entry wins:');
+      console.info('[DieselSync S590] ' + conflicts.length + ' contested field(s) auto-resolved, latest entry wins:');
       conflicts.forEach(function (c) {
         const s = summarizeConflict(c);
         console.info('  · ' + s.pretty + ' → ' + (_isNoisePath(c.path) ? 'this device' : 'cloud'));
@@ -262,7 +462,7 @@ engine.onConflict = function (conflicts, mergeResult) {
 
 engine.onSilentMerge = function (mergeResult) {
   try {
-    console.info('[ElectricSync] silent merge applied — both editors kept ('
+    console.info('[DieselSync] silent merge applied — both editors kept ('
       + ((mergeResult && mergeResult.conflicts) ? mergeResult.conflicts.length : 0)
       + ' conflicts).');
   } catch (_) {}
@@ -320,9 +520,15 @@ const CloudSync = (function () {
   let _autoSaveTimer = null;
   let _collectStateFn = null;
   let _online = navigator.onLine;
-  /* S584 — live OS read at every decision point; the online/offline events
-     are unreliable on Android and remain only as instant status updates.
-     Same stranded-phone fix as Diesel. */
+  /* S584 — THE STRANDED-PHONE FIX. _online was set at boot and then changed
+     ONLY by the browser's online/offline events. On Android, the 'online'
+     event after airplane mode is unreliable — if it never fires, this flag
+     stays false forever: every save says "Saved locally (offline)", the
+     heartbeat refuses to run, and the device sits fully connected but mute
+     until the app is killed. (1490.04 retest: phone held 60 psi locally and
+     never sent it.) The OS always knows the real state via navigator.onLine —
+     read it LIVE at every decision point; the events remain only as instant
+     status-pill updates. */
   function _netUp() { _online = (navigator.onLine !== false); return _online; }
   let _userId = null;
   let _projectInfo = null;
@@ -332,39 +538,73 @@ const CloudSync = (function () {
   try {
     document.addEventListener('input', function () { _lastEditAt = Date.now(); }, true);
   } catch (_) {}
+  /* S585 — sync diagnostics timeline (feeds the on-screen Sync Status panel) */
+  let _lastPushOkAt = 0, _lastPushFailAt = 0, _lastPushFailMsg = '', _lastPullAt = 0;
   let _lastPushedJson = '';   // S524 I-5: advances only on CONFIRMED push
   let _pendingSince = null;   // S524 I-5: when unsent work first appeared (durable)
-  /* S673 — the boot barrier, mirrored from Diesel (see diesel-sync.js for the
-     full field-test-3 account, 17 Aug: a relaunch pushed a blank NPSH wearing
-     a fresh mint and destroyed the unsent offline work on disk). Until the
-     host announces its boot apply, the facade is inert on every outbound and
-     record-touching door; a 20s fallback guarantees sync can never be wedged.
-     Harness: tools/sim/bootlaunder.mjs. */
+  /* ═══ S673 — THE BOOT BARRIER (Mark's field test 3, 17 Aug: NPSH wiped on
+     every device by a relaunch). S602 starts the autosave loop, the heartbeat
+     and the lifecycle kick BEFORE load() resolves and before the host paints.
+     In that window every collect reads the default skeleton: the kick pushed
+     the blank at 21:14:32 wearing a fresh mint, an early pull's re-baseline
+     destroyed the unsent 770 on disk, and the boot pull's deliberate anchor
+     skip meant nothing corrected the record before pushes began.
+     Until the host announces its boot apply (bootApplyComplete), the facade
+     is INERT on every outbound and record-touching door: no saves, no kicks,
+     no ticks, no realtime pulls, no edit stamps. load()'s own capture pull is
+     the boot itself and is exempt. A 20s fallback lifts the barrier if a boot
+     dies partway, so sync can never be wedged by it — honest late is safe;
+     silent skeleton pushes are not. Harness: tools/sim/bootlaunder.mjs
+     (2 checks red on S643b, green here; 4 negative controls green on both). */
   let _bootApplied = false;
-  /* S698 (mirror) — boot stamp-merge could not be trusted: local saves
-     continue, cloud writes are held. */
+  /* S698 — set when the boot stamp-merge could not be trusted. Local saves to
+     disk continue; CLOUD writes are held, because a document we failed to
+     reconcile must never be pushed as authority. */
   let _s698MergeHeld = false;
   let _bootHoldTimer = null;
   let _bootAppliedState = null;
   const BOOT_HOLD_MAX_MS = 20000;
   let _initialized = false;
   let _pulling = false;
-  /* S602 — tick health, mirrored from Diesel. */
-  let _pullingSince = 0, _lastCheckAt = 0;
-  let _bootTrace = [];   // S603
-  const ELEC_TICK_NET_TIMEOUT_MS = 20000;
-  const ELEC_TICK_WATCHDOG_MS = 45000;
-  function _elecWithTimeout(p, ms, label) {
+
+  /* ═══ S602 — TICK HEALTH ════════════════════════════════════════════════
+     _lastCheckAt   : the device LOOKED at the cloud (whether or not anything
+                      came back). Reported separately from _lastPullAt, which
+                      only moves when something was actually received.
+     _pullingSince  : when the current check started, so a hung request can be
+                      released instead of deafening the device permanently.
+     TICK_NET_TIMEOUT_MS : a cloud check that has not answered in 20s has not
+                      failed — it has hung. Treat it as failed and move on.
+     TICK_WATCHDOG_MS    : hard ceiling on holding the busy flag.            */
+  let _lastCheckAt = 0, _pullingSince = 0, _lastTickWhy = '', _lastTickAt = 0;
+  let _bootTrace = [];   // S603 — how far startup got, shown on the panel
+  const TICK_NET_TIMEOUT_MS = 20000;
+  const TICK_WATCHDOG_MS = 45000;
+
+  function _withTimeout(p, ms, label) {
     return Promise.race([p, new Promise(function (_, rej) {
       setTimeout(function () { rej(new Error(label + ' timed out after ' + Math.round(ms / 1000) + 's')); }, ms);
     })]);
+  }
+
+  /* One line per tick, rate-limited: every change of outcome is reported, and
+     an unchanging outcome repeats at most once every two minutes. Enough to
+     read a device's whole day; not enough to flood the table. */
+  function _tickDiag(why, extra) {
+    var now = Date.now();
+    var same = (why === _lastTickWhy);
+    _lastTickWhy = why;
+    if (same && (now - _lastTickAt) < 120000 && !/^(pulled|error|probe-failed|watchdog)/.test(why)) return;
+    _lastTickAt = now;
+    try { _diag('tick', Object.assign({ why: why, sinceCheck: _lastCheckAt ? now - _lastCheckAt : null }, extra || {})); }
+    catch (_) {}
   }
 
   function _setStatus(status, msg) {
     if (_onStatusChange) { try { _onStatusChange(status, msg); } catch (_) {} }
   }
 
-  // S447 transport contract (inherited): REST calls always send
+  // S447 transport contract: Diesel's REST calls always send
   // Prefer: return=representation so PATCH/POST return the written row.
   function _request(path, opts) {
     opts = opts || {};
@@ -428,7 +668,7 @@ const CloudSync = (function () {
   }
 
   async function _getNextInstanceNumber() {
-    if (!_netUp()) return 1;   // S584
+    if (!_netUp()) return 1;   // S584: live OS read
     try {
       const rows = await _request('/rest/v1/tool_data?select=instance_number&project_id=eq.'
         + _projectId + '&tool_key=eq.' + _toolKey + '&order=instance_number.desc&limit=1');
@@ -455,24 +695,36 @@ const CloudSync = (function () {
 
   async function init(opts) {
     _toolKey = opts.toolKey;
+    _diagTool = _toolKey; _diagProject = opts.projectId || null; _diagInstance = opts.instanceId || null;   // S602
     _onStatusChange = opts.onStatusChange || null;
     _projectId = opts.projectId || null;
     _instanceId = opts.instanceId || null;
 
-    /* S673 — arm the boot barrier before anything else can fire (mirror). */
+    /* S673 — arm the boot barrier before anything else can fire. The host
+       lifts it via bootApplyComplete() after its paint; the timer guarantees
+       a failed boot can never leave sync held forever. */
     try { engine.holdEditStamps = true; } catch (_) {}
     if (!_bootHoldTimer && !_bootApplied) {
       _bootHoldTimer = setTimeout(function () { _liftBootHold('timeout'); }, BOOT_HOLD_MAX_MS);
     }
 
-    /* S603 — startup can no longer hang; mirrored from Diesel (see
-       diesel-sync.js for the full reasoning and the Android evidence). */
+    /* ═══ S603 — STARTUP CAN NO LONGER HANG (the Android root) ══════════════
+       These four awaits had no time limit. A network request that HANGS
+       instead of failing — the wifi/LTE handover shape, routine on Android —
+       left init() unresolved forever: no error, no toast, no autosave, no
+       heartbeat, a device running local-only all day while looking normal.
+       That is the owner's 03-Aug Android panel, byte for byte ("everything
+       never" while online and signed in), independently confirmed by review.
+       Every step is now time-bound, records a breadcrumb the panel can show,
+       and NOTHING can stop init() reaching _initialized = true. Degraded is
+       honest; silent is not. Harness: sim/bootstall.mjs (0/2 on S602 for all
+       three hang points → 2/2 here). */
     async function _step(name, fn, ms) {
-      try { await _elecWithTimeout(Promise.resolve().then(fn), ms || 10000, name); _bootTrace.push(name + ' ok'); }
+      try { await _withTimeout(Promise.resolve().then(fn), ms || 10000, name); _bootTrace.push(name + ' ok'); }
       catch (e) {
         var why = (e && e.message) || 'failed';
         _bootTrace.push(name + ' ' + (/timed out/.test(why) ? 'timed out' : ('failed: ' + why.slice(0, 60))));
-        console.warn('[ElectricSync] init step "' + name + '":', why);
+        console.warn('[DieselSync] init step "' + name + '":', why);
       }
     }
     await _step('local-db', function () { return SyncIDB.init(); }, 8000);
@@ -480,25 +732,47 @@ const CloudSync = (function () {
     if (_projectId && _online) await _step('project-info', function () { return _loadProjectInfo(); }, 10000);
     if (_projectId && !_instanceId) await _step('report-number', async function () { _instanceNumber = await _getNextInstanceNumber(); }, 10000);
 
-    /* S699 (mirror of diesel-sync.js) — reconnect has ONE owner. This facade's
-       own `online` listener raced the shared engine's flush() on the same
-       event. Both are replaced by one registered path whose order the engine
-       fixes: pull (ordinary merge) → afterPull → pushAhead. `pushAhead` stays
-       ours because only this facade knows it is ahead — an offline save never
-       reaches the engine, so engine.isPending is false (S583). */
+    /* ═══ S699 — RECONNECT HAS ONE OWNER NOW. ════════════════════════════════
+       This facade used to add its OWN `online` listener doing pull-then-save,
+       while the shared engine's listener called flush() on the same event.
+       Both ran. The listener is gone; the same steps are now registered with
+       the engine, which fixes the order once for every tool:
+       pull (ordinary merge) → afterPull → pushAhead.
+       `pushAhead` stays OURS because only this facade knows whether it is
+       ahead: the engine's _pendingSync is false after an offline save, which
+       never reaches the engine at all (S583). */
     engine.onReconnect({
       afterPull: function () {
+        /* The engine has applied the pull; the host's own apply/repaint path
+           runs here so a collect below reads POST-pull state, never pre-pull
+           pixels. _lastPullAt is stamped so the heartbeat does not immediately
+           re-pull. */
         _lastPullAt = Date.now();
         _setStatus('saving', 'Reconnected...');
       },
       pushAhead: function () {
-        /* S589 — collect fresh, never the stored string: the screen now holds
-           the merged truth the pull just delivered. */
+        /* S583 — an OFFLINE save returns before the engine is ever involved, so
+           engine.isPending stays false. Check the real ledger: local saved vs
+           cloud confirmed. save() routes through the wipe gate and the full
+           push machinery, exactly like any other save.
+           S589 — push the LIVE model, never the stored string: collect fresh,
+           because whatever is on screen now already contains the merged truth
+           the pull just delivered. */
         if (_lastSavedJson && _lastSavedJson !== _lastPushedJson) {
           engine.pushVia = 'reconnect';
           return Promise.resolve(save(_collectStateFn ? JSON.stringify(_collectStateFn()) : _lastSavedJson))
-            .then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); return r; })
-            .catch(function () { _setStatus('pending', 'Saved locally'); return null; });
+            .then(function (r) {
+              _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally');
+              /* S622c — a save that resolved WITHOUT a cloud row while the
+                 device believes it is online is the drift seed. Record it. */
+              try { if (!r && navigator.onLine && engine && engine.constructor) _diag('push_result', { outcome: 'save-resolved-null-online' }); } catch (_) {}
+              return r;
+            })
+            .catch(function (e) {
+              _setStatus('pending', 'Saved locally');
+              try { if (navigator.onLine) _diag('push_result', { outcome: 'save-threw-online', err: String(e && e.message || e).slice(0, 120) }); } catch (_) {}
+              return null;
+            });
         }
         if (engine.isPending) {
           return engine.flush().then(function (r) { _setStatus(r ? 'synced' : 'pending', r ? 'Saved to cloud' : 'Saved locally'); return r; });
@@ -519,6 +793,12 @@ const CloudSync = (function () {
        standing, the next flush re-pushes it over the very data that just
        arrived — the 80→150 revert. Re-point the ledger at what is now on
        screen, and retire the durable pending flag when nothing differs. */
+    /* S599 — the engine reports each pull decision; forward it to the database. */
+    engine.onDiag = function (event, detail) {
+      try { _diag(event, Object.assign({ build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') }, detail || {})); }
+      catch (_) {}
+    };
+
     /* S674 — the engine's keystroke stamper carries the value with it. */
     try { engine.onStampPersist = _persistAtStamp; } catch (_) {}
     /* S675 — any edit is an edit: taps, strokes, and silent arrivals feed the
@@ -529,17 +809,35 @@ const CloudSync = (function () {
     engine.onModelReplaced = function () {
       try {
         if (!_collectStateFn) return;
-        /* S673 — no re-baseline during boot (mirror): this fires on the boot
-           capture pull too, and a collect here reads the unpainted skeleton —
-           overwriting the previous session's unsent work on disk. */
+        /* ═══ S673 — NO RE-BASELINE DURING BOOT. This handler fires on the
+           boot capture pull too (the capture flag suppresses the APPLY, not
+           this callback). Collecting here reads the unpainted skeleton: the
+           cache record holding the previous session's unsent work is then
+           overwritten by a blank document — which is exactly where the
+           field-test 770 died on disk — and the push dedupe certifies a
+           screen nobody has seen. load()'s own cachePut is the authoritative
+           boot-time cache write, and it now carries the pending marker. */
         if (!_bootApplied) return;
         var now = JSON.stringify(_collectStateFn());
         _lastSavedJson = now;
-        /* S622c — confirmation honesty, mirrored from Diesel (see the Diesel
-           facade for the full 06 Aug pm-rpm stranding account): the dedupe
-           advances and the unsent marker clears ONLY when the merge kept
-           nothing local. A device the merge left AHEAD of the cloud has
-           unconfirmed work; the S604 re-arm pushes it on the next beat. */
+        /* ═══ S622c — CONFIRMATION HONESTY (Mark's iPhone, 06 Aug: pm-rpm
+           22233 stranded for good). This baseline declared "the cloud
+           round-trip that produced this IS the confirmation" and advanced
+           the push dedupe + cleared the durable pending marker for WHATEVER
+           the merge applied. True when the merge applied cloud content —
+           false when the merge KEPT LOCAL VALUES the cloud does not have:
+           the device's own winning entry was recorded as already-on-the-
+           server, every later save deduped as sent, the wake flush skipped
+           it, and pendingPush:false was even persisted to the IDB cache —
+           zero pushes forever, drift surviving refresh. The dedupe's own
+           S524 header states the law: it advances only on a CONFIRMED push.
+           When the merge kept anything local, this device is AHEAD of the
+           cloud — nothing is confirmed. Baseline the local ledger, leave
+           the push dedupe and the unsent marker alone; the S604 re-arm
+           right after this pushes the winning state through the normal
+           If-Match path. The S600 anti-resurrection property is untouched:
+           a stale screen that LOST the merge kept nothing, confirms as
+           before, and still has nothing left to send. */
         var _ahead = false;
         try { _ahead = !!engine.lastPullKeptLocal; } catch (_) {}
         if (!_ahead) {
@@ -554,17 +852,26 @@ const CloudSync = (function () {
           instanceNumber: engine.instanceNumber || _instanceNumber,
           savedAt: new Date().toISOString(), pendingPush: _ahead, pendingSince: _pendingSince
         });
-      } catch (e) { console.warn('[ElectricSync] re-baseline after cloud apply failed:', e && e.message); }
+      } catch (e) { console.warn('[DieselSync] re-baseline after cloud apply failed:', e && e.message); }
     };
 
-    /* S586 — mobile lifecycle wake-up flush (same root fix as Diesel: Android
-       freezes background timers; flush + catch up the moment we're back). */
+    /* ═══ S586 — MOBILE LIFECYCLE: THE WAKE-UP FLUSH (the real 1490.04 root).
+       Android freezes a backgrounded page's timers COMPLETELY. The field flow
+       is: edit on the phone → pocket it / switch away → check the desktop.
+       From the switch onward the 15s autosave and heartbeat are frozen — not
+       failing, simply never running — so offline work sits unsent for exactly
+       as long as nobody is staring at the phone. Proven by harness 03 Aug:
+       the identical code pushes on the first tick when the page is awake.
+       Fix: the moment the page becomes visible / focused / restored, flush
+       unsent work and catch up on pulls IMMEDIATELY — no waiting for a tick.
+       On hide, fire one best-effort flush too (browsers grant a few seconds
+       of grace before the freeze; a save takes well under one). */
     var _lastKickAt = 0;
     function _lifecycleKick(pullToo) {
       if (!_initialized) return;
       if (!_bootApplied) return;   // S673 — a kick during boot collects the skeleton; hold it
       var now = Date.now();
-      if (now - _lastKickAt < 2000) return;
+      if (now - _lastKickAt < 2000) return;   // debounce event bursts
       _lastKickAt = now;
       (async function () {
         try {
@@ -592,7 +899,7 @@ const CloudSync = (function () {
     }
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'visible') _lifecycleKick(true);
-      else _lifecycleKick(false);
+      else _lifecycleKick(false);   // going dark: best-effort flush, no pull
     });
     window.addEventListener('pageshow', function () { _lifecycleKick(true); });
     window.addEventListener('focus', function () { _lifecycleKick(true); });
@@ -631,6 +938,7 @@ const CloudSync = (function () {
 
     _bootTrace.push('started');
     _initialized = true;
+    _diag('boot', { trace: _bootTrace.join(' \u2192 ') });   // S603
     _setStatus(_online ? 'synced' : 'offline', 'Ready');
     return { projectInfo: _projectInfo, userId: _userId, online: _online, instanceId: _instanceId, instanceNumber: _instanceNumber };
   }
@@ -662,11 +970,15 @@ const CloudSync = (function () {
              now merges disk vs cloud by entry stamps exactly like every
              heartbeat pull: whichever value was ENTERED later survives, per
              field, and that is what reaches both the screen and the cloud. */
-          /* S698 (mirror of diesel-sync.js) — a failed boot merge must not
-             become an adopt. The old catch left `data` holding the RAW cloud
-             copy, so the one path where the stamp law could not run was also
-             the one path that silently discarded this device's disk work.
-             Keep the disk copy; hold cloud writes. */
+          /* ═══ S698 — A FAILED BOOT MERGE MUST NOT BECOME AN ADOPT. ═════════
+             The old catch merely logged "skipped" and left `data` holding the
+             RAW cloud copy — which is then painted, cached and pushed. So the
+             one path where the stamp law could not run was also the one path
+             that silently discarded this device's disk work: exactly the S601
+             resurrection, re-entered through the error door. If the merge
+             cannot be trusted, the device's own disk copy stands and the push
+             is HELD until a human resolves it. Nothing is overwritten by a
+             copy we failed to reconcile. */
           try {
             const rec = await _cacheGet(_cacheKey());
             const localDisk = rec && rec.state
@@ -674,7 +986,7 @@ const CloudSync = (function () {
             const bm = engine.mergeByStamps(localDisk, data);
             if (bm) data = bm;
             else if (localDisk) {
-              console.warn('[ElectricSync S698] boot stamp-merge returned nothing \u2014 keeping this device\u2019s disk copy, holding the push.');
+              console.warn('[DieselSync S698] boot stamp-merge returned nothing \u2014 keeping this device\u2019s disk copy, holding the push.');
               data = localDisk; _s698MergeHeld = true;
             }
           } catch (e) {
@@ -684,11 +996,11 @@ const CloudSync = (function () {
               _ld = rec2 && rec2.state ? (typeof rec2.state === 'string' ? JSON.parse(rec2.state) : rec2.state) : null;
             } catch (_) {}
             if (_ld) {
-              console.error('[ElectricSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+              console.error('[DieselSync S698] boot stamp-merge FAILED (' + (e && e.message) +
                 ') \u2014 keeping this device\u2019s disk copy and HOLDING cloud writes. The raw cloud copy is NOT adopted.');
               data = _ld;
             } else {
-              console.error('[ElectricSync S698] boot stamp-merge FAILED (' + (e && e.message) +
+              console.error('[DieselSync S698] boot stamp-merge FAILED (' + (e && e.message) +
                 ') and no local disk copy is readable \u2014 HOLDING cloud writes.');
             }
             _s698MergeHeld = true;
@@ -696,12 +1008,23 @@ const CloudSync = (function () {
           const meta = await _fetchRowMeta();
           _instanceId = engine.instanceId || _instanceId;
           _instanceNumber = engine.instanceNumber || _instanceNumber;
+          /* S629 — the row's identity is only known here, and the socket
+             filters on it server-side so a device is never woken by other
+             people's reports. Started after the boot load, never before:
+             a notification arriving mid-boot would race the boot merge. */
+          try { _rtStart(); } catch (_) {}
           const sj = JSON.stringify(data);
           _lastSavedJson = sj;
-          /* S673 (mirror) — retain the boot-decided document for the anchor,
-             and carry the durable unsent-work marker instead of erasing it
-             (the OPEN-6 second defect). */
+          /* S673 — the anchor's reference document: what the boot decided the
+             report holds, for bootApplyComplete to compare the screen against. */
           _bootAppliedState = data;
+          /* S673 — carry the durable unsent-work marker. This cachePut used to
+             rewrite the record WITHOUT pendingPush/pendingSince, erasing the
+             knowledge that offline work was never confirmed — before recovery
+             or the boot flush could act on it (the S634-41d OPEN-6 second
+             defect, and half of how the field-test 770 was lost). The merged
+             state above already folds the disk work in (S601), so carrying the
+             flag simply keeps the flush armed until a confirmed push clears it. */
           var _prevRec = null;
           try { _prevRec = await _cacheGet(_cacheKey()); } catch (_) {}
           _cachePut(_cacheKey(), {
@@ -723,7 +1046,7 @@ const CloudSync = (function () {
         }
       } catch (e) {
         _captureNext = false;
-        console.warn('[ElectricSync] cloud load failed:', e && e.message);
+        console.warn('[DieselSync] cloud load failed:', e && e.message);
       }
     }
     try {
@@ -736,22 +1059,17 @@ const CloudSync = (function () {
           row: null
         };
       }
-    } catch (e) { console.error('[ElectricSync] cache load failed:', e); }
+    } catch (e) { console.error('[DieselSync] cache load failed:', e); }
     _setStatus(_online ? 'synced' : 'offline', 'No saved data');
     return null;
   }
 
-  /* ── S574 — the cloud-door wipe gate (ported from Diesel S571) ────────────
-   * A save whose shape matches a wipe stops at the CLOUD door and asks once.
-   * Safe on an unwatched threshold for the same three reasons as Diesel:
-   *   1. the LOCAL save has already happened above — nobody can be stopped
-   *      from working, and nothing can be lost by pausing;
-   *   2. it FAILS OPEN — no dialog, no journal, any error = the push proceeds,
-   *      so the guard can never become a silent sync outage;
-   *   3. it asks ONCE PER LOSS SHAPE, so autosave cannot nag, while a
-   *      genuinely different loss later still gets its own question.
-   * The server wipe guard remains the hard backstop underneath. */
-  var _wipeAnswers = {};
+  /* ── S571 — the cloud-door wipe gate ──────────────────────────────────────
+   * Returns true = let the push go. Answers are keyed to a SIGNATURE of the
+   * loss ("site photos 225->0|flow readings 15->9") so autosave asks once, and
+   * a genuinely different loss later still gets asked. Everything is wrapped;
+   * every failure path returns true (fail open — see save()). */
+  var _wipeAnswers = {};      // signature -> true (allowed) | false (paused)
   var _wipeAsking = false;
 
   function _wipeSignature(losses) {
@@ -759,22 +1077,30 @@ const CloudSync = (function () {
   }
 
   async function _wipeGateAllows(stateJson) {
+    // Nothing to compare against yet (first push of the session) — allow.
     if (!_lastPushedJson) return true;
-    var J = window._elecJournal;
+    var J = window._dslJournal;
     if (!J || typeof J.assessLosses !== 'function') return true;
+
     var before, after;
     try { before = JSON.parse(_lastPushedJson); after = JSON.parse(stateJson); }
     catch (_) { return true; }
+
+    // A user-declared reset already had its own confirmation — never double-ask.
     try { if (after && after._intentionalClear) return true; } catch (_) {}
+
     var losses = J.assessLosses(before, after);
     if (!losses || !losses.length) return true;
+
     var sig = _wipeSignature(losses);
     if (_wipeAnswers[sig] !== undefined) return _wipeAnswers[sig];
-    if (_wipeAsking) return false;
+    if (_wipeAsking) return false;      // a question is already on screen — wait for it
+
     if (!Dlg || typeof Dlg.confirm !== 'function') {
-      console.warn('[ElectricSync S574] wipe gate: no dialog engine — allowing push.');
+      console.warn('[DieselSync S571] wipe gate: no dialog engine — allowing push.');
       return true;
     }
+
     _wipeAsking = true;
     var ok = true;
     try {
@@ -793,12 +1119,16 @@ const CloudSync = (function () {
         confirmText: 'Yes, save to cloud'
       });
     } catch (e) {
-      console.warn('[ElectricSync S574] wipe gate dialog failed — allowing push:', e && e.message);
+      console.warn('[DieselSync S571] wipe gate dialog failed — allowing push:', e && e.message);
       ok = true;
     }
     _wipeAsking = false;
     _wipeAnswers[sig] = ok;
-    if (!ok) console.warn('[ElectricSync S574] cloud push paused by the user for: ' + sig);
+    if (!ok) {
+      // Make the pause visible and point at the record that explains it.
+      try { if (typeof window._dslSetSaveFlag === 'function') window._dslSetSaveFlag(true); } catch (_) {}
+      console.warn('[DieselSync S571] cloud push paused by the user for: ' + sig);
+    }
     return ok;
   }
 
@@ -807,9 +1137,14 @@ const CloudSync = (function () {
    * (call sites pass the same collect, so the two are equivalent). */
   async function save(stateJson) {
     if (typeof stateJson !== 'string') stateJson = JSON.stringify(stateJson);
-    /* S673 — nothing saves before the report exists (mirror): while the boot
-       barrier holds, a collect is not the report — caching it destroys the
-       unsent-work record and pushing it launders blanks. Do nothing at all. */
+    /* ═══ S673 — NOTHING SAVES BEFORE THE REPORT EXISTS. While the boot
+       barrier holds, the screen is (or may be) the default skeleton, so a
+       collect is not the report — caching it would DESTROY the unsent-work
+       record from the previous session (how the field-test 770 died on
+       disk), and pushing it launders blanks into "newest truth". Do nothing
+       at all: no cache write, no stamp, no push. The barrier is lifted by
+       the host's bootApplyComplete (or the 20s fallback), whose flush then
+       sends what the screen genuinely holds. */
     if (!_bootApplied) { _setStatus('pending', 'Loading report\u2026'); return null; }
     /* S524 DOCTRINE I-5 — THE 110-MINUTE BUG. _lastSavedJson was set BEFORE
        the push; when the push failed, the next autosave tick collected the
@@ -849,24 +1184,52 @@ const CloudSync = (function () {
     }
     if (!_netUp()) {
       _setStatus('offline', 'Saved locally (offline)');
-      /* S617 — mirror of Diesel's fix: an offline edit must carry the moment
-         it was TYPED. Without this, its stamp was minted at first online
-         flush and wrongly beat values other devices typed later. */
+      /* S617 — this early exit is where an offline edit LOST ITS TIME: the
+         engine (and its stamping pass) was never reached, so the value was
+         only stamped at the first online flush — and wrongly beat values other
+         devices typed later (Mark's 50-vs-30 NPSH failure, 05 Aug). Stamp the
+         edit's true moment now; no network is touched. Awaited so the ledger
+         is pinned before this save resolves. */
       try { if (engine && typeof engine.stampLocal === 'function') await engine.stampLocal(); } catch (_) {}
       _settleRetry(); return null;
-    }   // S584
+    }   // S584: live OS read, never the stale event latch
     if (alreadyPushed) return null;
-    /* S698 (mirror) — unreconciled document: saves to disk, never pushed as
-       authority. */
+    /* S698 — the boot merge could not be trusted, so this device's document is
+       its own disk copy, unreconciled with the cloud. It saves to disk (above)
+       and stays queued, but it must NOT be pushed as authority: that is the
+       adopt-through-the-error-door this session closed. */
     if (_s698MergeHeld) {
       _setStatus('pending', 'Saved on this device \u2014 cloud paused');
       return null;
     }
+    /* ── S571 — CHANGE JOURNAL, STAGE THREE (second half) ────────────────────
+     * A save whose shape matches a wipe now stops at the CLOUD DOOR and asks a
+     * person, once. Three properties make this safe to ship on a threshold
+     * that has not yet been watched against a week of real jobs:
+     *
+     *   1. THE LOCAL SAVE HAS ALREADY HAPPENED, above. Nothing here can cost an
+     *      inspector their work or stop them working — the report is on disk
+     *      either way. Only the cloud copy waits.
+     *   2. IT FAILS OPEN. No dialog engine, no journal, an error anywhere — the
+     *      push proceeds exactly as before. A guard that cannot render must
+     *      never become a silent sync outage (the 4380.24 lesson).
+     *   3. IT ASKS ONCE PER SHAPE. The answer is remembered against a signature
+     *      of the loss itself, so autosave cannot nag every 15 seconds, and a
+     *      DIFFERENT loss later still gets its own question.
+     *
+     * So a wrong threshold costs one dialog, not a stranded inspector — which
+     * is the objection that kept this half unbuilt until now. If the person
+     * says no, the cloud keeps the fuller previous copy and the local report is
+     * untouched, which is exactly the state they'd want while they check.
+     * The server wipe guard remains the hard backstop underneath all of it. */
     try {
-      const _allow = await _wipeGateAllows(stateJson);
-      if (!_allow) { _setStatus('pending', 'Saved locally — cloud save paused'); return null; }
+      const _hold = await _wipeGateAllows(stateJson);
+      if (!_hold) {
+        _setStatus('pending', 'Saved locally — cloud save paused');
+        return null;
+      }
     } catch (e) {
-      console.warn('[ElectricSync] wipe gate skipped (failing open):', e && e.message);
+      console.warn('[DieselSync] wipe gate skipped (failing open):', e && e.message);
     }
     try {
       _setStatus('saving', 'Syncing...');
@@ -886,6 +1249,7 @@ const CloudSync = (function () {
           savedAt: new Date().toISOString(),
           pendingPush: false, pendingSince: null
         });
+        _lastPushOkAt = Date.now();   // S585
         _setStatus('synced', 'Saved to cloud');
         return row;
       }
@@ -894,9 +1258,15 @@ const CloudSync = (function () {
       _setStatus('pending', 'Saved locally');
       return null;
     } catch (e) {
-      console.warn('[ElectricSync] save failed:', e && e.message);
-      /* S584 — dead sign-in goes loud (same as Diesel). */
+      console.warn('[DieselSync] save failed:', e && e.message);
+      /* S584 — A DEAD SIGN-IN GOES LOUD. When the token refresh itself fails,
+         every push dies quietly and retries forever — from the outside it
+         looks exactly like a sync bug (the wrap-time "expiry loop"). Auth
+         death is not a sync state; it is a person-must-act state. Say so,
+         once, visibly, and keep saying it in the pill. Work stays safe on
+         the device the whole time. */
       var _m = String((e && e.message) || '');
+      _lastPushFailAt = Date.now(); _lastPushFailMsg = _m;   // S585
       if (_m.indexOf('Unauthorized') !== -1 || _m.indexOf('refresh failed') !== -1 ||
           _m.indexOf('JWT') !== -1 || _m.indexOf('401') !== -1) {
         _setStatus('error', 'Signed out — reopen from the Hub to sign in. Work is saved on this device.');
@@ -915,7 +1285,7 @@ const CloudSync = (function () {
     _authBannerShown = true;
     try {
       var b = document.createElement('div');
-      b.id = 'elecAuthDeadBanner';
+      b.id = 'dslAuthDeadBanner';
       b.style.cssText = 'position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:99999;' +
         'background:#C0445F;color:#fff;font:600 14px Calibri,sans-serif;padding:12px 18px;' +
         'border-radius:12px;box-shadow:0 6px 24px rgba(0,0,0,.35);max-width:92vw;display:flex;gap:12px;align-items:center;';
@@ -928,18 +1298,59 @@ const CloudSync = (function () {
     } catch (_) {}
   }
 
-  /* S674 (mirror) — THE VALUE RIDES WITH ITS CLAIM. See diesel-sync.js for the
-     full account of Mark's 21 Aug Rated Flow loss: the entry stamp was durable
-     at 500ms, the value not until the ~5500ms push, and a kill in between left
-     an orphaned claim that re-dated whatever the screen showed next. Same
-     trigger as the stamp, local only, held while the boot barrier is up.
+  /* ═══ S673 — LIFTING THE BOOT BARRIER ═════════════════════════════════════
+     Called by the host (bootApplyComplete) the moment its boot apply has run,
+     or by the 20s fallback if a boot dies partway. Idempotent. Order matters:
+       1. anchor the ledger to what the device ACTUALLY shows now (the S643
+          law, extended to the boot door at the moment S643 said it needed —
+          after the host's paint, not inside the pull). Unpainted fields are
+          detected and reported, and an unminted recovered edit is scrubbed
+          from the ledger so its honest mint happens at step 2;
+       2. flush: one collect→save so recovered offline work and anything
+          typed while the barrier held goes up through the normal push path,
+          wearing honest stamps.
+     On the timeout path there may be no applied state; the anchor then runs
+     against an empty document, which only re-reads the screen — still
+     strictly better than pushing with a ledger that describes the cloud. */
+  function _liftBootHold(why) {
+    if (_bootApplied) return;
+    _bootApplied = true;
+    if (_bootHoldTimer) { clearTimeout(_bootHoldTimer); _bootHoldTimer = null; }
+    try { engine.holdEditStamps = false; } catch (_) {}
+    try { if (engine.anchorBoot) engine.anchorBoot(_bootAppliedState); } catch (e) {
+      console.warn('[DieselSync S673] boot anchor failed (continuing):', e && e.message);
+    }
+    if (why !== 'host') console.warn('[DieselSync S673] boot barrier lifted by ' + why);
+    if (_collectStateFn) {
+      try {
+        var j = JSON.stringify(_collectStateFn());
+        engine.pushVia = 'boot-complete';
+        Promise.resolve(save(j)).catch(function () {});
+      } catch (_) {}
+    }
+  }
+
+  /* ═══ S674 — THE VALUE RIDES WITH ITS CLAIM ═══════════════════════════════
+     Mark, 21 Aug: 2500 typed into Rated Flow, app closed at once, 2000 back on
+     reopen — and the stale 2000 re-dated to that moment, outranking the real
+     edit everywhere. The claim (the entry stamp) was durable at 500ms; the
+     value did not become ARGUABLE until the ~5500ms cloud push reached this
+     cache. Kill in between and the ledger holds a timed claim about a number
+     nothing authoritative has — an orphan that mints recency onto whatever the
+     screen shows next.
+     This is the engine's onStampPersist hook: the same trigger as the stamp,
+     the same instant, LOCAL ONLY. It writes the durable record — the same
+     shape save() writes offline, with the same unsent-work flag — and touches
+     no network and no push bookkeeping, so the normal debounced save still
+     pushes exactly as before and the freshness pill is unaffected. Held while
+     the boot barrier is up (S673): during boot the screen is not the report.
      Harness: tools/sim/typekill.mjs. */
   function _persistAtStamp() {
     if (!_bootApplied) return;                 // S673 — the screen is not the report yet
     if (!_collectStateFn || !_projectId) return;
     var stateJson;
     try { stateJson = JSON.stringify(_collectStateFn()); } catch (_) { return; }
-    if (stateJson === _lastSavedJson) return;
+    if (stateJson === _lastSavedJson) return;  // nothing new to make durable
     _lastSavedJson = stateJson;
     _cachePut(_cacheKey(), {
       state: stateJson, projectId: _projectId, toolKey: _toolKey,
@@ -965,32 +1376,12 @@ const CloudSync = (function () {
        • The server wipe guard (PT409) and the pull-side guards still apply.
        • It is a no-op when there is nothing unsent.
      ══════════════════════════════════════════════════════════════════════ */
-  /* ═══ S673 — LIFTING THE BOOT BARRIER (mirror; see diesel-sync.js for the
-     full ordering rationale: anchor first, then flush with honest stamps). */
-  function _liftBootHold(why) {
-    if (_bootApplied) return;
-    _bootApplied = true;
-    if (_bootHoldTimer) { clearTimeout(_bootHoldTimer); _bootHoldTimer = null; }
-    try { engine.holdEditStamps = false; } catch (_) {}
-    try { if (engine.anchorBoot) engine.anchorBoot(_bootAppliedState); } catch (e) {
-      console.warn('[ElectricSync S673] boot anchor failed (continuing):', e && e.message);
-    }
-    if (why !== 'host') console.warn('[ElectricSync S673] boot barrier lifted by ' + why);
-    if (_collectStateFn) {
-      try {
-        var j = JSON.stringify(_collectStateFn());
-        engine.pushVia = 'boot-complete';
-        Promise.resolve(save(j)).catch(function () {});
-      } catch (_) {}
-    }
-  }
-
   async function _recoverUnsentWork() {
     try {
       const rec = await _cacheGet(_cacheKey());
       if (!rec || !rec.pendingPush) return null;
       if (!engine.lastSeenUpdatedAt) {
-        console.warn('[ElectricSync I-5] Unsent work found but NO cloud baseline yet — ' +
+        console.warn('[DieselSync I-5] Unsent work found but NO cloud baseline yet — ' +
                      'holding it on device; will retry once a pull succeeds.');
         return { recovered: true, minutesOld: _ageMin(rec.pendingSince), baseline: false };
       }
@@ -999,7 +1390,7 @@ const CloudSync = (function () {
       _lastPushedJson = '';
       _pendingSince = rec.pendingSince || new Date().toISOString();
       const mins = _ageMin(rec.pendingSince);
-      console.log('[ElectricSync I-5] Recovered unsent work from a previous session (' +
+      console.log('[DieselSync I-5] Recovered unsent work from a previous session (' +
                   mins + ' min old) — flushing to cloud.');
       /* S592 — RECOVERY IS A MERGE, NOT A RESURRECTION (receipts-proven, 03 Aug).
          This flush used to send whatever the screen held at boot, with the push
@@ -1017,15 +1408,15 @@ const CloudSync = (function () {
             engine.pushVia = 'boot-recovery';
             await save(afterMerge);
           } else {
-            console.log('[ElectricSync S592] recovered work already matches cloud — nothing to send.');
+            console.log('[DieselSync S592] recovered work already matches cloud — nothing to send.');
           }
         } catch (e) {
-          console.warn('[ElectricSync I-5] recovery flush failed; retry loop will continue:', e && e.message);
+          console.warn('[DieselSync I-5] recovery flush failed; retry loop will continue:', e && e.message);
         }
       }
       return { recovered: true, minutesOld: mins, baseline: true };
     } catch (e) {
-      console.warn('[ElectricSync I-5] recovery check skipped:', e && e.message);
+      console.warn('[DieselSync I-5] recovery check skipped:', e && e.message);
       return null;
     }
   }
@@ -1046,13 +1437,36 @@ const CloudSync = (function () {
    *      the S25 empty-cloud guard + the _mergeCloudLocal union against the
    *      REAL current local state.  */
   async function heartbeatTick() {
-    /* S602 — mirrored from Diesel: the busy flag can no longer be held for the
-       rest of the session by a request that hangs instead of failing, and the
-       cloud check is time-bound. See diesel-sync.js for the full reasoning. */
-    if (!_netUp() || !_initialized || !_projectId) return;   // S584
-    if (!_bootApplied) return;   // S673 — barrier holds until the boot apply
-    if (_pulling && (Date.now() - _pullingSince) < ELEC_TICK_WATCHDOG_MS) return;
-    _pulling = false;
+    /* ═══ S602 — THE TICK NOW SAYS WHAT IT DID ═══════════════════════════════
+       Nineteen sessions were spent choosing between four faults that all
+       produce the same panel reading ("save: just now / pull: never"): the
+       loop never starting, the cloud check failing and being read as "nothing
+       new", the busy flag sticking, and the gauge simply never reporting a
+       quiet check. Nothing in the code distinguished them, so every fix was a
+       guess. Every exit from this function now records WHY, and the busy flag
+       can no longer be held forever by a request that hangs instead of
+       failing — the exact shape a tablet produces moving between wifi and LTE.
+       Harness: sim/tickhealth.mjs (fails on S601, passes here). */
+    var _why = '';
+    if (!_netUp()) _why = 'offline';                                     // S584: live OS read
+    else if (!_bootApplied) _why = 'boot-pending';                       // S673 — barrier holds
+    else if (_pulling && (Date.now() - _pullingSince) < TICK_WATCHDOG_MS) _why = 'busy';
+    else if (!_initialized) _why = 'not-initialised';
+    else if (!_projectId) _why = 'no-project';
+    if (_why) { _tickDiag(_why); return; }
+    if (_pulling) {
+      /* The previous tick never came back — a hung request, not a failed one.
+         Release it rather than going deaf for the rest of the session. */
+      _tickDiag('watchdog-release', { heldFor: Date.now() - _pullingSince });
+      /* S622l — STALL BEACON (Mark's T1/T2/T5, 07 Aug: the Android tablet's
+         recorder trail simply STOPS at 21:22 while the other two devices
+         kept syncing — a typed 60 stranded because nothing was running to
+         push it. The watchdog releasing the busy flag is the one moment the
+         stall is visible from inside; put it on the wire so the next silence
+         has a timestamped cause instead of an absence. */
+      try { _diag('push_result', { outcome: 'tick-stall-watchdog', heldForMs: Date.now() - _pullingSince, visible: document.visibilityState, online: navigator.onLine }); } catch (_) {}
+      _pulling = false;
+    }
     /* ═══ S595 — THE PULL WAS GATED ON FOCUS, WHICH NEVER CLEARS ═══════════
        This tick used to skip whenever ANY input held focus. On a desktop a
        field keeps focus indefinitely after one click, so a tab that had been
@@ -1069,16 +1483,28 @@ const CloudSync = (function () {
 
        So: defer only if a keystroke landed in the last 3 seconds, or an
        autosave is still in flight. Idle focus no longer blocks anything. */
-    if ((Date.now() - _lastEditAt) < 3000 || window._autosaveTimer) return;
+    if ((Date.now() - _lastEditAt) < 3000) { _tickDiag('typing'); return; }
+    if (window._autosaveTimer) { _tickDiag('autosave-pending'); return; }
     _pulling = true;
     _pullingSince = Date.now();
-    _lastCheckAt = Date.now();   // S602: "I looked", recorded apart from "I received"
+    /* S602 — "I looked" is recorded separately from "I received something".
+       The old panel only ever stamped the latter, so a healthy idle device
+       read exactly like a dead one, which is what sent every session hunting
+       a loop that may not have been broken. */
+    _lastCheckAt = Date.now();
+    var _outcome = 'no-change';
     try {
-      /* S584 — unsent work flushes on every beat, same as Diesel: it must not
-         depend on whether the cloud happens to have moved. */
+      /* S584 — UNSENT WORK FLUSHES ON EVERY BEAT. This flush previously lived
+         INSIDE the remote-changed branch below: if the cloud hadn't moved
+         since this device last saw it, the whole tick returned early and
+         offline work never rode the heartbeat at all. Unsent work is this
+         device's obligation regardless of what the cloud has been doing. */
       if (_collectStateFn) {
         try {
           const unsentNow = JSON.stringify(_collectStateFn());
+          /* locally saved but never cloud-confirmed → flush. (Content still
+             mid-edit — differing from the local ledger too — belongs to the
+             autosave debounce, not this beat.) */
           /* S608 — Mark, offline-return test: work saved in airplane mode sat
              at "saved to local" indefinitely once back online; only a CLOUD
              change (another device editing) dislodged it. Two causes: Android
@@ -1093,12 +1519,22 @@ const CloudSync = (function () {
             engine.pushVia = 'heartbeat';
             await save(unsentNow);
           }
-        } catch (e) { console.warn('[ElectricSync] heartbeat flush failed:', e && e.message); }
+        } catch (e) { console.warn('[DieselSync] heartbeat flush failed:', e && e.message); }
       }
-      const remote = await _elecWithTimeout(
+      /* S602 — the probe swallows every error and returns null, which this
+         line then reads as "the cloud has not changed". An expired token, a
+         dropped connection or a blocked request therefore looked exactly like
+         a quiet cloud, forever, with no trace anywhere the field can see.
+         engine.lastProbeError now distinguishes the two, and the call is
+         time-bound so a request that hangs cannot own the tick. */
+      engine.lastProbeError = null;
+      const remote = await _withTimeout(
         engine.getRemoteUpdatedAt(_projectId, engine.instanceId || _instanceId),
-        ELEC_TICK_NET_TIMEOUT_MS, 'probe');   // S602
+        TICK_NET_TIMEOUT_MS, 'probe');
+      if (!remote) _outcome = engine.lastProbeError ? ('probe-failed:' + engine.lastProbeError) : 'no-row';
+      else if (remote === engine.lastSeenUpdatedAt) _outcome = 'no-change';
       if (remote && remote !== engine.lastSeenUpdatedAt) {
+        _outcome = 'pulled';
         /* S496 PUSH-BEFORE-PULL — Mark's field repro, diagnosed by Mark himself:
            type in window A → local save lands in ~0.7s but the CLOUD push waits
            for the 30s interval → this 15s pull sees window B's newer cloud copy
@@ -1114,30 +1550,48 @@ const CloudSync = (function () {
         if (_collectStateFn) {
           try {
             const localNow = JSON.stringify(_collectStateFn());
-            /* S583 — same 70-psi fix as Diesel: ask the CLOUD ledger
-               (_lastPushedJson), not the local one. Offline work always
-               pushes before any pull can touch it. */
+            /* S583 — THE 70-PSI FIX (1490.04 forensics). This guard asked
+               "does this differ from what I SAVED?" (_lastSavedJson) — but an
+               offline save had already advanced that ledger, so offline work
+               looked "already handled", the push was skipped, and the pull
+               that followed replaced the unpushed edit with the cloud copy.
+               The 70 psi never left the phone. Correct question: "does this
+               differ from what the CLOUD has confirmed?" (_lastPushedJson,
+               which advances ONLY on a confirmed push — the same I-5 split
+               the save() dedupe already uses). Unsent work now always pushes
+               before any pull can touch it. */
             if (localNow !== _lastPushedJson) await save(localNow);
-          } catch (e) { console.warn('[ElectricSync] pre-pull push failed:', e && e.message); }
+          } catch (e) { console.warn('[DieselSync] pre-pull push failed:', e && e.message); }
         }
-        await _elecWithTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
-                               ELEC_TICK_NET_TIMEOUT_MS, 'pull');   // S602 — silent, stale-guard active
-        /* S604 — mirrored from Diesel: re-arm the push when the merge kept
-           newer local entries over the cloud copy (see diesel-sync.js). */
+        await _withTimeout(engine.pull(_projectId, engine.instanceId || _instanceId),
+                           TICK_NET_TIMEOUT_MS, 'pull');   // silent — stale-guard active
+        _lastPullAt = Date.now();   // S585
+        /* S604 — if the merge kept newer LOCAL entries over the cloud copy,
+           this device is ahead of the cloud. Re-arm the push (the dedupe
+           compares against what WE last sent, and would otherwise stay
+           silent while the cloud keeps the losing value forever). The next
+           autosave beat pushes the winning state through the normal
+           If-Match path. */
         if (engine.lastPullKeptLocal) {
           _lastPushedJson = '';
           if (!_pendingSince) _pendingSince = new Date().toISOString();
+          _outcome = 'pulled-local-ahead';
         }
-        const ctl = window.__elecHeaderCtl;
+        const ctl = window.__dslHeaderCtl;
         if (ctl) {
           ctl.setCloud({ state: 'pull' });
           setTimeout(function () { ctl.setCloud({ state: 'ok' }); }, 2000);
         }
       }
     } catch (e) {
-      console.warn('[ElectricSync] heartbeat tick failed:', e && e.message);
+      _outcome = 'error:' + ((e && e.message) || 'unknown');
+      console.warn('[DieselSync] heartbeat tick failed:', e && e.message);
     } finally {
-      _pulling = false;   // S602: a finally, so nothing can skip the release
+      /* S602 — a `finally`, not a trailing statement. The old release could be
+         skipped by anything that never returned, and a device that skipped it
+         once stopped listening for the rest of the session. */
+      _pulling = false;
+      _tickDiag(_outcome, { lastSeen: engine.lastSeenUpdatedAt || null });
     }
   }
 
@@ -1147,7 +1601,7 @@ const CloudSync = (function () {
     _autoSaveTimer = setInterval(function () {
       if (!_collectStateFn) return;
       try { engine.pushVia = 'autosave'; save(_collectStateFn()); }
-      catch (e) { console.error('[ElectricSync] auto-save error:', e); }
+      catch (e) { console.error('[DieselSync] auto-save error:', e); }
     }, intervalMs || 15000);
   }
   function stopAutoSave() {
@@ -1155,7 +1609,7 @@ const CloudSync = (function () {
   }
 
   async function syncNow() {
-    if (!_netUp()) { _setStatus('offline', 'No connection'); return false; }   // S584
+    if (!_netUp()) { _setStatus('offline', 'No connection'); return false; }   // S584: live OS read
     try {
       _setStatus('saving', 'Syncing...');
       const row = await engine.push(_projectId);
@@ -1172,6 +1626,114 @@ const CloudSync = (function () {
       client: p.get('client') || null, address: p.get('addr') || null,
       smartFilename: p.get('sfn') || null
     };
+  }
+
+  /* ═══ S585 — SYNC STATUS PANEL (the on-device console) ═══════════════════
+     The field devices are the installed app: no console, no address bar. Two
+     sync bugs in a row could not be diagnosed because nobody could see what
+     the device believed. This panel says it all on screen, in plain words:
+     build, real network state, sign-in health, unsent work, last successful
+     push, last failure and its reason, last pull. One screenshot ends the
+     guessing. */
+  function getSyncDiag() {
+    var d = {
+      build: (typeof DIESEL_BUILD !== 'undefined') ? DIESEL_BUILD : 'unknown',
+      netUp: (navigator.onLine !== false),
+      flagOnline: _online,
+      user: null, tokenMinLeft: null,
+      pendingLocal: !!(_lastSavedJson && _lastSavedJson !== _lastPushedJson),
+      pendingSince: _pendingSince || null,
+      lastPushOkAt: _lastPushOkAt, lastPushFailAt: _lastPushFailAt,
+      lastPushFailMsg: _lastPushFailMsg, lastPullAt: _lastPullAt,
+      lastCheckAt: _lastCheckAt, lastTickWhy: _lastTickWhy,   // S602
+      bootTrace: _bootTrace.join(' \u2192 ') || 'not started', engineStarted: _initialized,   // S603
+      hasBaseline: !!engine.lastSeenUpdatedAt,
+      hubMode: !!_projectId, instanceNumber: engine.instanceNumber || _instanceNumber
+    };
+    try {
+      /* S597 — the panel read Auth.getUser() only, which is populated
+         asynchronously and is empty on iOS for the first stretch of a session.
+         It therefore showed a scary red NOT SIGNED IN while the device was
+         signed in and saving fine — and it cost an hour of testing today
+         chasing a phantom. The token is the real evidence of a session, so
+         fall back to it (and to the recorded user id) before claiming the
+         person is signed out. */
+      var u = Auth.getUser(); d.user = (u && (u.email || u.id)) || _userId || null;
+      var tok = Auth.getToken && Auth.getToken();
+      if (!d.user && tok) {
+        try {
+          var pu = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+          if (pu && (pu.email || pu.sub)) d.user = pu.email || pu.sub;
+        } catch (_) {}
+      }
+      if (tok) {
+        var p = JSON.parse(atob(tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/')));
+        if (p && p.exp) d.tokenMinLeft = Math.round((p.exp * 1000 - Date.now()) / 60000);
+      }
+    } catch (_) {}
+    return d;
+  }
+
+  function _fmtAgo(ts) {
+    if (!ts) return 'never (this session)';
+    var m = Math.round((Date.now() - ts) / 60000);
+    var t = new Date(ts); var hh = ('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);
+    return hh + (m <= 0 ? ' (just now)' : ' (' + m + ' min ago)');
+  }
+
+  function showSyncStatus() {
+    var render = function (body) {
+      var d = getSyncDiag();
+      var row = function (label, val, tone) {
+        var c = tone === 'bad' ? '#C0445F' : tone === 'good' ? '#2E9E72' : 'inherit';
+        return '<div style="display:flex;justify-content:space-between;gap:12px;padding:7px 0;' +
+          'border-bottom:1px solid rgba(128,128,128,.18);font:14px Calibri,sans-serif">' +
+          '<span style="opacity:.75">' + label + '</span>' +
+          '<span style="font-weight:600;color:' + c + ';text-align:right">' + val + '</span></div>';
+      };
+      var signIn, signTone;
+      if (!d.user) { signIn = 'NOT SIGNED IN'; signTone = 'bad'; }
+      else if (d.tokenMinLeft !== null && d.tokenMinLeft <= 0) { signIn = d.user + ' — EXPIRED'; signTone = 'bad'; }
+      else { signIn = d.user + (d.tokenMinLeft !== null ? ' (' + d.tokenMinLeft + ' min left)' : ''); signTone = 'good'; }
+      var pend = d.pendingLocal
+        ? 'YES — waiting since ' + (d.pendingSince ? new Date(d.pendingSince).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) : '?')
+        : 'none — everything sent';
+      body.innerHTML =
+        row('Build', d.build) +
+        row('Network (from the OS)', d.netUp ? 'Online' : 'OFFLINE', d.netUp ? 'good' : 'bad') +
+        row('Signed in', signIn, signTone) +
+        row('Unsent work on this device', pend, d.pendingLocal ? 'bad' : 'good') +
+        row('Last successful cloud save', _fmtAgo(d.lastPushOkAt)) +
+        (d.lastPushFailAt ? row('Last FAILED save', _fmtAgo(d.lastPushFailAt) + ' — ' +
+          (d.lastPushFailMsg || 'unknown reason').slice(0, 80), 'bad') : '') +
+        /* S602 — two lines, because they answer two different questions.
+           "Checked the cloud" is the one that says the loop is alive: on a
+           healthy idle device it is seconds old while "Received" can sit at
+           never all day and mean nothing is wrong. The old single line
+           conflated them and sent 19 sessions after the wrong fault. */
+        row('Last checked the cloud',
+            _fmtAgo(d.lastCheckAt) + (d.lastTickWhy ? ' — ' + d.lastTickWhy : ''),
+            (d.lastCheckAt && (Date.now() - d.lastCheckAt) < 90000) ? 'good' : 'bad') +
+        row('Last received from cloud', _fmtAgo(d.lastPullAt)) +
+        row('Sync engine started', d.engineStarted ? 'yes' : 'NO \u2014 startup did not finish',
+            d.engineStarted ? 'good' : 'bad') +
+        row('Startup steps', d.bootTrace,
+            /timed out|failed/.test(d.bootTrace) ? 'bad' : undefined) +
+        row('Cloud baseline established', d.hasBaseline ? 'yes' : 'NO — pushes refused until a pull succeeds',
+            d.hasBaseline ? 'good' : 'bad') +
+        row('Mode', d.hubMode ? 'Hub (cloud sync on) — report #' + d.instanceNumber : 'Standalone (no cloud)');
+    };
+    Dlg.panel({
+      title: 'Sync Status', icon: '\uD83D\uDCF6', accent: 'slate', width: 460,
+      build: function (body) { render(body); },
+      buttons: [
+        { label: 'Close', kind: 'cancel' },
+        { label: 'Push now', kind: 'primary', onClick: function (api) {
+            syncNow().then(function () { render(api.body); });
+            return false;   // keep the panel open; result renders in place
+          } }
+      ]
+    });
   }
 
   /* ═══ S596 — UPDATES INSTALL QUIETLY, SWAP AT A SAFE MOMENT ═══════════════
@@ -1218,7 +1780,54 @@ const CloudSync = (function () {
         .catch(function () {});
     } catch (_) {}
   }
+  /* ═══ S629 — REALTIME: HEAR ABOUT A CHANGE WHEN IT HAPPENS ════════════════
+     Mark asked for this repeatedly; it was sequenced last on purpose, behind
+     the merge work, because a faster delivery pipe on top of a moving target
+     hides regressions. It is also the cure for the symptom he reported at
+     S625 — "sometimes I have to refresh the page for the other device to
+     catch up" — which was never a wrong DECISION, only a late one.
+     THE CONTRACT, deliberately narrow: the socket announces that this row
+     changed and nothing else. It carries no report data and decides nothing.
+     The notification runs the SAME look-now pull that leaving a field runs,
+     so stamps, merge law, the collision door and offline handling are
+     untouched, and the 3s throttle already there stops a burst of edits from
+     becoming a burst of pulls. If every socket in the fleet died, the tool
+     behaves exactly as it does today, only slower to notice — the heartbeat
+     is still the floor and is never switched off, because a socket that
+     drops silently must not mean a silent tool (the S624 gag in a new
+     costume). Self-echo is not filtered here: a pull triggered by this
+     device's own write is a no-op through contentEquals, and filtering by
+     device id would need the write to carry one, which is exactly the kind
+     of coupling that turns a transport into a decision-maker. */
+  var _rt = null;
+  function _rtStart() {
+    try {
+      if (_rt || !_csHubMode || !_projectId) return;
+      var inst = engine.instanceId || _instanceId;
+      if (!inst) return;
+      _rt = createRealtime({
+        url: Auth.SUPABASE_URL,
+        anonKey: Auth.SUPABASE_ANON_KEY,
+        getToken: function () { try { return localStorage.getItem('sb-access-token'); } catch (_) { return null; } },
+        log: function (m) { console.log(m); },
+        onStatus: function (st) {
+          try { if (window.__dslHeaderCtl) window.__dslHeaderCtl.setCloud({ live: st === 'live' }); } catch (_) {}
+        }
+      });
+      _rt.subscribe({
+        table: 'tool_data',
+        filter: 'id=eq.' + inst,
+        channel: 'tool_data:' + inst,
+        onChange: function () { _lookNowPull('realtime'); }
+      });
+      try { window.__dslRealtime = _rt; } catch (_) {}   // on-device diagnosis
+    } catch (e) { console.warn('[realtime] start skipped:', e && e.message); }
+  }
+  function _rtStop() { try { if (_rt) { _rt.stop(); _rt = null; } } catch (_) {} }
+
   try {
+    window.addEventListener('online',  function () { _rtStart(); });
+    window.addEventListener('offline', function () { _rtStop(); });
     document.addEventListener('focusout', function (e) {
       var el = e && e.target;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
@@ -1250,6 +1859,7 @@ const CloudSync = (function () {
 
   function _updSaveRestorePoint() {
     try {
+      /* Diesel/Electric panels: the active nav tab's id is 'tab-<panel>'. */
       var tab = null;
       var active = document.querySelector('.nav-tab.active');
       if (active && active.id && active.id.indexOf('tab-') === 0) tab = active.id.slice(4);
@@ -1273,7 +1883,7 @@ const CloudSync = (function () {
       .catch(function () {})
       .then(function () {
         _updSaveRestorePoint();
-        console.log('[ElectricSync S596] applying new build (' + reason + ').');
+        console.log('[DieselSync S596] applying new build (' + reason + ').');
         try { location.reload(); } catch (_) {}
       });
   }
@@ -1321,18 +1931,20 @@ const CloudSync = (function () {
     init: init, load: load, save: save,
     startAutoSave: startAutoSave, stopAutoSave: stopAutoSave,
     recoverUnsentWork: _recoverUnsentWork,   // S524 I-5 — call after boot load()
-    /* S673 — the host announces its boot apply is done (mirror). */
+    /* S673 — the host announces its boot apply is done; the barrier lifts,
+       the ledger anchors to the painted screen, and held work flushes. */
     bootApplyComplete: function (appliedState) {
       if (appliedState) _bootAppliedState = appliedState;
       _liftBootHold('host');
     },
     syncNow: syncNow, destroy: destroy, readUrlParams: readUrlParams,
-    heartbeatTick: heartbeatTick, request: _request,
+    getSyncDiag: getSyncDiag, showSyncStatus: showSyncStatus,   // S585 on-device console
     /* S624 — the host owns the heartbeat timer and its gate, so it is the only
-       thing that can report a heartbeat that stopped running, and it cannot
-       report that through the sync path it is describing. Liveness telemetry
-       only. */
+       thing that can report a heartbeat that stopped running. It cannot report
+       that through the sync path it is describing, so it needs the recorder
+       directly. Liveness telemetry only — never a route for report data. */
     reportDiag: _diag,
+    heartbeatTick: heartbeatTick, request: _request,
     get projectInfo() { return _projectInfo; },
     get projectId() { return _projectId; },
     get toolKey() { return _toolKey; },
@@ -1365,7 +1977,7 @@ window._idbKey = function () {
        + '|' + (CloudSync.instanceId || 'new');
 };
 window._idbGet2 = function (key) { return _cacheGet(key); };
-console.log('%c[ElectricSync] merge-based sync engine active (S492)',
+console.log('%c[DieselSync] merge-based sync engine active (S492)',
   'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;');
 
 /* S447 parity note, still binding: NO proactive Auth.restoreSession() here.
