@@ -1,137 +1,1034 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<!-- ARENCON Diesel Fire Pump Commissioning — build S509c (marker brought current: it read S462 for ~45 sessions, so it could not tell anyone which build a tablet was actually running. S508-S509c shipped: page-break budget corrected to the full sheet; charts sized to printed proportions before capture; overall verdict rewritten to one engine shared by screen and report, NFPA 20 wording, no IAR; placard scan no longer forwards undecodable bytes. Historical note from the S462 build follows.) (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="icon" type="image/png" sizes="192x192" href="../arencon-icon-192.png">
+<link rel="apple-touch-icon" href="../arencon-icon-192.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="ARENCON EP">
+<meta name="apple-mobile-web-app-title" content="ARENCON FP">
 <meta name="theme-color" content="#9C2742">
-<title>ARENCON — Electric Fire Pump Acceptance Test</title>
-<link rel="stylesheet" href="../lib/css/chrome.css?v=2">
-<link rel="stylesheet" href="../lib/css/status.css?v=1">
-<link rel="stylesheet" href="electric.css?v=1">
+<title>ARENCON — Diesel Fire Pump Commissioning Report</title>
+<!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
+<script src="../shared/auth-gate.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link rel="stylesheet" href="../aiusage_panel.css">
+<script>
+/* S513 — QUIET CONSOLE BY DEFAULT. The builds ship ~130 log/warn calls; in the
+   field the console is too loud to read when something real happens, and the
+   debugging discipline ("read live state via console") depends on being able
+   to read it. Policy: console.error ALWAYS passes; log/warn are suppressed
+   into a 400-entry ring buffer unless debugging is on. Nothing is ever lost:
+     window.arencomDebug(1)  -> live log/warn + replay nothing (persists via localStorage)
+     window.arencomDebug(0)  -> quiet again
+     window.arencomLogs()    -> dump the ring buffer (suppressed entries, newest last)
+   First script in the page ON PURPOSE, so every later file inherits the policy. */
+(function(){
+  try{
+    var on = false;
+    try{ on = localStorage.getItem('arencon-debug')==='1'; }catch(_){}
+    var buf = [];
+    var _log = console.log.bind(console), _warn = console.warn.bind(console);
+    function keep(kind, args){
+      buf.push([Date.now(), kind].concat([].slice.call(args)));
+      if (buf.length > 400) buf.shift();
+    }
+    if (!on){
+      console.log  = function(){ keep('log',  arguments); };
+      console.warn = function(){ keep('warn', arguments); };
+    }
+    window.arencomDebug = function(v){
+      try{ localStorage.setItem('arencon-debug', v ? '1' : '0'); }catch(_){}
+      if (v){ console.log = _log; console.warn = _warn; _log('[debug] console live; '+buf.length+' suppressed entries in arencomLogs()'); }
+      else  { console.log = function(){ keep('log', arguments); }; console.warn = function(){ keep('warn', arguments); }; }
+      return v ? 'debug ON' : 'debug OFF';
+    };
+    window.arencomLogs = function(){ buf.forEach(function(e){ _log.apply(null, e); }); return buf.length + ' entries'; };
+  }catch(_e){}
+})();
+</script>
+<script src="../aiusage_panel.js" defer></script>
+<script type="module" src="../lib/ui/photoInput.js"></script>  <!-- S496: THE shared photo surface. lib/ui/checklist.js renders its per-item photo zone through window.PhotoInput and falls back to a "Photo input engine not loaded" hint without it — which is exactly what live Diesel was showing, so checklist photos could not be attached at all. Electric has loaded this since S492; Diesel never did. -->
+<script type="module" src="../diesel-sync.js"></script>  <!-- S492/S496 Phase 2: shared MERGE-BASED sync engine. Publishes window.CloudSync with the same public API the ~40 inline call sites already use; replaces the inline last-write-wins IIFE (removed below). Module scripts are deferred, so _cloudSyncInit waits for window.CloudSync to exist. -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+<script src="js/part01.js"></script>
+<!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
+<!-- S499 CARVE: pump-curve maths extracted from the monolith into a shared
+     module. Classic script (not a module) because the delegates read
+     window.PumpCurve synchronously during chart/report rendering. -->
+<script src="../lib/calc/pumpCurve.js"></script>
+<!-- S676 UNIFICATION PHASE 1: the NFPA 20 acceptance rules. MUST load before
+     part06 — every flow-point verdict and the overall report result delegate
+     to it. Loaded here beside pumpCurve for the same reason: both are pure
+     calculation with no dependencies. -->
+<script src="../lib/calc/pumpAcceptance.js"></script>
+<!-- S679 — unification Phase 2. The engine walks a declared list; the manifest
+     IS that list for Diesel; the bindings are the only place the engine can
+     reach this tool's state. Order does not matter for correctness (everything
+     resolves at call time) but this is the reading order. -->
+<script src="../lib/export/reportPdf.js"></script>  <!-- S685: unification Phase 4 opens — the shared report-PDF engine. Appendix eligibility as a mechanism (the S316 scope stays Diesel data) and chart print sizing with its restore. -->
+<script src="../lib/data/visionPrep.js"></script>  <!-- S684b: unification Phase 3 — the two ends of every AI photo-scan: an image the vision service will accept (never undecodable bytes), and the JSON answer found inside the model prose, last candidate first. -->
+<script src="../lib/data/photoRetention.js"></script>  <!-- S684: unification Phase 3 — what may be destroyed for good, and the highest-index-first order that makes removal land on the photographs actually selected. -->
+<script src="../lib/data/photoInventory.js"></script>  <!-- S683: unification Phase 3 — which photographs are visible to a caller. Live-only by default (the PDF appendix depends on it); the trash consumers ask for the full walk. -->
+<script src="../lib/data/photoDate.js"></script>  <!-- S682: unification Phase 3 — when a photograph was taken: the EXIF read, the id fallback that rescues synced photos, and the noon rule that keeps a photo on the right day. -->
+<script src="../lib/data/photoLifecycle.js"></script>  <!-- S681: unification Phase 3 — whether a photo is deleted, how a delete is recorded, and the phantom-delete guard. Shared so Electric inherits it rather than receiving a copy that drifts. -->
+<script src="../lib/data/reportState.js"></script>
+<script src="js/reportManifest.js"></script>
+<script src="js/reportBindings.js"></script>
+<script src="../lib/calc/curveData.js"></script>
+<script src="../lib/ui/markupTools.js"></script>
+<script src="../lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->
+<!-- S680b — lib/ui/updateReady.js REMOVED. Diesel loaded it on every boot and
+     never called its init, so it has been dead weight since S617: the script
+     downloaded, parsed, and did nothing, which is why Diesel appeared to have
+     an update mechanism while in fact having none. The shared engine is armed
+     in the module block above and does the job properly. -->
+<script src="../lib/ui/markupEraser.js"></script>
+<script src="../lib/ui/markupSelection.js"></script>
+<script src="../lib/ui/markupText.js"></script>
+<!-- S461: shared checklist engine + lightbox shell (extraction wave — fix once, inherit everywhere). Same-origin ARENCON assets, not CDN deps. -->
+<script src="../lib/ui/checklist.js"></script>
+<script src="../lib/ui/lightbox.js"></script>
+<script src="../lib/data/photoMint.js"></script>
+<script src="../lib/ui/signaturePad.js"></script>
+<script src="../lib/ui/flowPhotoModal.js"></script>  <!-- S500: per-flow-point gauge photo modal, extracted verbatim; globals by design -->
+<script src="../lib/ui/deficiencies.js"></script>  <!-- S500: Deficiencies panel, extracted verbatim; globals by design -->
+<script src="js/pdfExport.js"></script>  <!-- S503: PDF export + photo appendix + pagination engine, extracted verbatim from part06; globals by design. S511: moved out of lib/ui/ — Diesel is its only consumer. -->
+<script type="module">
+/* S503e: bridge the SHARED export chrome (an ES module) onto window so the classic
+   export script can call it. Touches no shared or FRT file — FRT keeps importing
+   lib/export/exportPreview.js directly; Diesel calls the exact same function. */
+import { mountExportChrome } from '../lib/export/exportPreview.js';
+window.__mountExportChrome = mountExportChrome;
+/* S511: bridge the SHARED capture pipeline (preview -> real .pdf file, photo links
+   preserved, searchable text layer). Same pattern, same reason: the export script is
+   a classic script and cannot import a module. FRT is untouched — it keeps running
+   its own resident copy of this engine. */
+import { capturePdfFromPreview } from '../lib/export/capturePdf.js';
+window.__capturePdfFromPreview = capturePdfFromPreview;
+/* S512: durable clickable photo links. buildPhotoHrefs mints opaque /p/{token}
+   URLs via the R2 worker (Supabase JWT); the export wraps photo cells in <a>
+   and the capture bakes them into real PDF /Link annotations. */
+import { buildPhotoHrefs } from '../lib/data/photoLinkMint.js';
+window.__buildPhotoHrefs = buildPhotoHrefs;
+/* ═══ S680 — DIESEL JOINS THE UPDATE ENGINE ═══════════════════════════════
+   Until now only FRT and the Hub noticed a push. Diesel never did: a fix
+   shipped in the morning sat unused on a tablet until somebody thought to
+   hard-refresh, which is not a thing an inspector in a pump room is going to
+   do. Same engine, same safety rules, one declaration.
+
+   isBusy names the two states where a reload costs real work: a photo still
+   uploading, and a modal open mid-decision. Nothing else is guessed at — the
+   engine already refuses while a field is focused or a dialog is open.
+
+   The build declaration is what lets Diesel tell whether a push was ITS push;
+   part14.js is three lines, so the check costs nothing. */
+import { initLiveUpdate, restoreAfterUpdate } from '../lib/ui/liveUpdate.js';
+window.addEventListener('load', function () {
+  try {
+    initLiveUpdate({
+      toolName: 'diesel',
+      buildFile: 'js/part14.js',
+      buildVar: 'DIESEL_BUILD',
+      buildValue: window.DIESEL_BUILD || null,
+      isBusy: function () {
+        try {
+          if (window._r2UploadsInFlight > 0) return true;
+          if (document.querySelector('.modal.open, .arc-modal, dialog[open]')) return true;
+        } catch (e) {}
+        return false;
+      },
+      busyReason: function () { return 'finish what is open to apply'; },
+      /* A swap must never be the reason something did not reach the cloud. */
+      flush: function () {
+        return Promise.resolve().then(function () {
+          if (window.CloudSync && window.CloudSync.saveNow) return window.CloudSync.saveNow();
+        });
+      },
+      capture: function () {
+        try { return { panel: (typeof window.currentPanel !== 'undefined') ? window.currentPanel : null,
+                       scroll: window.scrollY || 0 }; } catch (e) { return null; }
+      }
+    });
+    var _lu = restoreAfterUpdate('diesel');
+    if (_lu && _lu.panel && typeof window.switchPanel === 'function') {
+      setTimeout(function () {
+        try { window.switchPanel(_lu.panel); window.scrollTo(0, _lu.scroll || 0); } catch (e) {}
+      }, 400);
+    }
+  } catch (e) { try { console.warn('[LiveUpdate] diesel arm failed', e); } catch (_) {} }
+});
+
+</script>
+<link rel="stylesheet" href="css/diesel-01.css?v=202609050406">
+<!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
+     host override blocks (that was the point of Shadow DOM). -->
 </head>
 <body>
-<div id="app-shell">
 
-  <header class="ep-header">
-    <div class="ep-header-left">
-      <button class="ep-back" id="back-btn" title="Back to Hub" style="display:none;">←</button>
-      <a id="logo-link" href="index.html"><img class="ep-logo" src="data:image/png;base64,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" alt="ARENCON Inc."></a>
-      <span class="ep-title">Electric Fire Pump Acceptance Test</span>
+<!-- ══ HEADER ══ -->
+<div class="offline-bar" id="offline-bar">📡 You are offline — data is saved locally</div>
+<header class="app-header">
+  <!-- S488 Wave 2: Diesel's inline header replaced by the SEALED shared header
+       engine (same engine FRT + Electric run, Mark's approved drawer). -->
+  <div id="hdr-mount"></div>
+  <script type="module" src="js/part02.js"></script>
+  <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
+  <!-- S267(C) v2: fullscreen chart overlay. Only the chart canvas wrapper is moved into .fig-fs-stage
+       (reparent pattern); the legend/readout stay in the page beneath. Title bar shows which chart. -->
+  <div class="fig-fs-overlay" id="fig-fs-overlay">
+    <div class="fig-fs-bar">
+      <span class="fig-fs-title" id="fig-fs-title"></span>
+      <button type="button" class="fig-fs-close" onclick="_closeChartFS()" aria-label="Close fullscreen chart">✕ Close</button>
     </div>
-    <div class="ep-header-right">
-      <span id="sync-stamp" class="ep-sync" data-kind="ok"><span class="ss-dot"></span><span class="ss-text">Ready</span></span>
-      <button class="ep-icon-btn" id="theme-toggle" title="Toggle light/dark">☀️</button>
-    </div>
-  </header>
-
-  <div class="ep-projectbar" id="project-bar">
-    <span class="pb-badge">LOCAL</span>
-    <span class="pb-name">Standalone</span>
+    <div class="fig-fs-stage" id="fig-fs-stage"></div>
   </div>
+  <script src="js/part03.js"></script>
+  <script src="js/part04.js"></script>
+  <div class="project-bar" id="project-bar">
+    <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
+    <span class="pb-inst" id="pb-inst" title="Current DFP instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;">DFP #1</span>
+    <span class="pb-filename" id="pb-filename"></span>
+  </div>
+  <div class="phase-bar" id="phase-bar">
+    <div class="phase-tab" id="phase-setup" onclick="switchPhase('setup')"><span class="ph-name">Setup</span><span class="ph-sub">Summary · Pre-Comm · Visual</span></div>
+    <div class="phase-tab" id="phase-tests" onclick="switchPhase('tests')"><span class="ph-name">Tests</span><span class="ph-sub">Controller · 3-Pt · PLD · FA</span></div>
+    <div class="phase-tab" id="phase-closeout" onclick="switchPhase('closeout')"><span class="ph-name">Closeout</span><span class="ph-sub">Defic · Sign · Sketch · Photos</span><span class="ph-flag" id="phase-closeout-flag" style="display:none;"></span></div>
+  </div>
+  <div class="section-nav" id="section-nav"></div>
+</header>
+<!-- Phase nav model + renderer -->
+<script src="js/part05.js"></script>
 
-  <nav class="ep-nav" id="section-nav">
-      <button class="nav-tab" data-panel="s1">1. Pre-Test</button>
-      <button class="nav-tab" data-panel="s2">2. Visual Inspection</button>
-      <button class="nav-tab" data-panel="s3">3. Controller Tests</button>
-      <button class="nav-tab" data-panel="s4">4a. 3-Point Test</button>
-      <button class="nav-tab" data-panel="s4pld">4b. 7-Point VFD</button>
-      <button class="nav-tab" data-panel="s5">5. FA & Signaling</button>
-      <button class="nav-tab" data-panel="defic">6. Deficiencies</button>
-      <button class="nav-tab" data-panel="sign">7. Signature</button>
-      <button class="nav-tab" data-panel="sketch">8. Sketches</button>
-      <button class="nav-tab" data-panel="photos">📷 Photos</button>
-  </nav>
-
-  <main class="panel-scroll">
-    <section class="panel" id="panel-s1">
-      <div class="panel-placeholder">
-        <div class="pp-num">01</div>
-        <h2 class="pp-title">1. Pre-Test</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-s2">
-      <div class="panel-placeholder">
-        <div class="pp-num">02</div>
-        <h2 class="pp-title">2. Visual Inspection</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-s3">
-      <div class="panel-placeholder">
-        <div class="pp-num">03</div>
-        <h2 class="pp-title">3. Controller Tests</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-s4">
-      <div class="panel-placeholder">
-        <div class="pp-num">04</div>
-        <h2 class="pp-title">4a. 3-Point Test</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-s4pld">
-      <div class="panel-placeholder">
-        <div class="pp-num">S4PLD</div>
-        <h2 class="pp-title">4b. 7-Point VFD</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-s5">
-      <div class="panel-placeholder">
-        <div class="pp-num">05</div>
-        <h2 class="pp-title">5. FA & Signaling</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-defic">
-      <div class="panel-placeholder">
-        <div class="pp-num">DEFIC</div>
-        <h2 class="pp-title">6. Deficiencies</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-sign">
-      <div class="panel-placeholder">
-        <div class="pp-num">SIGN</div>
-        <h2 class="pp-title">7. Signature</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-sketch">
-      <div class="panel-placeholder">
-        <div class="pp-num">SKETCH</div>
-        <h2 class="pp-title">8. Sketches</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-    <section class="panel" id="panel-photos">
-      <div class="panel-placeholder">
-        <div class="pp-num">PHOTOS</div>
-        <h2 class="pp-title">📷 Photos</h2>
-        <p class="pp-note">This step ports from the live Electric tool next. The tool is fully wired to the shared engine — auth, cloud save/sync, photos, and camera are live; only this sheet's fields are still to come.</p>
-      </div>
-    </section>
-  </main>
-
-  <div id="boot-status" class="ep-boot" style="display:none;"><span class="ep-spinner"></span><span></span></div>
+<!-- Offline indicator banner -->
+<div id="offline-banner" style="display:none;background:#E65100;color:white;padding:8px 20px;font-size:13px;font-weight:700;text-align:center;align-items:center;justify-content:center;gap:8px;z-index:99;">
+  <span>📡 You are offline — data is auto-saved locally and will sync when you reconnect.</span>
 </div>
 
-<!-- 3-button leave dialog (no confirm()/alert()) -->
-<div id="leave-backdrop" class="ep-modal-backdrop" style="display:none;">
-  <div class="ep-modal">
-    <h3 class="ep-modal-title">Leave this project?</h3>
-    <p class="ep-modal-note">You have unsaved changes.</p>
-    <button id="sl-save-btn" class="ep-btn-save">💾 Save &amp; Leave</button>
-    <button id="sl-leave-btn" class="ep-btn-leave">Leave without saving</button>
-    <button id="sl-cancel-btn" class="ep-btn-cancel">Cancel — go back</button>
+<!-- S280: #report-verdict relocated into the Summary tab (bottom of #panel-proj).
+     It was a full-bleed band pinned above all content, distracting during data entry.
+     A small status dot on the Summary tab now carries pass/fail globally instead. -->
+
+<div class="main-wrap">
+
+  <!-- PROGRESS — global checklist bar retired S214 (completion overview on Summary tab is now the roll-up).
+       Markup kept hidden + inert so updateProgress() writes stay valid without null guards (S137 dead-handler discipline). -->
+  <div class="summary-bar" style="display:none;">
+    <div class="sum-label" id="prog-label">0 / 0 Items</div>
+    <div class="sum-bar-bg"><div class="sum-bar-fill" id="prog-fill" style="width:0%"></div></div>
+    <div class="sum-stats">
+      <span class="s-yes-c" id="cnt-yes">✓ 0</span>
+      <span class="s-no-c" id="cnt-no">✗ 0</span>
+      <span class="s-na-c" id="cnt-na">— 0</span>
+    </div>
+  </div>
+
+  <!-- ══ SUMMARY (overview + project info) ══ -->
+  <div class="panel active" id="panel-proj">
+
+    <!-- S280: Overall verdict at the TOP of Summary (just below the tab strip). Same
+         three-colour bar, contained (rounded + soft shadow), Summary-only. Moved here
+         from the bottom — bottom crowded the mobile Prev/Next bar and read poorly. -->
+    <div class="verdict-label" id="report-verdict-label" style="display:none;margin-top:0;">Overall verdict</div>
+    <div id="report-verdict" class="report-verdict" style="display:none;margin-bottom:18px;"></div>
+
+    <!-- S256: summarized stats row — 4 tiles, all from the same checklist counts so they reconcile.
+         Completion % removed (the Inspection Completion card below already shows it). -->
+    <!-- S258: 5 tiles. Fail = No + test FAIL; N/A = not applicable (grey); I/C = incomplete (unanswered). Row reconciles: Pass+Fail+N/A+I/C = Checklist. -->
+    <!-- S264: checklist-outcomes donut. Total in centre, Pass/Fail/N/A/I/C slices.
+         Old 5 tiles retired (read as undifferentiated clutter). The four legend
+         values keep the original sstat-* ids so existing count code still feeds them;
+         renderOutcomeDonut() sizes the arcs each render. r=58, C≈364.4. -->
+    <div class="sum-stats" id="sum-stats">
+      <div class="oc-donut">
+        <svg width="148" height="148" viewBox="0 0 148 148" id="oc-svg">
+          <circle cx="74" cy="74" r="58" fill="none" stroke="var(--na-bg)" stroke-width="20"/>
+          <circle id="oc-arc-pass" cx="74" cy="74" r="58" fill="none" stroke="var(--yes)"  stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-fail" cx="74" cy="74" r="58" fill="none" stroke="var(--no)"   stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-na"   cx="74" cy="74" r="58" fill="none" stroke="var(--na)"   stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+          <circle id="oc-arc-ic"   cx="74" cy="74" r="58" fill="none" stroke="var(--warn)" stroke-width="20" stroke-dasharray="0 364.4" stroke-dashoffset="0"/>
+        </svg>
+        <div class="oc-ctr"><div class="v" id="sstat-total">0</div><div class="l">Checklist</div></div>
+      </div>
+      <div class="oc-legend">
+        <div class="oc-leg"><span class="dot" style="background:var(--yes)"></span><span class="nm">Pass</span><span class="val" id="sstat-pass">0</span><span class="pc" id="ocpc-pass">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--no)"></span><span class="nm">Fail</span><span class="val" id="sstat-defic">0</span><span class="pc" id="ocpc-fail">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--na)"></span><span class="nm">N/A</span><span class="val" id="sstat-na">0</span><span class="pc" id="ocpc-na">0%</span></div>
+        <div class="oc-leg"><span class="dot" style="background:var(--warn)"></span><span class="nm">I/C &mdash; incomplete</span><span class="val" id="sstat-ic">0</span><span class="pc" id="ocpc-ic">0%</span></div>
+      </div>
+    </div>
+
+    <!-- Completion overview -->
+    <div class="ov-card" id="completion-overview">
+      <div class="ov-hd">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span class="ov-t">Inspection Completion</span>
+        <span class="ov-pct" id="ov-pct">0%</span>
+      </div>
+      <div class="ov-overall">
+        <div class="ov-bar"><i id="ov-bar-fill" style="width:0%"></i></div>
+        <div class="ov-lbl"><span id="ov-lbl-main">0 of 0 items complete</span><span class="ov-attn" id="ov-lbl-attn" style="display:none;"></span></div>
+      </div>
+      <div id="ov-rows"></div>
+      <div class="ov-attn-strip" id="ov-attn-strip" style="display:none;" onclick="switchPanel('defic')">
+        <div class="ov-ic" id="ov-attn-ic">0</div>
+        <div class="ov-nm" id="ov-attn-nm">0 open deficiencies<span class="ov-s">Reported, not yet resolved — does not block completion</span></div>
+        <span class="ov-chev" style="margin-left:auto;color:#b88;">›</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        Project Information
+      </div>
+      <div class="card-body">
+
+        <div class="proj-grid">
+          <!-- Row 1: Project identification -->
+          <div class="field-group"><label>Project No.</label><input type="text" id="pi-projno" placeholder="9999.99" onblur="if(typeof saveState==='function')saveState();"></div>
+          <div class="field-group"><label>Client</label><input type="text" id="pi-client" placeholder="Client / Owner name"></div>
+          <div class="field-group"><label>Project Name / Building</label><input type="text" id="pi-projname" placeholder="Building # &amp; Scope of Work"></div>
+          <!-- Row 2: Location -->
+          <div class="field-group" style="grid-column:span 2"><label>Project Address</label><input type="text" id="pi-addr" placeholder="123 ABC Ave., City, Province"></div>
+          <!-- Row 3: Inspection details -->
+          <div class="field-group"><label>Date of Inspection</label><input type="date" id="pi-date"></div>
+          <div class="field-group"><label>Prepared By</label><input type="text" id="pi-prepby" placeholder="Initials or Name"></div>
+          <!-- Row 4: Contractors -->
+          <div class="field-group" style="grid-column:span 3">
+            <label>Contractor(s) <button class="btn btn-outline btn-sm" onclick="addContractorField()" style="margin-left:8px;font-size:11px;padding:2px 8px;">+ Add</button></label>
+            <div id="contractor-fields">
+              <input type="text" id="pi-contractor" placeholder="Primary contractor company" style="margin-bottom:4px;">
+            </div>
+          </div>
+
+          <div class="field-group"><label>Form Revision</label><input type="text" id="pi-revision" placeholder="Enter revision (e.g. R01)" style="font-weight:600;"></div>
+          <div class="field-group"><label>Date Modified</label><input type="text" id="pi-date-modified" readonly style="background:#f5f7fa;" placeholder="Auto-updated on changes"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SECTION 1: PRE-COMMISSIONING ══ -->
+  <div class="panel" id="panel-s1">
+    <div class="card"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>1. Pre-Commissioning</div><div class="card-body"><div id="cl-s1"></div></div></div>
+  </div>
+
+  <!-- ══ SECTION 2: VISUAL INSPECTION ══ -->
+  <div class="panel" id="panel-s2">
+    <div class="card"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>2. Visual Inspection</div><div class="card-body"><div id="cl-s2"></div></div></div>
+  </div>
+
+  <!-- ══ SECTION 3: PUMP/CONTROLLER/LOUVER TESTS ══ -->
+  <div class="panel" id="panel-s3">
+
+    <div class="card">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="7" y1="11" x2="7" y2="13"/><line x1="11" y1="11" x2="11" y2="13"/><line x1="15" y1="11" x2="15" y2="13"/></svg>Battery Start-Up Time Test</div>
+      <div class="card-body">
+        <div class="subsection-note">
+          Pump to be operated <strong>12 times</strong> for controller test (6 manual, 6 automatic).<br>
+          Auto Test: Flow water via drain (batteries #1 &amp; #2 will alternate automatically).<br>
+          Manual Test: Press button #1 &amp; #2 alternately on pump controller. Rest <strong>20 seconds</strong> between each test.<br>
+          Diesel engine — Start-up times cannot exceed cumulatively <strong>45 seconds</strong> for all 12 start-ups. If cumulative &gt;45s, engine shall run for 5 minutes at full speed.
+        </div>
+        <div class="battery-grid">
+          <!-- Battery 1 -->
+          <div class="battery-card">
+            <div class="battery-card-header">🔋 Battery #1</div>
+            <table class="battery-table">
+              <thead><tr><th>Test</th><th>Duration</th></tr></thead>
+              <tbody id="bat1-body"></tbody>
+            </table>
+          </div>
+          <!-- Battery 2 -->
+          <div class="battery-card">
+            <div class="battery-card-header">🔋 Battery #2</div>
+            <table class="battery-table">
+              <thead><tr><th>Test</th><th>Duration</th></tr></thead>
+              <tbody id="bat2-body"></tbody>
+            </table>
+          </div>
+        </div>
+        <div style="margin-top:14px;background:white;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
+          <div class="cumulative-row" id="cum-row">Combined Total Duration: <span id="cum-total">0.00</span> s</div>
+          <div class="pass-fail-row" id="pf-row">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="7" y1="11" x2="7" y2="13"/><line x1="11" y1="11" x2="11" y2="13"/><line x1="15" y1="11" x2="15" y2="13"/></svg>Controller &amp; Louver Items</div><div class="card-body"><div id="cl-s3"></div></div></div>
+  </div>
+
+  <!-- ══ SECTION 4a: 3-POINT TEST ══ -->
+  <div class="panel" id="panel-s4">
+
+    <div class="card">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Test Setup</div>
+      <div class="card-body">
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Test Type</span><span class="hint">one choice for the whole report — never mixed</span></div>
+        <!-- S582 (Mark): the test type ships UNSET on a new report. The old default
+             pre-answered the first decision on the page, so the team never stopped to
+             make it — placard photos and the AI scan come first in the field, and by
+             the time they scrolled back up the toggle looked like settled state.
+             Existing reports are untouched: any saved testType marks the choice made. -->
+        <div class="ts-modepick pump-type-btns">
+          <button type="button" onclick="_ttChoose('std')" data-ptype="std" class="ts-mode">
+            <span class="tick">✓</span>
+            <span class="mt">3-Point Standard</span>
+            <span class="md">Churn · Rated · Overload — without PLD</span>
+            <span class="dots"><i></i><i></i><i></i></span>
+          </button>
+          <button type="button" onclick="_ttChoose('pld')" data-ptype="pld" class="ts-mode">
+            <span class="tick">✓</span>
+            <span class="mt">7-Point with PLD</span>
+            <span class="md">0 · 25 · 50 · 75 · 100 · 125 · 150%</span>
+            <span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          </button>
+        </div>
+        <div id="tt-unset-note" class="tt-unset" style="display:none">⚠ No test type selected yet — pick one to open the sections below.</div>
+        <div id="tab-type-note-4a" style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:6px;">All sections below use the selected test type.</div>
+      </div>
+    </div>
+
+    <div id="tt-gate" class="tt-gate" style="display:none">Choose a test type to continue
+      <small>The sections below depend on it — flow points, charts and acceptance criteria all differ.</small></div>
+    <!-- ════ 3-POINT SECTION (shown when Test Type = 3-Point) ════ -->
+    <div id="perf-std">
+    <div class="card">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>3-Point Test Inputs</div>
+      <div class="card-body" style="padding:10px 16px;">
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Nameplate &amp; Evidence</span></div>
+        <div class="np-panel">
+          <div class="np-head">
+            <div class="np-t">⚙ Rated values read from the placard</div>
+            <button class="np-scan" id="np-scan-btn" onclick="_placardScan(this,'std')" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+          </div>
+          <div style="padding:16px;">
+            <div class="ts-rated">
+              <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow" placeholder="2000" oninput="autoFillStdFlows()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv" placeholder="175" oninput="updateChart();_linkRatedPressToPlacard('std',this.value)"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm" placeholder="1760" oninput="updateChart();if(typeof renderStdTable==='function')renderStdTable();if(typeof renderPldTable==='function')renderPldTable();"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief" placeholder="e.g. 185" oninput="updateChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing" placeholder="e.g. 165" oninput="updateChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpsh(this.value)"></div>
+            </div>
+            <div class="ev-lbl" style="margin-top:12px;">Nameplate Details <span style="font-weight:400;color:var(--silver);text-transform:none;letter-spacing:0;">· filled by the placard scan, editable</span></div><div class="np-extra"><div><label>Manufacturer</label><input type="text" id="np-mfr" oninput="debounceAutosave()"></div><div><label>Model No.</label><input type="text" id="np-model" oninput="debounceAutosave()"></div><div><label>Pump Serial No.</label><input type="text" id="np-serial" oninput="debounceAutosave()"></div><div><label>Size</label><input type="text" id="np-size" oninput="debounceAutosave()"></div><div><label>No. of Stages</label><input type="text" id="np-stages" oninput="debounceAutosave()"></div><div><label>Impeller Dia. (in)</label><input type="text" id="np-impeller" oninput="debounceAutosave()"></div><div><label>BHP @ Rated</label><input type="text" id="np-bhp" oninput="debounceAutosave()"></div><div><label>Max BHP</label><input type="text" id="np-maxbhp" oninput="debounceAutosave()"></div><div><label>Driver MFG</label><input type="text" id="np-drvmfg" oninput="debounceAutosave()"></div><div><label>Driver S/N</label><input type="text" id="np-drvsn" oninput="debounceAutosave()"></div><div><label>Controller MFG</label><input type="text" id="np-ctlmfg" oninput="debounceAutosave()"></div><div><label>Controller S/N</label><input type="text" id="np-ctlsn" oninput="debounceAutosave()"></div></div>
+            <div class="ev-lbl">Photo Evidence</div>
+            <div class="ev-tiles" id="pump-placard-zones"></div>
+            <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
+          </div>
+          <div id="placard-ocr-host"></div>
+        </div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
+        <table class="data-table rounded-tbl ps-jockey" style="max-width:560px;"><thead><tr><th class="left" style="width:34%"></th><th>Designed (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f" oninput="debounceAutosave()"></td></tr></tbody></table>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
+        <div id="equip-grid-3a" class="ts-eq">
+          <label><input type="checkbox" name="equip3a" value="hm25-n25"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="hm25-n175"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="hm25-n118"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip3a" value="pn2-lhm"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a" value="pn2-oa"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip3a" value="pn175-lhm"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip3a" value="pn175-oa"> 1-3/4" pitotless nozzle OA</label>
+          <div id="equip-custom-3a"></div>
+        </div>
+        <button onclick="addCustomEquip('3a')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pitot Pressure, Flow &amp; Outlets</span></div>
+        <div id="pitot-3a" class="ts-pitot"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+          <div id="pitot-total-3a" class="ts-flow-chip">Combined Total Flow: 0 gpm</div>
+          <button class="btn btn-outline btn-sm" onclick="addPitotRow('3a')">+ Add Pitot Row</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Standard pump performance — CARD layout (one card per flow point) -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>Standard Fire Pump Performance (w/o PLD) — 3-Point Test</div>
+      <div class="card-body">
+        <div class="fp-banner" id="std-fp-banner"></div>
+        <div id="std-cards"></div>
+      </div>
+    </div>
+
+    <!-- ── 4a INDEPENDENT: Water Supply & Demand Data ── -->
+    <div class="card" id="wsd-card" style="margin-top:14px;">
+      <div class="card-header mid">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        Water Supply &amp; Demand Data
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+          <div>
+            <div class="detail-label" style="margin-bottom:8px;">Supply Data Points (from flow test)</div>
+            <table class="data-table rounded-tbl">
+              <thead><tr><th>Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
+              <tbody id="supply-tbody">
+                <tr><td class="left">Static</td>
+                  <td><input type="text" id="ws-static-flow" value="0" readonly style="background:#eee;color:#555;font-weight:600;text-align:center;"></td>
+                  <td><input type="number" id="ws-static-psi" placeholder="e.g. 90" oninput="_syncSupply();updateChart3pt()"></td></tr>
+                <tr><td class="left">Residual</td>
+                  <td><input type="number" id="ws-res-flow" placeholder="e.g. 1500" oninput="_syncSupply();updateChart3pt()"></td>
+                  <td><input type="number" id="ws-res-psi" placeholder="e.g. 60" oninput="_syncSupply();updateChart3pt()"></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="detail-label" style="margin-bottom:8px;">System &amp; Hose Demand</div>
+            <table class="data-table rounded-tbl">
+              <thead><tr><th>Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
+                  <td><input type="number" id="dem-spr-flow" placeholder="e.g. 150" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
+                  <td><input type="number" id="dem-spr-psi" placeholder="e.g. 81" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
+                </tr>
+                <tr>
+                  <td style="text-align:left;">Outside Hose Allowance (OHL)</td>
+                  <td><input type="number" id="dem-hose-flow" placeholder="e.g. 50" style="width:90px" oninput="_syncSupply();calcTotalDemand3pt()"></td>
+                  <td style="background:#f5f5f5;color:#999;text-align:center;">—</td>
+                </tr>
+                <tr style="background:#eef4ff;">
+                  <td style="text-align:left;font-weight:700;">Total System Demand</td>
+                  <td id="dem-total-flow" class="calc-cell" style="font-weight:700;">—</td>
+                  <td id="dem-total-psi" class="calc-cell" style="font-weight:700;">—</td>
+                </tr>
+              </tbody>
+            </table>
+            <input type="hidden" id="dem-flow" value="">
+            <input type="hidden" id="dem-psi" value="">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── COMBINED CHART: 3-Point Fire Pump Performance + Supply & Demand ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-chart3pt">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">3-Point Fire Pump Performance Test, Water Supply &amp; System Demand Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-chart3pt','chart3pt')" title="View larger" aria-label="View chart larger">⛶</button>
+            <span class="fig-verdict na" id="figv-chart3pt">—</span>
+          </div>
+          <div class="fig-body">
+            <div class="fig-stage">
+              <canvas id="chart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+              <div class="sm-overlay" id="smov-chart3pt" style="position:absolute;inset:0;pointer-events:none;"></div>
+            </div>
+          </div>
+          <div class="fig-legend" id="figleg-chart3pt"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-chart3pt"></div>
+          <div class="fig-supply" id="figsup-chart3pt"></div>
+        </div>
+        <canvas id="netPerfChart" style="display:none;width:1px;height:1px;"></canvas>
+      </div>
+    </div>
+
+    <!-- ── CHART D (3-pt): 3-Point Fire Pump Net Pressure Curve ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-netChart3pt">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">3-Point Fire Pump Net Pressure Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-netChart3pt','netChart3pt')" title="View larger" aria-label="View chart larger">⛶</button>
+            <span class="fig-verdict na" id="figv-netChart3pt">—</span>
+          </div>
+          <div class="fig-body">
+            <div class="fig-stage">
+              <canvas id="netChart3pt" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('netChart3pt')" id="ann-toggle-netChart3pt" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-netChart3pt"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-netChart3pt"></div>
+        </div>
+      </div>
+    </div>
+    <!-- S226c: 4.1 churn checklist sits BELOW the 3-pt net pressure chart.
+         S280: wrapped in the same .card/.card-body chrome as sections 1/2/3 so it
+         aligns (it was previously a bare div with ad-hoc inline padding). -->
+    <div class="card" style="margin-top:16px;"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>4. Performance Test</div><div class="card-body"><div id="cl-s4"></div></div></div>
+    </div><!-- /#perf-std -->
+
+    <!-- ════ 7-POINT PLD SECTION (shown when Test Type = 7-Point) ════ -->
+    <div id="perf-pld" style="display:none;">
+
+    <!-- 7-Point Test Inputs -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>7-Point Test Inputs</div>
+      <div class="card-body" style="padding:10px 16px;">
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pump Nameplate &amp; Evidence</span></div>
+        <div class="np-panel">
+          <div class="np-head">
+            <div class="np-t">⚙ Rated values read from the placard</div>
+            <button class="np-scan" onclick="_placardScan(this,'pld')" title="Read the placard photo and auto-fill the fields">✦ Scan placard &amp; auto-fill</button>
+          </div>
+          <div style="padding:16px;">
+            <div class="ts-rated ts-rated-7">
+              <div class="meta-field"><label>Rated Flow (gpm)</label><input type="number" id="pm-rated-flow-pld" placeholder="2000" oninput="autoFillPldFlows()"></div>
+              <div class="meta-field"><label>Rated Press. (psi)</label><input type="number" id="pm-prv-pld" placeholder="175" oninput="updatePldChart();updatePldNetChart();_linkRatedPressToPlacard('pld',this.value)"></div>
+              <div class="meta-field"><label>Rated Speed (RPM)</label><input type="number" id="pm-rpm-pld" placeholder="1760" oninput="if(typeof renderPldTable==='function')renderPldTable();"></div>
+              <div class="meta-field"><label>Pressure Relief Valve (psi)</label><input type="number" id="pm-relief-pld" placeholder="e.g. 185" oninput="updatePldChart()" title="Circulation/main pressure relief valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>Pressure Reducing Valve (psi)</label><input type="number" id="pm-reducing-pld" placeholder="e.g. 165" oninput="updatePldChart()" title="Pressure reducing valve set pressure — caps the actual output curve"></div>
+              <div class="meta-field"><label>PLD Setting (psi)</label><input type="number" id="pm-pld-setting" placeholder="175" oninput="updatePldChart()"></div>
+              <div class="meta-field"><label>NPSH (psi)</label><input type="number" id="npsh-psi-pld" placeholder="e.g. 20" title="Net Positive Suction Head — if suction at any flow point falls below this, that point is flagged (advisory, not pass/fail)" oninput="setNpshPld(this.value)"></div>
+            </div>
+            <div class="ev-lbl" style="margin-top:12px;">Nameplate Details <span style="font-weight:400;color:var(--silver);text-transform:none;letter-spacing:0;">· filled by the placard scan, editable</span></div><div class="np-extra"><div><label>Manufacturer</label><input type="text" id="np-mfr-pld" oninput="debounceAutosave()"></div><div><label>Model No.</label><input type="text" id="np-model-pld" oninput="debounceAutosave()"></div><div><label>Pump Serial No.</label><input type="text" id="np-serial-pld" oninput="debounceAutosave()"></div><div><label>Size</label><input type="text" id="np-size-pld" oninput="debounceAutosave()"></div><div><label>No. of Stages</label><input type="text" id="np-stages-pld" oninput="debounceAutosave()"></div><div><label>Impeller Dia. (in)</label><input type="text" id="np-impeller-pld" oninput="debounceAutosave()"></div><div><label>BHP @ Rated</label><input type="text" id="np-bhp-pld" oninput="debounceAutosave()"></div><div><label>Max BHP</label><input type="text" id="np-maxbhp-pld" oninput="debounceAutosave()"></div><div><label>Driver MFG</label><input type="text" id="np-drvmfg-pld" oninput="debounceAutosave()"></div><div><label>Driver S/N</label><input type="text" id="np-drvsn-pld" oninput="debounceAutosave()"></div><div><label>Controller MFG</label><input type="text" id="np-ctlmfg-pld" oninput="debounceAutosave()"></div><div><label>Controller S/N</label><input type="text" id="np-ctlsn-pld" oninput="debounceAutosave()"></div></div>
+            <div class="ev-lbl">Photo Evidence</div>
+            <div class="ev-tiles" id="pump-placard-zones-4b"></div>
+            <div class="np-hint" style="margin-top:9px;">The placard photo feeds the rated values above. All three back up to the photo gallery.</div>
+          </div>
+        </div>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pressure Settings</span></div>
+        <table class="data-table rounded-tbl ps-jockey" style="max-width:560px;"><thead><tr><th class="left" style="width:34%"></th><th>Designed (psi)</th><th>Field Setting (psi)</th></tr></thead><tbody><tr><td class="left">Jockey Pump Cut-in</td><td><input type="number" id="ps-jci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Jockey Pump Cut-out</td><td><input type="number" id="ps-jco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-jco-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-in</td><td><input type="number" id="ps-fci-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fci-f-pld" oninput="debounceAutosave()"></td></tr><tr><td class="left">Fire Pump Cut-out</td><td><input type="number" id="ps-fco-d-pld" oninput="debounceAutosave()"></td><td><input type="number" id="ps-fco-f-pld" oninput="debounceAutosave()"></td></tr></tbody></table>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Equipment Used</span><span class="hint">select all that apply</span></div>
+        <div id="equip-grid-4b" class="ts-eq">
+          <label><input type="checkbox" name="equip4b" value="hm25-n25"> 2-1/2" Hose Monster w/ 2-1/2" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="hm25-n175"> 2-1/2" Hose Monster w/ 1-3/4" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="hm25-n118"> 2-1/2" Hose Monster w/ 1-1/8" nozzle</label>
+          <label><input type="checkbox" name="equip4b" value="pn2-lhm"> 2" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b" value="pn2-oa"> 2" pitotless nozzle OA</label>
+          <label><input type="checkbox" name="equip4b" value="pn175-lhm"> 1-3/4" pitotless nozzle LHM</label>
+          <label><input type="checkbox" name="equip4b" value="pn175-oa"> 1-3/4" pitotless nozzle OA</label>
+          <div id="equip-custom-4b"></div>
+        </div>
+        <button onclick="addCustomEquip('4b')" class="btn btn-outline btn-sm" style="margin-top:8px;">+ More</button>
+
+        <div class="ts-subsec"><span class="bar"></span><span class="t">Pitot Pressure, Flow &amp; Outlets</span></div>
+        <div id="pitot-4b" class="ts-pitot"></div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:10px;">
+          <div id="pitot-total-4b" class="ts-flow-chip">Combined Total Flow: 0 gpm</div>
+          <button class="btn btn-outline btn-sm" onclick="addPitotRow('4b')">+ Add Pitot Row</button>
+        </div>
+<!-- 7-Point table -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        7-Point Performance Test — Fire Pump with Pressure Limiting Device (PLD)
+      </div>
+      <div class="card-body">
+        <div class="subsection-note">
+          <strong>Test Procedure:</strong><br>
+          * <strong>w/o PRV &amp; PLD (3 points only — 0%, 100%, 150%):</strong> Set PRV to max working pressure and <em>disconnect</em> PLD. Record readings at 0%, 100%, 150% flow only.<br>
+          ** <strong>w/ PLD Enabled (all 7 points):</strong> Enable PLD and record all 7 flow points. Then run at churn while setting PLD to 175 psi. PRV shall be ≥10 psi above PLD setting.
+        </div>
+        <div class="fp-banner" id="pld-fp-banner"></div>
+        <div id="pld-cards"></div>
+      </div>
+    </div>
+
+    <!-- ── 4b INDEPENDENT: Water Supply & Demand Data ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-header mid">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        Water Supply &amp; Demand Data
+      </div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+          <div>
+            <div class="detail-label" style="margin-bottom:8px;">Supply Data Points (from flow test)</div>
+            <table class="data-table rounded-tbl">
+              <thead><tr><th>Point</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
+              <tbody>
+                <tr><td class="left">Static</td>
+                  <td><input type="text" id="pld-ws-static-flow" value="0" readonly style="background:#eee;color:#555;font-weight:600;text-align:center;"></td>
+                  <td><input type="number" id="pld-ws-static-psi" placeholder="e.g. 90" oninput="_syncSupply();updatePldChart()"></td></tr>
+                <tr><td class="left">Residual</td>
+                  <td><input type="number" id="pld-ws-res-flow" placeholder="e.g. 1500" oninput="_syncSupply();updatePldChart()"></td>
+                  <td><input type="number" id="pld-ws-res-psi" placeholder="e.g. 60" oninput="_syncSupply();updatePldChart()"></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div>
+            <div class="detail-label" style="margin-bottom:8px;">System &amp; Hose Demand</div>
+            <table class="data-table rounded-tbl">
+              <thead><tr><th>Component</th><th>Flow (US gpm)</th><th>Pressure (psi)</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td style="text-align:left;">Sprinkler System Demand (SD) + Inside Hose Allowance</td>
+                  <td><input type="number" id="pld-dem-spr-flow" placeholder="e.g. 150" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
+                  <td><input type="number" id="pld-dem-spr-psi" placeholder="e.g. 81" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
+                </tr>
+                <tr>
+                  <td style="text-align:left;">Outside Hose Allowance (OHL)</td>
+                  <td><input type="number" id="pld-dem-hose-flow" placeholder="e.g. 50" style="width:90px" oninput="_syncSupply();calcTotalDemandPld()"></td>
+                  <td style="background:#f5f5f5;color:#999;text-align:center;">—</td>
+                </tr>
+                <tr style="background:#eef4ff;">
+                  <td style="text-align:left;font-weight:700;">Total System Demand</td>
+                  <td id="pld-dem-total-flow" class="calc-cell" style="font-weight:700;">—</td>
+                  <td id="pld-dem-total-psi" class="calc-cell" style="font-weight:700;">—</td>
+                </tr>
+              </tbody>
+            </table>
+            <input type="hidden" id="pld-dem-flow" value="">
+            <input type="hidden" id="pld-dem-psi" value="">
+          </div>
+        </div>
+      </div>
+    </div>
+      </div><!-- /7pt inputs card-body -->
+    </div><!-- /7pt inputs .card -->
+
+    <!-- ── CHART B: 7-Point PLD Discharge Pressure Curve ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-pldChart">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">7-Point Fire Pump Discharge Pressure, Water Supply &amp; System Demand Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-pldChart','pldChart')" title="View larger" aria-label="View chart larger">⛶</button>
+            <span class="fig-verdict na" id="figv-pldChart">—</span>
+          </div>
+          <div class="fig-body">
+            <div class="fig-stage tall500">
+              <canvas id="pldChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+              <div class="sm-overlay" id="smov-pldChart" style="position:absolute;inset:0;pointer-events:none;"></div>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldChart')" id="ann-toggle-pldChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-pldChart"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-pldChart"></div>
+          <div class="fig-supply" id="figsup-pldChart"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CHART E (7-pt): 7-Point Fire Pump Net Pressure Curve ── -->
+    <div class="card" style="margin-top:14px;">
+      <div class="card-body" style="padding:0;">
+        <div class="fig" id="fig-pldNetChart">
+          <div class="fig-hd">
+            <svg class="fig-ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+            <span class="fig-t">7-Point Fire Pump Net Pressure Curve</span>
+            <button class="fig-fs" type="button" onclick="_openChartFS('fig-pldNetChart','pldNetChart')" title="View larger" aria-label="View chart larger">⛶</button>
+            <span class="fig-verdict na" id="figv-pldNetChart">—</span>
+          </div>
+          <div class="fig-body">
+            <div class="fig-stage tall480">
+              <canvas id="pldNetChart" style="position:absolute;inset:0;width:100%;height:100%;"></canvas>
+            </div>
+            <div style="text-align:right;margin-top:6px;"><button class="btn btn-outline btn-sm" onclick="toggleAnnotations('pldNetChart')" id="ann-toggle-pldNetChart" style="font-size:11px;">🏷 Hide Annotations</button></div>
+          </div>
+          <div class="fig-legend" id="figleg-pldNetChart"></div>
+          <div class="fig-leghint">Tap a name to show/hide a curve · drag the labels on the chart to reposition them.</div>
+          <div class="fig-readout" id="figro-pldNetChart"></div>
+        </div>
+        <!-- S280: same .card wrapping as cl-s4 so the PLD-view 4.1 card aligns too. -->
+        <div class="card" style="margin-top:16px;"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/></svg>4. Performance Test</div><div class="card-body"><div id="cl-s4pld"></div></div></div>
+      </div>
+    </div>
+    </div><!-- /#perf-pld -->
+  </div><!-- /#panel-s4 -->
+
+  <!-- ══ SECTION 5: FIRE ALARM & SIGNALING ══ -->
+  <div class="panel" id="panel-s5">
+
+    <div class="card">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Mandatory FACP Signals — Confirm terminals connected and live-tested</div>
+      <div class="card-body">
+        <div id="cl-s5-mandatory"></div>
+        <div class="subsection-note" style="margin:16px 0 10px;padding:10px 14px;border-radius:6px;font-size:13px;">
+          Simulate the following signals from fire pump controller. Bell on the controller shall sound for each.
+        </div>
+        <div id="cl-s5"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ DEFICIENCIES ══ -->
+  <div class="panel" id="panel-defic">
+    <div class="card">
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        Deficiencies Identified
+      </div>
+      <div class="card-body">
+        <!-- VIEW TOGGLE -->
+        <div style="display:flex;gap:6px;margin-bottom:14px;">
+          <button class="defic-view-btn active" id="dv-btn-contractor" onclick="setDeficView('contractor')">👷 By Contractor</button>
+          <button class="defic-view-btn" id="dv-btn-all" onclick="setDeficView('all')">📋 All Deficiencies</button>
+        </div>
+
+        <!-- BY CONTRACTOR VIEW -->
+        <div id="defic-view-contractor">
+          <div style="padding:12px;background:var(--smoke);border:1px solid var(--border);border-radius:8px;margin-bottom:16px;">
+            <div id="checklist-findings" style="margin-bottom:14px;"></div>
+            <div class="detail-label" style="margin-bottom:8px;">Contractors on Site</div>
+            <div id="contractor-tags" style="display:flex;flex-wrap:wrap;gap:8px;min-height:28px;margin-bottom:10px;"></div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input type="text" id="new-contractor-input" placeholder="e.g. ABC Sprinklers"
+                style="flex:1;max-width:240px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;"
+                onkeydown="if(event.key==='Enter'){addContractorTag();event.preventDefault();}">
+              <input type="text" id="new-contractor-trade" list="trade-suggestions" placeholder="Trade (optional)"
+                style="flex:1;max-width:180px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;"
+                onkeydown="if(event.key==='Enter'){addContractorTag();event.preventDefault();}">
+              <datalist id="trade-suggestions">
+                <option value="Sprinkler"></option><option value="Fire Alarm"></option>
+                <option value="Electrical"></option><option value="Mechanical"></option>
+                <option value="Plumbing"></option><option value="General Contractor"></option>
+                <option value="Fire Pump Supplier"></option><option value="Controller / TSSA Agent"></option>
+              </datalist>
+              <button class="btn btn-outline btn-sm" onclick="addContractorTag()">+ Add Contractor</button>
+              <button class="btn btn-sm" onclick="addGeneralDeficiency()" style="background:#455A64;color:white;border:none;" title="Add deficiency not tied to a contractor">+ General Deficiency</button>
+            </div>
+          </div>
+          <div id="defic-groups"></div>
+          <div id="general-defic-group"></div>
+        </div>
+
+        <!-- ALL DEFICIENCIES VIEW -->
+        <div id="defic-view-all" style="display:none;">
+          <div id="defic-summary-all" style="margin-bottom:16px;"></div>
+          <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;">
+            <input type="text" id="all-defic-search" placeholder="🔍 Search deficiencies..." oninput="renderAllDeficTable()" style="flex:1;max-width:280px;padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:13px;font-family:Calibri,sans-serif;">
+          </div>
+          <div id="all-defic-table-wrap"></div>
+        </div>
+
+        <!-- SUMMARY (always visible) -->
+        <div class="defic-summary-wrap" style="margin-top:20px;background:var(--smoke);border:1.5px solid var(--border);border-radius:8px;padding:14px;">
+          <div style="font-family:Calibri,sans-serif;font-weight:700;font-size:15px;margin-bottom:10px;color:var(--slate);">Summary</div>
+          <div id="defic-summary-table"><p style="color:var(--silver);font-size:13px;">No contractors added yet.</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SIGN-OFF ══ -->
+  <div class="panel" id="panel-sign">
+
+    <!-- Test Result Banner -->
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Overall Test Result
+      </div>
+      <div class="card-body" style="padding:16px;">
+        <select id="test-result" onchange="if(typeof updateVerdict==='function')updateVerdict();if(typeof updateCompletionOverview==='function')updateCompletionOverview();if(typeof updateProgress==='function')updateProgress();" style="width:100%;padding:12px 14px;border:2px solid var(--border);border-radius:8px;font-size:15px;font-weight:700;color:var(--slate);background:var(--smoke);font-family:Calibri,sans-serif;">
+          <option value="">— Select Test Result —</option>
+          <option value="pass">✓ PASS — All requirements met</option>
+          <option value="conditional">⚠ CONDITIONAL PASS — Minor deficiencies noted</option>
+          <option value="fail">✗ FAIL — Major deficiencies identified</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Consultant Signature -->
+    <div class="card">
+      <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M14.06 6.19l3.75 3.75"/></svg>Consultant Signature</div>
+      <div class="card-body">
+        <div class="proj-grid" style="margin-bottom:20px;">
+          <div class="field-group"><label>Consultant Name</label><input type="text" id="so-name" placeholder="Full name"></div>
+          <div class="field-group"><label>Title / Designation</label><input type="text" id="so-title" placeholder="e.g. P.Eng., EIT"></div>
+          <div class="field-group"><label>Company / Organization</label><input type="text" id="so-company" placeholder="Company or organization"></div>
+          <div class="field-group"><label>Date &amp; Time</label><input type="datetime-local" id="so-date"></div>
+        </div><!-- S322: Certification Statement removed (liability) -->
+
+        <div class="detail-label" style="margin-bottom:8px;">Consultant Signature</div>
+        <div class="sig-wrap" id="sig-wrap-1">
+          <canvas class="sig-canvas" id="sig-canvas" width="900" height="130" style="display:block;"></canvas>
+          <img id="sig-upload-img-1" src="" style="display:none;width:100%;height:130px;object-fit:contain;background:white;border-radius:6px;cursor:zoom-in;" onclick="openLightbox([{d:this.src}],0)">
+          <div class="sig-controls" style="flex-wrap:wrap;gap:6px;">
+            <button class="btn btn-outline btn-sm" id="sig-mode-draw-1" onclick="setSigMode(1,'draw')" style="background:var(--red);color:white;border-color:var(--red);">✏️ Draw</button>
+            <button class="btn btn-outline btn-sm" id="sig-mode-upload-1" onclick="setSigMode(1,'upload')">📁 Upload</button>
+            <button class="btn btn-outline btn-sm" onclick="clearSig()">🗑 Clear</button>
+            <input type="file" id="sig-file-1" accept="image/*" style="display:none" onchange="loadSigUpload(1,this)">
+            <span style="font-size:12px;color:var(--silver);align-self:center;">Draw signature or upload image</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contractor Sign-offs -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header mid" style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="display:inline-flex;align-items:center;gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z"/><path d="M14.06 6.19l3.75 3.75"/></svg>Contractor Signature</span>
+        <span style="display:inline-flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="cleanupEmptySignRows()" style="font-size:12px;" title="Remove sign-off rows with no name, company, date or signature">
+          🧹 Clean Up Empty
+        </button>
+        <button class="btn btn-outline btn-sm" onclick="addSignRow('contractor')" style="font-size:12px;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Add Contractor
+        </button>
+        </span>
+      </div>
+      <div class="card-body">
+        <div id="contractor-sign-rows"></div>
+        <p style="font-size:12px;color:var(--silver);margin-top:4px;">Add each contractor who must sign off on the commissioning.</p>
+      </div>
+    </div>
+
+    <!-- Witness Sign-offs -->
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header mid" style="display:flex;justify-content:space-between;align-items:center;">
+        <span style="color:white;display:inline-flex;align-items:center;gap:10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 11l-3 3-1.5-1.5"/></svg>Witness Signature</span>
+        <button class="btn btn-outline btn-sm" onclick="addSignRow('witness')" style="font-size:12px;background:rgba(255,255,255,.15);color:white;border-color:rgba(255,255,255,.4);">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Add Witness
+        </button>
+      </div>
+      <div class="card-body">
+        <div id="witness-sign-rows"></div>
+        <p style="font-size:12px;color:var(--silver);margin-top:4px;">Add witnesses (AHJ, owner representative, TSSA inspector, etc.).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SKETCHES ══ -->
+  <div class="panel" id="panel-sketch">
+    <div class="card">
+      <div class="card-header mid">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        Sketch Entries
+      </div>
+      <div class="card-body">
+        <p style="font-size:13px;color:var(--steel);margin-bottom:16px;">Each sketch entry supports: freehand drawing, a photo upload with markup tools (draw, annotate, highlight), and written comments.</p>
+        <div id="sketch-entries"></div>
+        <button class="add-defic-btn" onclick="addSketchEntry()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+          Add Sketch / Photo Markup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PHOTOS GALLERY PANEL (Session 53 — Batch 2) ══ -->
+  <div class="panel" id="panel-photos">
+    <div class="card">
+      <div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Photo Gallery</div>
+      <div class="card-body">
+        <!-- S268: single FRT-style drag&drop zone (Site Records capture card removed).
+             Wired to diesel's existing pipeline: _recDrop/_recUpload/_recCamera with kind 'site'. -->
+        <div class="photo-zone ev-clickable" id="site-photo-upload" style="margin-bottom:14px;"
+             onclick="_boxUp(event,function(){_recUpload('site')})"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="_recDrop(event,'site')">
+          <div style="text-align:center;padding:16px;width:100%;">
+            <div style="font-size:calc(12px + var(--ts));color:var(--steel);">Drag &amp; drop photos, or import from camera roll</div>
+            <div style="font-size:calc(11px + var(--ts));color:var(--silver);margin-top:2px;">Select multiple at once</div>
+            <!-- S718: Camera · Upload · Gallery, drawn by the shared photo-input
+                 engine. This zone is static markup and is never re-rendered, so the
+                 row is painted once from part07.js the moment the engine loads.
+                 S366 (Mark) re-added Camera per "all 3 buttons everywhere"; Upload
+                 was still missing until now. -->
+            <div id="site-pz-btns" style="margin-top:10px;"></div>
+          </div>
+        </div>
+        <div id="photos-gallery"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- end main-wrap -->
+
+<!-- ── PHOTO MARKUP MODAL ─────────────────────── -->
+<div id="photo-markup-modal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.85);flex-direction:column;align-items:center;padding-top:10px;">
+  <div id="pmu-toolbar">
+    <span style="color:white;font-weight:700;font-size:13px;margin-right:6px;">📝 Photo Markup</span>
+    <label style="color:#aaa;font-size:11px;">Tool:</label>
+    <button id="pmu-btn-pen" onclick="pmuSetTool('pen')" style="background:#A85959;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">✏️ Pen</button>
+    <button id="pmu-btn-highlight" onclick="pmuSetTool('highlight')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">🖍 Highlight</button>
+    <button id="pmu-btn-text" onclick="pmuSetTool('text')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">T Text</button>
+    <button id="pmu-btn-erase" onclick="pmuSetTool('erase')" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">⬜ Erase</button>
+    <label style="color:#aaa;font-size:11px;">Color:</label>
+    <input type="color" id="pmu-color" value="#E53935" onchange="pmuState.color=this.value" style="width:32px;height:28px;border:none;background:none;cursor:pointer;">
+    <label style="color:#aaa;font-size:11px;">Size:</label>
+    <button onclick="var v=Math.max(2,(pmuState.size||4)-2);pmuState.size=v;document.getElementById('pmu-size-val').textContent=v;" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">−</button><span id="pmu-size-val" style="color:white;min-width:22px;text-align:center;font-size:12px;display:inline-block;">4</span><button onclick="var v=Math.min(40,(pmuState.size||4)+2);pmuState.size=v;document.getElementById('pmu-size-val').textContent=v;" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">+</button>
+    <label style="color:#aaa;font-size:11px;">Opacity:</label>
+    <button onclick="var v=Math.max(0.1,Math.round(((pmuState.alpha||1)-0.1)*100)/100);pmuState.alpha=v;document.getElementById('pmu-alpha-val').textContent=Math.round(v*100)+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">−</button><span id="pmu-alpha-val" style="color:white;min-width:30px;text-align:center;font-size:12px;display:inline-block;">100%%</span><button onclick="var v=Math.min(1,Math.round(((pmuState.alpha||1)+0.1)*100)/100);pmuState.alpha=v;document.getElementById('pmu-alpha-val').textContent=Math.round(v*100)+'%%';" style="background:rgba(255,255,255,.2);border:none;color:white;width:28px;height:28px;border-radius:4px;cursor:pointer;font-size:16px;">+</button>
+    <div style="flex:1;"></div>
+    <button onclick="pmuUndo()" style="background:#555;color:white;border:none;border-radius:5px;padding:5px 10px;cursor:pointer;font-size:12px;">↩ Undo</button>
+    <button onclick="pmuSave()" style="background:#5F8068;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;font-weight:700;">✓ Save Markup</button>
+    <button onclick="pmuClose()" style="background:#444;color:white;border:none;border-radius:5px;padding:5px 12px;cursor:pointer;font-size:12px;">✕ Cancel</button>
+  </div>
+  <div id="pmu-canvas-wrap">
+    <canvas id="pmu-canvas"></canvas>
   </div>
 </div>
 
-<script type="module" src="app.js"></script>
+<!-- ── PHOTO LIGHTBOX MODAL ─────────────────────── -->
+<!-- hidden file inputs -->
+<input type="file" id="global-file-input" accept="image/*,.pdf" multiple style="display:none">
+<input type="file" id="sketch-file-input" accept="image/*,.pdf" style="display:none">
+
+<script src="js/part06.js"></script>
+<!-- S575: the S568 seven-way split is REVERTED. Back to four pieces.
+     WHY, so nobody tries it again the same way: part06c.js calls
+     setPumpTestType('std') AT LOAD TIME, and that function's body calls
+     debounceAutosave, which the split had moved into the next file. Function
+     declarations hoist WITHIN a file, not across files, so the call threw
+     while part06c.js was still executing - which aborted the rest of that
+     file, including `let flowTestPhotosPld = []`, and every later reference
+     became a ReferenceError. A file that EXECUTES code at load time cannot be
+     split from the declarations that code depends on. Splitting these files
+     further requires proving load-time execution order, not just that each
+     piece parses. -->
+<script src="js/part06b.js"></script>
+<script src="js/part06c.js"></script>
+<script src="js/part06d.js"></script>
+
+<!-- ══ BATCH 2: PHOTO SYSTEM MODULE (Session 53) ══ -->
+<script src="js/part07.js"></script>
+
+<script id="embedded-state" type="application/json">{}</script>
+
+<script src="js/part08.js"></script>
+
+  <!-- Mobile page navigation (S280: slimmed down — was oversized 12x24 buttons / 16px pad) -->
+  <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:2px solid #9C2742;padding:7px 12px;box-shadow:0 -3px 10px rgba(0,0,0,.15);pointer-events:none;">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <button id="nav-prev" onclick="navPage(-1)" style="pointer-events:auto;padding:9px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">◀ Prev</button>
+      <span id="nav-label" style="pointer-events:none;font-size:12px;font-weight:600;color:rgba(255,255,255,.7);"></span>
+      <button id="nav-next" onclick="navPage(1)" style="pointer-events:auto;padding:9px 16px;border:1px solid rgba(255,255,255,.2);border-radius:6px;background:rgba(255,255,255,.08);color:white;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s;font-family:Calibri,sans-serif;">Next ▶</button>
+    </div>
+  </div>
+
+<!-- ══ R2 PHOTOS MODULE ══ -->
+<script src="js/part09.js"></script>
+
+<!-- ══ R2 OUTBOX — durable upload queue (Phase 2: 4380.24 protection) ══ -->
+<!--
+  A captured photo's blob is written to this IndexedDB outbox BEFORE any upload.
+  The blob is removed ONLY after R2 returns success AND a HEAD/GET verify confirms
+  the object is actually retrievable. Survives app kill / reboot / tab close:
+  drive() re-runs on load and on reconnect, so a photo's bytes cannot be lost
+  to a silent or interrupted upload (the 4380.24 failure class).
+  Separate IDB database from CloudSync — no interference with its cache store.
+-->
+<script src="js/part10.js"></script>
+
+<!-- ══ CLOUDSYNC — now provided by diesel-sync.js (S496 Phase 2) ══ -->
+<script src="js/part11.js"></script>
+<script src="js/part12.js"></script>
+<!-- ══ END CLOUDSYNC MODULE ══ -->
+
+<!-- ══ SERVICE WORKER ══ Diesel intentionally has no service worker (no offline
+     caching). Registration removed: sw-diesel.js never existed, so registering it
+     only produced a recurring console 404. Clear any ghost SW from an older build. -->
+<script src="js/part13.js"></script>
+<script src="js/part14.js"></script>
+<script src="js/part15.js"></script>
+
+
+<link rel="stylesheet" href="css/diesel-02.css?v=202609050406" id="arencon-bold-overlay">
+<script src="js/part16.js"></script>
 </body>
 </html>
