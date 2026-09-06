@@ -1171,24 +1171,6 @@ function ensurePdfJs(cb){
       var ss=document.getElementById('dv-ss-color-v75');
       if(ss){function pull2(){var bg=pc.style.background||pc.style.backgroundColor;if(bg)ss.style.background=bg;}pull2();try{new MutationObserver(pull2).observe(pc,{attributes:true,attributeFilter:['style']});}catch(e){}}
     })();
-    /* S79: on mobile, re-route the PC top-bar Tasks button to toggle the mobile tasks sheet
-       instead of the PC panel (which is display:none on mobile). Uses capture phase so the
-       original PC handler still fires (keeps .active state mirror) but we ALSO open the sheet. */
-    (function wireMobileTasks(){
-      var tb=document.getElementById('dv-tasks-btn');
-      if(!tb||tb.dataset.mobWired)return;
-      tb.dataset.mobWired='1';
-      tb.addEventListener('click',function(){
-        if(window.matchMedia && window.matchMedia('(max-width: 900px)').matches){
-          var sh=document.getElementById('dv-tasks-sheet-v75');
-          if(sh){
-            sh.classList.toggle('open');
-            // Keep .active class synced to sheet visibility (visual feedback)
-            tb.classList.toggle('active', sh.classList.contains('open'));
-          }
-        }
-      });
-    })();
     /* S82: Layers button text is now a <span class="dv-lb-txt"> — pure-CSS hide
        via media queries (see frt.css), resize-safe. JS only adjusts the tasks pin. */
     (function setMobileTopbarIcons(){
@@ -1222,12 +1204,12 @@ function ensurePdfJs(cb){
     _bbTap('dv-nav-next','dv-next');
     _bbTap('dv-bb-rename','dv-rename-btn');
     var bbTasks=document.getElementById('dv-bb-tasks');
-    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');try{bbTasks.blur();}catch(_){}});}
+    if(bbTasks&&!bbTasks.dataset.wired){bbTasks.dataset.wired='1';bbTasks.addEventListener('click',function(e){e.preventDefault();/* S721: one owner — see viewer.js _toggleTasks */if(window._frtToggleTasks)window._frtToggleTasks();else{var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.toggle('open');}try{bbTasks.blur();}catch(_){}});}
     /* Push 5: tasks sheet collapse + handle + new task proxy */
     var tsCol=document.getElementById('dv-tsv75-collapse');
     var tsHandle=document.getElementById('dv-tsv75-handle');
     var tsNew=document.getElementById('dv-tsv75-new');
-    function closeSheet(){var sh=document.getElementById('dv-tasks-sheet-v75');if(sh)sh.classList.remove('open');}
+    function closeSheet(){var sh=document.getElementById('dv-tasks-sheet-v75');if(!sh||!sh.classList.contains('open'))return;/* S721: route through the owner so _tasksVisible + button state follow */if(window._frtToggleTasks)window._frtToggleTasks();else sh.classList.remove('open');}
     if(tsCol&&!tsCol.dataset.wired){tsCol.dataset.wired='1';tsCol.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
     if(tsHandle&&!tsHandle.dataset.wired){tsHandle.dataset.wired='1';tsHandle.addEventListener('click',function(e){e.preventDefault();closeSheet();});}
     if(tsNew&&!tsNew.dataset.wired){tsNew.dataset.wired='1';tsNew.addEventListener('click',function(e){e.preventDefault();var t=document.getElementById('dv-new-task');if(t)t.click();});}

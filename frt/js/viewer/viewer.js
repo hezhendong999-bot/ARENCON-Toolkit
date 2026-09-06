@@ -5031,9 +5031,24 @@ var _tasksVisible = false;
 var _tasksFilter = 'pinned'; // 'pinned' or 'all'
 
 function _toggleTasks() {
-  _tasksVisible = !_tasksVisible;
+  // S721: ONE owner for both task surfaces. Desktop shows the side panel;
+  // ≤900px shows the bottom sheet (#dv-tasks-sheet-v75, mirrored from the
+  // panel's list by index.html). Before this, only the header button knew
+  // about the sheet: the ⋯ menu toggled the hidden desktop panel (nothing
+  // appeared on a phone) and the bottom bar slid the sheet up without ever
+  // rendering the list (opened empty). Elvis, 6 Sep. State is read from the
+  // live surface so an external close (handle / collapse) cannot desync it.
+  var _mobile = false;
+  try { _mobile = !!(window.matchMedia && window.matchMedia('(max-width: 900px)').matches); } catch (_) {}
+  var sheet = document.getElementById('dv-tasks-sheet-v75');
+  if (_mobile && sheet) {
+    _tasksVisible = !sheet.classList.contains('open');
+    sheet.classList.toggle('open', _tasksVisible);
+  } else {
+    _tasksVisible = !_tasksVisible;
+  }
   var panel = document.getElementById('dv-tasks-panel');
-  if (panel) panel.classList.toggle('visible', _tasksVisible);
+  if (panel) panel.classList.toggle('visible', _tasksVisible && !_mobile);
   var btn = document.getElementById('dv-tasks-btn');
   if (btn) btn.classList.toggle('active', _tasksVisible);
   if (_tasksVisible) _renderTasks();
