@@ -1314,3 +1314,4 @@ SPEC_BUILD
 _fitAreaW
 _textTapPending
 _TEXT_TAP_SLOP
+_needsDrawingName

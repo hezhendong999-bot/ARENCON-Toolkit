@@ -252,7 +252,6 @@ function _dvEnsureMoreMenu() {
   var slot = document.getElementById('dv-more-menu-slot');
   if (!slot) return null;
   var items = [
-    { label: '\u2B07\uFE0F Download Drawing', sub: 'Save this sheet as an image', action: 'download' },
     // S527: on-screen markup diagnostic — an in-app row, never a URL param
     // (field tablets run the Android TWA where the address bar is not editable).
     { label: '\uD83E\uDE7A Markup Diagnostic', sub: 'Markup counts, sync state, manual merge', action: 'markupdiag' },
@@ -291,7 +290,6 @@ function _dvEnsureMoreMenu() {
 // [data-dv-action] delegation). The legacy delegation stays for any other
 // light-DOM element that still carries the attribute.
 function _dvRunMoreAction(act) {
-  if (act === 'download') { _downloadDrawing(); return; }
   if (act === 'markupdiag') { _showMarkupDiag(); return; }
   if (act === 'pinlog') { _showPinWriteLog(); return; }   // S587
   if (act === 'tasks') { try { if (window._frtToggleTasks) window._frtToggleTasks(); } catch (e) {} return; }
@@ -5453,8 +5451,6 @@ function _wireEvents() {
         });
       } else if (act === 'delete-all-pins') {
         _deleteAllPins();
-      } else if (act === 'download') {
-        _downloadDrawing();
       }
       e.stopPropagation();
       return;
@@ -5841,22 +5837,6 @@ function _deleteAllPins() {
       console.log('[Markup] Deleted ' + count + ' pins from drawing ' + _drawingId);
     }
   });
-}
-
-function _downloadDrawing() {
-  var img = document.getElementById('dv-image');
-  if (!img || !img.src) return;
-  var a = document.createElement('a');
-  a.href = img.src;
-  var drawings = Model.getDrawings();
-  var d = null;
-  for (var i = 0; i < drawings.length; i++) {
-    if (drawings[i].id === _drawingId) { d = drawings[i]; break; }
-  }
-  a.download = (d && d.name) ? d.name : 'drawing';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
 }
 
 // ── Public API ──────────────────────────────────────────

@@ -436,83 +436,6 @@ if (typeof window !== 'undefined') {
 
 // ──────────────────────────────────────────────────────────────────────────
 
-// ── S79: Download-with-pins-baked-on (raster drawings only) ──
-// PDF-tiled drawings fall back to raw URL download (WebGL markup render deferred to Phase 5).
-function _deficIsOpen(d) { return (d.status || 'open') === 'open'; }
-function _addPinsToCanvas(ctx, dwg, canvas) {
-  var proj = Model.getProject(); if (!proj) return;
-  var ad = Model.getAllDeficiencies(proj);
-  var pins = ad.filter(function(r){ return r.defic.drawingId === dwg.id && r.defic.pinX != null; });
-  if (!pins.length) return;
-  var scale = canvas.width / 1200;
-  pins.forEach(function(r) {
-    var d = r.defic;
-    var px = d.pinX * canvas.width, py = d.pinY * canvas.height;
-    var fill = _deficIsOpen(d) ? '#A85959' : '#5F8068';  // S189 — forbidden #C0392B → muted #A85959 (matches .dfx-bv-col-hdr.h); forbidden #1A7A4A → muted #5F8068 (matches Addressed&Closed)
-    var r0 = Math.max(3, 4 * scale), tipY = r0 * 2.2;
-    ctx.save(); ctx.translate(px, py - tipY);
-    ctx.beginPath(); ctx.arc(0, 0, r0, Math.PI, 0, false);
-    ctx.bezierCurveTo(r0, r0*0.8, r0*0.3, tipY, 0, tipY);
-    ctx.bezierCurveTo(-r0*0.3, tipY, -r0, r0*0.8, -r0, 0);
-    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
-    ctx.strokeStyle = 'white'; ctx.lineWidth = Math.max(1, 1.5*scale); ctx.stroke();
-    ctx.beginPath(); ctx.arc(0, 0, r0*0.6, 0, Math.PI*2); ctx.fillStyle = 'white'; ctx.fill();
-    var fs = Math.max(6, r0 * 0.8);
-    ctx.fillStyle = fill; ctx.font = '800 ' + fs + 'px Calibri,Arial,sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(String(d.num), 0, 0);
-    ctx.restore();
-  });
-}
-function _buildDownloadCanvas(dwg, incPins) {
-  return new Promise(function(resolve) {
-    if (dwg.pdfTiled) { resolve(null); return; }
-    var src = dwg.r2Url || dwg.dataUrl || dwg.thumb;
-    if (!src) { resolve(null); return; }
-    var img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = function() {
-      var c = document.createElement('canvas');
-      c.width = img.naturalWidth || 1200;
-      c.height = img.naturalHeight || 900;
-      var ctx = c.getContext('2d');
-      ctx.drawImage(img, 0, 0);
-      if (incPins) { try { _addPinsToCanvas(ctx, dwg, c); } catch(e) { console.warn('[dl] pin bake err', e); } }
-      resolve(c);
-    };
-    img.onerror = function() { resolve(null); };
-    img.src = src;
-  });
-}
-function _downloadDrawingWithPins(dwg) {
-  var safe = (dwg.name || 'drawing').replace(/[^a-zA-Z0-9._-]/g, '_');
-  if (dwg.pdfTiled) {
-    var src = dwg.r2Url || dwg.dataUrl;
-    if (!src) { toast('No data to download'); return; }
-    var a0 = document.createElement('a'); a0.href = src; a0.download = 'ARENCON_' + safe + '.pdf';
-    document.body.appendChild(a0); a0.click(); document.body.removeChild(a0);
-    toast('Downloaded (PDF — pins not baked)');
-    return;
-  }
-  _buildDownloadCanvas(dwg, true).then(function(canvas) {
-    if (!canvas) { toast('No image data to download'); return; }
-    try {
-      var data = canvas.toDataURL('image/png');
-      var a = document.createElement('a'); a.href = data; a.download = 'ARENCON_' + safe + '.png';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      toast('Downloaded ' + safe + '.png');
-    } catch(e) {
-      console.warn('[dl] toDataURL failed (CORS?)', e);
-      var src2 = dwg.r2Url || dwg.dataUrl;
-      if (src2) {
-        var a2 = document.createElement('a'); a2.href = src2; a2.download = 'ARENCON_' + safe + '.png';
-        document.body.appendChild(a2); a2.click(); document.body.removeChild(a2);
-        toast('Downloaded (pins skipped — CORS)');
-      }
-    }
-  });
-}
-
 function countPins(drawingId, allDefics) {
   var n = 0;
   allDefics.forEach(function(d) { if (d.defic.drawingId === drawingId) n++; });
@@ -1293,8 +1216,6 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
     + '<button data-ctx="replace">\uD83D\uDD27 Replace image (file)</button>'
     + '<button data-ctx="newversion">\u2B06\uFE0F Upload new version</button>'
     + '<div class="separator"></div>'
-    + '<button data-ctx="download">\u2B07\uFE0F Download drawing</button>'
-    + '<div class="separator"></div>'
     + '<button data-ctx="delete" class="danger">\uD83D\uDDD1\uFE0F Delete drawing</button>';
   document.body.appendChild(menu);
   _activeMenu = menu;
@@ -1369,8 +1290,6 @@ function _showDrawingContextMenu(drawingId, anchorEl) {
         }
       };
       inp.click();
-    } else if (act === 'download') {
-      _downloadDrawingWithPins(dwg);
     } else if (act === 'delete') {
       // S158 V-3: drawing delete is permanent (undo system only covers
       // deficiency deletion, not drawings). Require typed DELETE to prevent
@@ -1545,10 +1464,7 @@ document.addEventListener('click', function(e) {
     pop.id = 'dwg-actions-pop'; pop.className = 'card-context-menu';
     pop.style.cssText = 'display:block;position:fixed;z-index:9000;';
     pop.innerHTML =
-      '<button data-dwg-act="dl-all">\u2B07\uFE0F Download all drawings</button>'
-      + '<button data-dwg-act="dl-sel">\u2B07\uFE0F Download selected</button>'
-      + '<div class="separator"></div>'
-      + '<button data-dwg-act="move">\uD83D\uDCC1 Move to folder...</button>'
+      '<button data-dwg-act="move">\uD83D\uDCC1 Move to folder...</button>'
       + '<button data-dwg-act="rename">Batch rename</button>'
       + '<div class="separator"></div>'
       + '<button data-dwg-act="del" class="danger">\uD83D\uDDD1\uFE0F Delete selected</button>';
@@ -1562,16 +1478,7 @@ document.addEventListener('click', function(e) {
       if (act) {
         var a = act.getAttribute('data-dwg-act');
         var drawings = Model.getDrawings();
-        if (a === 'dl-all' || a === 'dl-sel') {
-          var list = a === 'dl-all' ? drawings : drawings.filter(function(d){ return _selectedDrawings.has(d.id); });
-          if (!list.length) { toast('No drawings to download'); }
-          else {
-            toast('Downloading ' + list.length + ' drawing' + (list.length>1?'s':'') + ' (baking pins)...');
-            list.forEach(function(d, i){ setTimeout(function(){
-              _downloadDrawingWithPins(d);
-            }, i * 800); });
-          }
-        } else if (a === 'move') {
+        if (a === 'move') {
           if (!_selectedDrawings.size) { toast('No drawings selected'); }
           else {
             var folders = []; drawings.forEach(function(d){ if (d.folder && folders.indexOf(d.folder)<0) folders.push(d.folder); });
@@ -1830,11 +1737,34 @@ function uploadToFolder(folder) {
   inp.click();
 }
 
-function _handleImageUpload(f, folder) {
+// S721: a drawing must arrive with a real name. A browser "Save image" (or the
+// old Download Drawing feature, removed this session) produces a file called
+// "download" with no extension; dropped back in, it silently became a drawing
+// named "download" — one such record sat in 1490.04 from July to September and
+// was carried forward into every later report. The S492 comment below already
+// noticed "download.jpg" uploads and treated them as noise. This is the gate.
+function _needsDrawingName(f) {
+  var nm = String((f && f.name) || '');
+  var base = nm.replace(/\.[^.]+$/, '').trim();
+  var hasExt = /\.[a-z0-9]{2,5}$/i.test(nm);
+  return !hasExt || !base || /^(download|image|img|photo|untitled|unnamed)(\s*\(\d+\))?$/i.test(base);
+}
+
+function _handleImageUpload(f, folder, nameOverride) {
+  if (!nameOverride && _needsDrawingName(f)) {
+    showPrompt('Name this drawing',
+      'This file has no usable name ("' + f.name + '"). Enter a drawing name, or cancel to skip it.', '')
+      .then(function(n) {
+        var nm = (n === null) ? '' : String(n).trim();
+        if (!nm) { toast('Skipped "' + f.name + '" \u2014 no name given'); return; }
+        _handleImageUpload(f, folder, nm);
+      });
+    return;
+  }
   _showDwgLoading('Processing ' + f.name + '...');
   var reader = new FileReader();
   reader.onload = function(e) {
-    var baseName = f.name.replace(/\.[^.]+$/, '');
+    var baseName = nameOverride || f.name.replace(/\.[^.]+$/, '');
     var dataUrl = e.target.result;
     var p = Model.getProject();
     var targetFolder = folder || '';
