@@ -92,6 +92,7 @@ function makeHost() {
     get stdData() { return CTX.stdData; },
     get pldData() { return CTX.pldData; },
     get npshPsi() { return CTX.npshPsi; },
+    get npshPsiPld() { return CTX.npshPsi; },   /* S722 — 7-point reads its own NPSH global */
     get PLD_NO_SKIP() { return CTX.skipSet; },
     window: root
   };
@@ -186,19 +187,26 @@ before = cases;
 for (const ratedRpm of [null, 1760]) {
   for (const pldSetting of [null, 50]) {
     for (const skip of [false, true]) {
-      CTX = { ...CTX, ratedRpm, pldSetting, pldData: [{ pct: '100%', placard: '100' }],
-              skipSet: skip ? new Set([0]) : new Set() };
-      const Hc = makeHost();   // rebuilt per context
-      for (const pct of PCTS) {
-        for (const dis_no of ['', '0', '120', '165']) {
-          for (const suc_no of ['', '0', '20']) {
-            for (const dis_w of ['', '45', '50', '53', '54', '80']) {
-              for (const rpm_no of RPMS) {
-                for (const over of OVERRIDES) {
-                  const row = { pct, dis_no, suc_no, dis_w, suc_w: '10', rpm_no, placard: '100', overPld: over };
-                  agree(`pld ${pct}/${dis_no}/${suc_no}/${dis_w}/${rpm_no}/${over}/skip${skip}`,
-                    Hc.calcPld(row, 0),
-                    M.evalPldPoint(row, { ratedRpm, ratedNet: M.ratedNetFrom(CTX.pldData), pldSetting, skipNoPLD: skip }));
+      /* S722 — system rating and NPSH now reach the 7-point evaluator too. */
+      for (const sysRating of [null, 150]) {
+        for (const npshPsi of ['', '25']) {
+          CTX = { ...CTX, ratedRpm, pldSetting, sysRating, npshPsi, pldData: [{ pct: '100%', placard: '100' }],
+                  skipSet: skip ? new Set([0]) : new Set() };
+          const Hc = makeHost();   // rebuilt per context
+          for (const pct of PCTS) {
+            for (const dis_no of ['', '0', '120', '165']) {
+              for (const suc_no of ['', '0', '20']) {
+                for (const dis_w of ['', '45', '50', '53', '54', '80']) {
+                  for (const rpm_no of RPMS) {
+                    for (const over of OVERRIDES) {
+                      for (const bfUp of ['', '15']) {
+                        const row = { pct, dis_no, suc_no, dis_w, suc_w: '10', rpm_no, bfUp, placard: '100', overPld: over };
+                        agree(`pld ${pct}/${dis_no}/${suc_no}/${dis_w}/${rpm_no}/${over}/bf${bfUp}/sr${sysRating}/npsh${npshPsi}/skip${skip}`,
+                          Hc.calcPld(row, 0),
+                          M.evalPldPoint(row, { ratedRpm, ratedNet: M.ratedNetFrom(CTX.pldData), pldSetting, skipNoPLD: skip, npshPsi, sysRating }));
+                      }
+                    }
+                  }
                 }
               }
             }
@@ -209,6 +217,31 @@ for (const ratedRpm of [null, 1760]) {
   }
 }
 console.log('  ' + (cases - before) + ' seven-point cases compared');
+
+/* 3b — S722: the gap itself. A 7-point churn row over the system rating must
+   raise churnOverPressure — through the HOST, worded by _dslAdvisoryText —
+   and the same row on the 3-point path must produce the identical sentence.
+   Before S722 this was the missing warning; this block is what keeps it from
+   going missing again. */
+{
+  CTX = { ...CTX, ratedRpm: 1760, pldSetting: null, sysRating: 150, npshPsi: '',
+          pldData: [{ pct: '100%', placard: '100' }], stdData: [{ pct: '100%', placard: '100' }], skipSet: new Set() };
+  const Hc = makeHost();
+  const pldRow = { pct: '0%', dis_no: '165', suc_no: '20', dis_w: '80', suc_w: '20', rpm_no: '1760', placard: '100', overPld: '' };
+  const stdRow = { pct: '0%', discharge: '165', suction: '20', rpm: '1760', placard: '100', overStd: '' };
+  const pv = Hc.calcPld(pldRow, 0);
+  const sv = Hc.calcStd(stdRow);
+  const pldCodes = (pv.advisories || []).map(a => a.code);
+  const stdCodes = (sv.advisories || []).map(a => a.code);
+  const word = a => new Function('return (' + lifted._dslAdvisoryText + ')')()(a);
+  const pldChurn = (pv.advisories || []).filter(a => a.code === 'churnOverPressure').map(word);
+  const stdChurn = (sv.advisories || []).filter(a => a.code === 'churnOverPressure').map(word);
+  cases += 3;
+  if (!pldCodes.includes('churnOverPressure')) mismatches.push('S722 gap: 7-point churn row over system rating raised NO churnOverPressure — codes: ' + JSON.stringify(pldCodes));
+  if (!stdCodes.includes('churnOverPressure')) mismatches.push('S722 gap: 3-point control row lost churnOverPressure — codes: ' + JSON.stringify(stdCodes));
+  if (JSON.stringify(pldChurn) !== JSON.stringify(stdChurn)) mismatches.push('S722 gap: 7-point and 3-point churn sentences differ\n      pld: ' + JSON.stringify(pldChurn) + '\n      std: ' + JSON.stringify(stdChurn));
+  console.log('  3 seven-point-vs-three-point churn over-pressure cases compared' + (pldChurn.length ? ' — "' + pldChurn[0] + '"' : ''));
+}
 
 /* 4 — the overall verdict rule ladder, including precedence */
 before = cases;

@@ -2347,7 +2347,10 @@ function updatePldVerdictObj(row, i){
     ratedRpm:   _ratedRpmPld(),
     ratedNet:   _ratedNetFrom(pldData),
     pldSetting: _pldSetting(),
-    skipNoPLD:  (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i)
+    skipNoPLD:  (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i),
+    /* S722 — the two reads the advisories need, same as _calcFlowPoint hands in. */
+    npshPsi:    (typeof npshPsiPld!=='undefined') ? npshPsiPld : '',
+    sysRating:  _sysRating()
   });
 }
 
@@ -2389,15 +2392,12 @@ function updatePldCalcCells(i) {
   // PLD device check result (flag at +1..3 psi over setpoint; >+3 is a FAIL handled by verdict)
   if(v.pldDev && v.pldDev.state==='flag') warns.push('PLD discharge '+v.pldDev.over.toFixed(1)+' psi over setpoint (within +3 psi tolerance) — verify PLD');
   if(v.pldDev && v.pldDev.state==='fail') warns.push('PLD discharge '+v.pldDev.over.toFixed(1)+' psi over setpoint (&gt; +3 psi) — PLD not holding');
-  // §14.2.4.2 ±1% certified-curve flag
-  if(v.curveFlag && v.adjNet!=null && !isNaN(parseFloat(row.placard))) warns.push('Curve match: adj net '+v.adjNet.toFixed(0)+' psi vs placard '+parseFloat(row.placard).toFixed(0)+' psi — outside \u00B11% gauge accuracy (\u00A714.2.4.2)');
-  var bfUp = parseFloat(row.bfUp);
-  if(!isNaN(bfUp) && bfUp < 20) warns.push('Backflow &lt; 20 psi');
-  var skipNoPLD = (typeof PLD_NO_SKIP!=='undefined') && PLD_NO_SKIP.has(i);
-  var sucCheck = parseFloat(skipNoPLD ? row.suc_w : row.suc_no);
-  if(isNaN(sucCheck)) sucCheck = parseFloat(row.suc_w);
-  var npsh = parseFloat(npshPsiPld);
-  if(!isNaN(sucCheck) && !isNaN(npsh) && npsh>0 && sucCheck < npsh) warns.push('Suction &lt; NPSH');
+  /* S722 — curve band, suction<NPSH, backflow and (new) churn over-pressure now
+     come from the shared module as codes and are worded by _dslAdvisoryText,
+     exactly as the 3-point cards are. The three hand-rolled copies that used to
+     sit here diverged in wording and were missing churn over-pressure entirely.
+     One rulebook, one wording function, both tests. */
+  (v.advisories||[]).forEach(function(a){ var s=_dslAdvisoryText(a); if(s) warns.push(s); });
   if(pfEl){
     if(warns.length){ pfEl.style.display=''; pfEl.innerHTML = warns.map(function(w){return '<div class="fp-flag">⚠ '+w+'</div>';}).join(''); }
     else { pfEl.style.display='none'; pfEl.innerHTML=''; }
