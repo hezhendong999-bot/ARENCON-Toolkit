@@ -20,6 +20,15 @@ import { Presence } from './data/presence.js';
 // path. Stub-only in S169; real behavior lands incrementally in
 // S170+. See FIX_A_ARCHITECTURE.md.
 import { BinaryOutbox } from './data/photoOutbox.js';
+/* S724 — REPORT VERSIONING, ADOPTION STEP ONE (recording only).
+   The ledger starts recording what the existing Issue flow already decides,
+   so that real history exists for the navigator and for the
+   no-new-number-unless-the-words-changed rule to read later. Nothing here
+   DECIDES a version number yet — _calcIssueRevision still does that, and is
+   deleted at step two when the engine takes over. See
+   LOCKED_REPORT_VERSIONING.md §3.1/§4 and frt/js/data/versionSeq.js. */
+import { seedLedger, record as recordVersion, currentVersion as ledgerTip } from './data/versionSeq.js';
+import { wordsDigest } from './data/reportWords.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
 import { createRealtime } from '../../lib/data/realtime.js';   /* S672b: live change wake — Diesel's S629 module, one implementation */
@@ -3330,7 +3339,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S721c';
+var FRT_BUILD = 'S724';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -4137,6 +4146,40 @@ document.addEventListener('keydown', function(e) {
 //  ISSUE SYSTEM — DRAFT → ISSUED → REVISION
 // ═══════════════════════════════════════════════════════
 
+/* S724 — THE VERSION LEDGER STARTS RECORDING.
+   ONE place that appends to the ledger, called from the three flows that move
+   a report's version. It does not decide anything; it writes down what was
+   decided, so that the questions the ruling asks — is this copy locked, what
+   did B01 say, have the words moved since — become answerable at all. A
+   single stored value never could answer them.
+
+   Not retroactive (§17.1): a report with no ledger is seeded with the one
+   revision it already carries, marked inferred, carrying no fingerprint. No
+   history is invented for it.
+
+   The id is not decoration — the sync merge matches list items by id, and an
+   entry without one can be silently dropped when two devices sync. */
+function _frtVersionEntryId() {
+  return 'ver_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+}
+
+function _recordVersionMove(proj, newRev, issued) {
+  try {
+    if (!proj || !newRev) return;
+    if (!Array.isArray(proj.versions) || !proj.versions.length) {
+      proj.versions = seedLedger((proj.info && proj.info.revision) || 'A01');
+    }
+    var meta = { id: _frtVersionEntryId(), at: new Date().toISOString(), by: (window._frtCurrentUserId || null) };
+    /* Only an issued copy carries a fingerprint of its words — a working copy
+       and the on-screen preview record nothing (§4). */
+    if (issued) { try { meta.digest = wordsDigest(proj); } catch (_) { meta.digest = ''; } }
+    proj.versions = recordVersion(proj.versions, newRev, issued, meta);
+  } catch (_e724) {
+    /* Recording must never be able to stop a report being issued. A missing
+       ledger entry costs history; a thrown error here would cost the issue. */
+  }
+}
+
 function _parseRevision(rev) {
   var m;
   // B##A## pattern (revision of issued)
@@ -4246,6 +4289,7 @@ function _doIssue(newRev) {
   proj.info.revision = newRev;
   proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
   proj.status = 'issued';
+  _recordVersionMove(proj, newRev, true);   /* S724 — before the save, so the entry rides the same write */
   Model.saveNow();
   _updateHeaderForProject();
   // Update revision field if visible
@@ -4264,6 +4308,7 @@ function _doRevise(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
+  _recordVersionMove(proj, newRev, false);   /* S724 */
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
@@ -4297,6 +4342,7 @@ function _doRevertDraft(newRev) {
   if (!proj.info) proj.info = {};
   proj.info.revision = newRev;
   proj.status = 'draft';
+  _recordVersionMove(proj, newRev, false);   /* S724 */
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;

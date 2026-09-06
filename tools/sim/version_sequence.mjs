@@ -22,7 +22,7 @@
 import {
   parseVersion, formatVersion, tip, currentVersion, lastIssued,
   isLocked, canDelete, nextIssue, nextDraft, issue, revise, remove,
-  seedLedger, isInferred, SEQ_SCHEMA
+  seedLedger, isInferred, record, SEQ_SCHEMA
 } from '../../frt/js/data/versionSeq.js';
 
 let pass = 0, fail = 0; const failures = []; let _n = 0;
@@ -284,6 +284,23 @@ const seedA = asProj(seedLedger('B01A02'));
 const seedB = asProj(seedLedger('B01A02'));
 const m4 = merge3({ id: 'p1', info: {} }, seedA, seedB);
 is(m4.merged.versions.length, 1, 'two devices seeding independently produce ONE entry, not a doubled ledger');
+
+
+/* ── PART H — the recording door (adoption step one) ────────────────────── */
+console.log('\n── PART H — recording what the existing flow already decided ──');
+
+let rec0 = seedLedger('A01');
+rec0 = record(rec0, 'B01', true, { id: 'r_1', at: 't1', by: 'elvis', digest: 'd1' });
+is(currentVersion(rec0), 'B01', 'an entry the caller decided is recorded verbatim');
+is(rec0.length, 2, 'it is appended, not replacing the seed');
+rec0 = record(rec0, 'B01', true, { id: 'r_2', at: 't2' });
+is(rec0.length, 2, 'recording the same version twice does not double the ledger');
+rec0 = record(rec0, 'B01A01', false, { id: 'r_3', at: 't3' });
+is(currentVersion(rec0), 'B01A01', 'a revision is recorded on top');
+is(rec0.length, 3, 'and the issued copy stays underneath it');
+is(isLocked(rec0, 'B01', false), true, 'the recorded history makes locking answerable — which one value never could');
+is(record(rec0, 'B02', true, {}).length, 3, 'an entry with no id is refused — the merge could not keep it');
+is(record(rec0, '', true, { id: 'x' }).length, 3, 'an entry with no version is refused');
 
 /* ── result ─────────────────────────────────────────────────────────────── */
 

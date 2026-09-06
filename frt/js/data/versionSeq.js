@@ -232,6 +232,26 @@ export function remove(ledger, v, hasLaterReport, at) {
   return { ledger: l, removed: true, version: currentVersion(l) };
 }
 
+/* Append an entry for a version the CALLER has already decided.
+
+   This is the recording door, and it is deliberately separate from issue()
+   and revise(), which DECIDE a number. The tool is adopted in two steps: the
+   ledger starts recording what the existing Issue flow does, so that real
+   history exists to build on, and only then does the engine take over the
+   deciding. Both steps write the same entry shape through this one function,
+   so there is never a second idea of what a ledger entry looks like.
+
+   Refuses without an id — the merge keys on it, and an entry the merge cannot
+   match is an entry another device can erase. */
+export function record(ledger, version, issued, meta) {
+  var l = copy(ledger);
+  if (!version || !meta || !meta.id) return l;
+  var t = tip(l);
+  if (t && t.v === version && !!t.issued === !!issued) return l;   /* already the tip */
+  l.push(Object.assign({}, meta, { v: String(version), issued: !!issued }));
+  return l;
+}
+
 /* ── entering the system ────────────────────────────────────────────────────
    §17.1 — not retroactive. One entry, marked inferred, carrying no digest. */
 export function seedLedger(revision) {
