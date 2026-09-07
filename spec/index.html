@@ -66,6 +66,22 @@ body[data-rail="fold"] .rail .body,body[data-insp="fold"] .inspector .body{displ
 body[data-rail="fold"] .rail .railhead{display:none}
 .railhead{padding:12px 12px 0;border-bottom:1px solid var(--line);padding-bottom:12px}
 .railhead .stat{line-height:1.6}
+.dochdr-btn{display:block;width:100%;text-align:left;margin:0 0 10px;padding:9px 11px;
+  border:1px solid var(--line);border-radius:9px;background:var(--surface2);
+  color:var(--ink);font:600 10.5pt Calibri,sans-serif;cursor:pointer}
+.dochdr-btn:hover{border-color:var(--brand)}
+.dochdr-btn .miss{display:block;font-weight:400;font-size:9.5pt;color:var(--warn);margin-top:3px}
+.dochdr-btn .set{display:block;font-weight:400;font-size:9.5pt;color:var(--ink3);margin-top:3px}
+/* Form grid for the Document details panel. Two columns on a desktop screen,
+   one on anything narrow — the panel is reachable from a tablet too. */
+.dh-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+.dh-grid .wide{grid-column:1 / -1}
+.dh-f label{display:block;font-size:9.5pt;color:var(--ink2);margin-bottom:4px}
+.dh-f input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+  background:var(--surface);color:var(--ink);font:11pt Calibri,sans-serif}
+.dh-f input:focus{outline:none;border-color:var(--brand)}
+.dh-f .hint{font-size:9pt;color:var(--ink3);margin-top:4px}
+@media (max-width:640px){.dh-grid{grid-template-columns:1fr}}
 .edge{position:absolute;top:8px;z-index:5;width:22px;height:34px;border:1px solid var(--line);
       background:var(--surface2);color:var(--ink3);cursor:pointer;border-radius:6px;font-size:11px;line-height:1}
 .rail .edge{right:-1px;border-radius:6px 0 0 6px}
@@ -100,7 +116,12 @@ body[data-rail="fold"] .rail .railhead{display:none}
       position:relative;overflow:hidden}
 .pg-head{position:absolute;left:0.75in;right:0.75in;top:0.72in;font-size:11pt;color:#1B1A22;
          border-bottom:.5pt solid #000;padding-bottom:2px}
-.pg-head .r{display:flex;gap:10px}
+.pg-head .r{display:flex;gap:10px;line-height:1.25}
+/* Rows 2 and 3 are the supporting lines in the firm's header block: smaller
+   and quieter than row 1 so the client and section stay the things you read
+   first. Empty middle cells still hold their column so the right-hand values
+   stay aligned down all three rows. */
+.pg-head .r + .r{font-size:9.5pt;color:#5E5B68}
 .pg-head .r span:first-child{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
 .pg-head .r .c{flex:0 0 auto}
 .pg-head .r .e{margin-left:auto;text-align:right;flex:0 0 auto}
@@ -174,7 +195,13 @@ body[data-rail="fold"] .rail .railhead{display:none}
     <!-- The master counts used to be a single ellipsised line in the header's
          second row, where they competed with the buttons and got truncated.
          They describe the sections, so they live above the sections. -->
-    <div class="railhead"><div class="stat" id="railStat">Loading&hellip;</div></div>
+    <div class="railhead">
+      <!-- The job data has to live SOMEWHERE the user can reach it. This is
+           that place: it sits above the sections because it applies to all of
+           them, and it shows what is still blank rather than hiding it. -->
+      <button class="dochdr-btn" id="btnDocHdr">Document details&hellip;</button>
+      <div class="stat" id="railStat">Loading&hellip;</div>
+    </div>
     <div class="body" id="railBody"></div>
   </aside>
 
@@ -231,6 +258,13 @@ const sb = (() => {
       headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rows) }).then(() => true),
     update: (table, match, patch) => rest(`${table}?${match}`, { method: 'PATCH',
       headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) }).then(() => true),
+    /* Insert-or-update in one round trip, resolved on the table's primary key.
+       Needed because the document header is a single row per scope that must
+       be created the first time and overwritten every time after, and doing
+       that as select-then-insert-or-update races with a second tab. */
+    upsert: (table, row) => rest(table, { method: 'POST',
+      headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify(row) }).then(() => true),
   };
 })();
 
@@ -336,12 +370,140 @@ function activeSections() {
   return state.sections.filter(s => !s.system_tag || state.systems[s.system_tag] !== false);
 }
 
+/* ── running page header ─────────────────────────────────────────────────
+   Three rows, laid out to match the header block in the firm's Word template:
+
+     row 1   ARENCON INC. — <client>        <section title>  Section <code>
+     row 2   <doc title>                                     Page <n>
+     row 3   <site>, <city>                 Project #: <no> <rev>   <date>
+
+   Every left-hand value is job data the user enters once in Document details;
+   every right-hand value is document position and fills itself. A field left
+   blank collapses rather than printing a stray separator, so a half-filled
+   header still reads as a header instead of as a fault. */
 const secTitle = code => (state.sections.find(s => s.code === code) || {}).title || '';
 
-const HEAD_HTML = (sec, page) => `<div class="pg-head"><div class="r">
-    <span>${escapeHtml(state.header.client)}</span>
-    <span class="c">${escapeHtml(secTitle(sec))}</span>
-    <span class="e">Section ${sec} &nbsp; Page ${page}</span></div></div>`;
+/* Toronto local, long form — matches the date written on the firm's covers.
+   Parsed as a plain calendar date, NOT as an instant: 'YYYY-MM-DD' through
+   the Date constructor is read as UTC midnight, which prints as the PREVIOUS
+   day for everyone in Eastern Time. */
+function issueDateLong(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString('en-CA',
+    { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+const HEAD_HTML = (sec, page) => {
+  const h = state.header || {};
+  const org = 'ARENCON INC.' + (h.client ? ' — ' + h.client : ' — Master Content');
+  const where = [h.site, h.city].filter(Boolean).join(', ');
+  const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
+  return `<div class="pg-head">
+    <div class="r"><span>${escapeHtml(org)}</span>
+      <span class="c">${escapeHtml(secTitle(sec))}</span>
+      <span class="e">Section ${sec}</span></div>
+    <div class="r"><span>${escapeHtml(h.doc_title || '')}</span>
+      <span class="c"></span><span class="e">Page ${page}</span></div>
+    <div class="r"><span>${escapeHtml(where)}</span>
+      <span class="c">${escapeHtml(issueDateLong(h.issue_date))}</span>
+      <span class="e">${proj ? 'Project #: ' + escapeHtml(proj) : ''}</span></div>
+  </div>`;
+};
+
+/* ── document details ────────────────────────────────────────────────────
+   The job data behind every page header, and later the cover and the TOC.
+   Entered once, applied everywhere: change the revision here and all 23
+   sections reprint with it. Scope is the project in project mode, or the
+   literal 'MASTER' for firm master content, so a job's details can never
+   leak into the master or into another job. */
+const HDR_SCOPE = () => PROJECT || 'MASTER';
+
+const DH_FIELDS = [
+  ['client',       'Client / Owner',       'Full legal name, as it appears on the contract.', 'wide'],
+  ['short_client', 'Short name for header','Fits the running header — e.g. a plant or site name.', 'wide'],
+  ['site',         'Site address',         '', ''],
+  ['city',         'City, Province',       '', ''],
+  ['project_no',   'Project number',       'e.g. 7310.17', ''],
+  ['revision',     'Revision',             'e.g. B01 — kept separate from the project number.', ''],
+  ['doc_title',    'Document title',       'Prints on the header and the cover.', 'wide'],
+];
+
+async function loadDocHeader() {
+  try {
+    const rows = await sb.select('sg_doc_header',
+      `select=*&scope=eq.${encodeURIComponent(HDR_SCOPE())}&limit=1`);
+    state.header = rows[0] || { scope: HDR_SCOPE() };
+  } catch { state.header = { scope: HDR_SCOPE() }; }
+  /* A spec issued with no date is a spec nobody can place in a sequence, so
+     today is offered rather than left blank. It is only a DEFAULT — it is not
+     written to the database until the user saves, so nothing is invented on
+     their behalf behind their back. Today in Toronto, never UTC: after 8pm
+     Eastern a UTC date is already tomorrow. */
+  if (!state.header.issue_date) state.header.issue_date = todayTor();
+  renderDocHdrBtn();
+}
+
+const todayTor = () => new Intl.DateTimeFormat('en-CA',
+  { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' })
+  .format(new Date());
+
+function renderDocHdrBtn() {
+  const b = $('#btnDocHdr'); if (!b) return;
+  const h = state.header || {};
+  const missing = DH_FIELDS.filter(f => !h[f[0]]).length;
+  b.innerHTML = 'Document details&hellip;' + (missing
+    ? `<span class="miss">${missing} field${missing > 1 ? 's' : ''} still blank — the page header is incomplete</span>`
+    : `<span class="set">${escapeHtml(h.project_no || '')} ${escapeHtml(h.revision || '')} · ${escapeHtml(h.client || '')}</span>`);
+}
+
+async function docHeaderScreen() {
+  /* The dialog engine is the toolkit's ONLY dialog. No confirm(), no alert(),
+     and no per-tool lookalike panel. */
+  const { Dlg } = await import('../lib/ui/dialogEngine.js');
+  const h = Object.assign({}, state.header || {});
+  const field = ([key, label, hint, cls]) => `
+    <div class="dh-f ${cls}"><label for="dh-${key}">${label}</label>
+      <input id="dh-${key}" type="text" value="${escapeHtml(h[key] || '')}">
+      ${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
+  Dlg.panel({
+    title: 'Document details', icon: '¶', accent: 'slate', width: 720,
+    build(bd) {
+      bd.innerHTML = `<div class="dh-grid">
+        ${DH_FIELDS.map(field).join('')}
+        <div class="dh-f"><label for="dh-issue_date">Date of issuance</label>
+          <input id="dh-issue_date" type="date" value="${escapeHtml(h.issue_date || '')}">
+          <div class="hint">Defaults to today — click to pick a date.</div></div>
+      </div>`;
+      /* type="date" is the browser's own calendar: it opens on click, it is
+         reachable by keyboard, and it hands back an unambiguous YYYY-MM-DD
+         rather than a typed string whose format we would have to guess. */
+    },
+    buttons: [
+      { label: 'Cancel', kind: 'cancel' },
+      { label: 'Save', kind: 'primary', async onClick(api) {
+          const patch = { scope: HDR_SCOPE(), updated_at: new Date().toISOString() };
+          DH_FIELDS.forEach(([k]) => {
+            const el = $('#dh-' + k, api.body); patch[k] = el ? el.value.trim() : '';
+          });
+          const d = $('#dh-issue_date', api.body);
+          patch.issue_date = (d && d.value) ? d.value : null;
+          try { patch.updated_by = state.me.id; } catch {}
+          try {
+            await sb.upsert('sg_doc_header', patch);
+            state.header = patch;
+            renderDocHdrBtn();
+            renderPage();          /* every page header reprints immediately */
+            setFresh(true);
+            msg('Document details saved.');
+            api.close();
+          } catch (e) { msg('Could not save — you may not have permission.', true); }
+          return false;            /* the panel closes on success, not on click */
+        } },
+    ],
+  });
+}
 
 function tableHtml(r) {
   let t; try { t = JSON.parse(r.body); } catch { return ''; }
@@ -538,6 +700,7 @@ const currentCode = () => (state.sections.find(s => s.id === state.sectionId) ||
 /* ── data ────────────────────────────────────────────────────────────── */
 async function loadSections() {
   state.sections = await sb.select('sg_section', 'select=*&order=sort_order');
+  await loadDocHeader();      /* page headers need this before the first paint */
   const counts = await sb.select('sg_clause', 'select=section_id,provenance');
   const map = {};
   (counts || []).forEach(c => {
@@ -817,6 +980,7 @@ $$('.strip').forEach(s => (s.onclick = () => toggleFold(s.dataset.open)));
 function goBack() {
   location.href = PROJECT ? `../index.html?project=${PROJECT}` : '../index.html';
 }
+$('#btnDocHdr').onclick = docHeaderScreen;
 addEventListener('resize', fitWindow);
 
 /* ── shared header engine ────────────────────────────────────────────────
