@@ -3342,7 +3342,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S724b';
+var FRT_BUILD = 'S724c';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -4356,12 +4356,18 @@ function _doRevertDraft(newRev) {
     proj.versions = ledgerRemove(_led, _plan.version, false, new Date().toISOString()).ledger;
     newRev = ledgerTip(proj.versions) || newRev;
     proj.info.revision = newRev;
-    proj.status = 'draft';
   } else {
     proj.info.revision = newRev;
-    proj.status = 'draft';
     _recordVersionMove(proj, newRev, false);   /* S724 */
   }
+  /* The status follows the version we LAND ON, never a fixed word. Deleting a
+     revision drops you back onto the issued copy underneath it — that copy is
+     still issued, and telling the database it is a draft would unlock a report
+     that was genuinely issued. Before the ledger this could not arise, because
+     Revert always minted a fresh A-number. */
+  var _landedIssued = !!((ledgerParse(newRev) || {}).issued);
+  var _newStatus = _landedIssued ? 'issued' : 'draft';
+  proj.status = _newStatus;
   _updateHeaderForProject();
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
@@ -4369,15 +4375,15 @@ function _doRevertDraft(newRev) {
   var _after = function(){ try { Model.saveNow(); } catch (_) {} };
   /* S700a — same rule as _doRevise: the read-only state lifts only when the
      database has actually accepted the flip. */
-  _syncIssueStatus('draft').then(function(){
-    _s700ServerLocked = false;
+  _syncIssueStatus(_newStatus).then(function(){
+    _s700ServerLocked = (_newStatus === 'issued');
     _after();
     try { _s700Refresh(); } catch (_e700) {}
   }, function(){
     _after();
     try { _s700Refresh(); } catch (_e700) {}
   });
-  toast('Reverted to draft: ' + newRev);
+  toast(_landedIssued ? ('Back to issued ' + newRev) : ('Reverted to draft: ' + newRev));
 }
 
 function _syncIssueStatus(status) {
