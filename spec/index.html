@@ -111,7 +111,11 @@ body[data-rail="fold"] .rail .railhead{display:none}
 /* paper — matches the generated Word file: Letter, 1in sides, running header */
 .paper-col{overflow-y:auto;overflow-x:hidden;background:var(--deck);padding:22px 0 90px}
 .stage{transform-origin:top center}
-.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1in 0.75in 0.4in;background:#fff;color:#1B1A22;
+/* Top padding is 1.62in, MEASURED from 7310.17 — not the 1in a default Word
+   page uses. The old 1in left only a 0.28in band above the body, which fits
+   ONE header line. Three lines overran it and printed on top of the section
+   heading. The firm's real page reserves this room; so does this one. */
+.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 0.75in 0.4in;background:#fff;color:#1B1A22;
       box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/1.42 Calibri,Carlito,sans-serif;
       position:relative;overflow:hidden}
 .pg-head{position:absolute;left:0.75in;right:0.75in;top:0.72in;font-size:11pt;color:#1B1A22;
@@ -397,12 +401,15 @@ function issueDateLong(iso) {
 
 const HEAD_HTML = (sec, page) => {
   const h = state.header || {};
-  /* NO "ARENCON INC." HERE (Mark, this session). The running header identifies
-     the JOB, not the firm — the firm's identity belongs on the cover and in the
-     letterhead, and repeating it on every page costs the line that should carry
-     the client. The A03 draft and 7033.11 both put the firm's name here; both
-     are wrong, and 7310.17 governs. Left column is client, then document, then
-     where the work is. */
+  /* EXACTLY the three rows the firm's Word header carries, and nothing else:
+       row 1   <client>          <section title>   Section <code>
+       row 2   <document title>                    Page <n>
+       row 3   <site, city>                        Project #: <no> <rev>
+     Two corrections from my earlier version, both mine:
+     - "ARENCON INC." is gone. The header identifies the JOB; the firm's name
+       belongs on the cover and the letterhead (Mark).
+     - The issue date is gone. I put it in the middle of row 3; the Word header
+       has no date anywhere. The date belongs on the cover, not on every page. */
   const who = h.client || 'Master Content';
   const where = [h.site, h.city].filter(Boolean).join(', ');
   const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
@@ -411,9 +418,8 @@ const HEAD_HTML = (sec, page) => {
       <span class="c">${escapeHtml(secTitle(sec))}</span>
       <span class="e">Section ${sec}</span></div>
     <div class="r"><span>${escapeHtml(h.doc_title || '')}</span>
-      <span class="c"></span><span class="e">Page ${page}</span></div>
+      <span class="e">Page ${page}</span></div>
     <div class="r"><span>${escapeHtml(where)}</span>
-      <span class="c">${escapeHtml(issueDateLong(h.issue_date))}</span>
       <span class="e">${proj ? 'Project #: ' + escapeHtml(proj) : ''}</span></div>
   </div>`;
 };
