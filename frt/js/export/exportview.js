@@ -901,6 +901,12 @@ export var initExportView = {
       _doGenerate();
 
       function _doGenerate(){
+      /* S725: THIS is the tap. The report tab must be asked for here, while the
+         browser still connects it to the inspector's finger — asking at the end
+         of the render is silently refused. The console line also settles, on the
+         next field test, whether this handler runs at all: if [PDF-STAGE] never
+         appears, the failure is upstream of the export, not inside it. */
+      try{ console.log('[PDF-STAGE] export requested'); if(window._frtPdfOpenWin) window._frtPdfOpenWin(); }catch(_pw){}
       var p = Model.getProject();
       if (p) {
         // internal report has NO external distribution

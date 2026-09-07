@@ -3342,7 +3342,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S724c';
+var FRT_BUILD = 'S725';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
@@ -4246,8 +4246,14 @@ function _issueReport() {
       var _back = ledgerRemove(_led, _revert.version, false, '');
       draftTarget = ledgerTip(_back.ledger) || _revert.version;
     }
+    /* S725: the button used to say "Revert to Draft" even when Revert lands you
+       on an ISSUED copy — which is what happens whenever the tip is deletable
+       and the copy underneath it went out. The toast was already honest; only
+       the menu lied. The landed version tells the truth by its own grammar: an
+       issued copy carries no A-suffix. */
+    var _landIssued = !!((ledgerParse(draftTarget) || {}).issued);
     html += '<button data-issue-action="revert" data-rev="' + draftTarget + '" data-revert-mode="' + _revert.mode + '" class="btn-muted-neutral" style="width:100%;font-size:calc(14px + var(--ts));margin-bottom:10px;text-align:left;padding:12px 16px;">';
-    html += '\u21A9\uFE0F Revert to Draft<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + draftTarget + '</b></span></button>';
+    html += '\u21A9\uFE0F Revert to ' + (_landIssued ? 'Issued Copy' : 'Draft') + '<span style="float:right;font-weight:400;opacity:.85;">' + rev + ' \u2192 <b>' + draftTarget + '</b></span></button>';
   }
 
   // Cancel

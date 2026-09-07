@@ -30,6 +30,82 @@ import { makeRecord, appendRecord } from '../data/exportRecord.js';
 // "Outstanding" pill. Routing BOTH helpers through getEffectiveStatus
 // gives the whole PDF one source of truth, and keeps the partition clean
 // (every pin is exactly one of open/closed — never both, never neither).
+/* S725 — THE EXPORT MUST NEVER FAIL IN SILENCE, AND MUST NOT LOSE THE TAP.
+   Two separate faults, one fix.
+
+   (1) The report tab used to be asked for at the END of preparation — after
+   fetching the logo and wordmark, after the photo prefetch, after building
+   snapshots, after a network round trip to mint photo links. By then the
+   browser no longer connects the new tab to the inspector's tap and is
+   entitled to refuse it. A refusal arriving that late has nowhere to show
+   itself. The tab is now opened ON the tap (see exportview.js) and carried
+   through to the renderer, which adopts it.
+
+   (2) Whatever else goes wrong, it now says so. Every stage names itself on
+   the holding page and in the console under [PDF-STAGE], and a 30-second
+   watchdog turns a stall into a plain sentence naming the stage it died on.
+   If the real cause is something other than (1), this is what will tell us. */
+var _pdfStageName='';
+var _pdfWatchdog=null;
+function _pdfOpenPreWin(){
+  try{
+    if(window._frtPdfWin&&!window._frtPdfWin.closed)return window._frtPdfWin;
+  }catch(_r){}
+  var w=null;
+  try{w=window.open('','_blank');}catch(_o){w=null;}
+  if(!w){window._frtPdfWin=null;return null;}
+  window._frtPdfWin=w;
+  try{
+    w.document.open();
+    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Preparing report\u2026</title></head><body style="margin:0;font-family:Calibri,sans-serif;background:#EFEDF0;color:#1B1A22;display:flex;align-items:center;justify-content:center;min-height:100vh;"><div style="text-align:center;max-width:560px;padding:24px;"><div style="font-size:20px;font-weight:700;margin-bottom:10px;">Preparing your report\u2026</div><div id="frt-pdf-stage" style="font-size:15px;color:#5E5B68;line-height:1.5;">Starting</div></div></body></html>');
+    w.document.close();
+  }catch(_w){}
+  return w;
+}
+function _pdfSetStage(name){
+  _pdfStageName=name||'';
+  try{console.log('[PDF-STAGE] '+_pdfStageName);}catch(_c){}
+  try{
+    var pw=window._frtPdfWin;
+    if(pw&&!pw.closed){
+      var el=pw.document.getElementById('frt-pdf-stage');
+      if(el)el.textContent=_pdfStageName;
+    }
+  }catch(_s){}
+}
+function _pdfFail(why){
+  var msg='The report could not be opened. It stopped at: '+(_pdfStageName||'an early step')+'.';
+  if(why)msg+=' '+why;
+  try{console.error('[PDF-STAGE] FAILED at '+_pdfStageName,why||'');}catch(_c){}
+  _pdfDisarmWatchdog();
+  try{
+    var pw=window._frtPdfWin;
+    if(pw&&!pw.closed){
+      var el=pw.document.getElementById('frt-pdf-stage');
+      if(el){el.textContent=msg;el.style.color='#C0445F';el.style.fontWeight='700';}
+    }
+  }catch(_s){}
+  try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(_o){}
+  try{showAlert(msg);}catch(_a){}
+}
+function _pdfArmWatchdog(){
+  _pdfDisarmWatchdog();
+  try{
+    _pdfWatchdog=setTimeout(function(){
+      _pdfWatchdog=null;
+      if(!window._frtPdfWin)return; // the renderer already adopted the tab
+      _pdfFail('It has not responded for 30 seconds. Please tell Mark which stage is named above.');
+    },30000);
+  }catch(_t){}
+}
+function _pdfDisarmWatchdog(){
+  try{if(_pdfWatchdog)clearTimeout(_pdfWatchdog);}catch(_c){}
+  _pdfWatchdog=null;
+}
+/* exportview.js opens the tab on the tap itself — it is the only place that
+   still holds the browser's permission to do so. */
+try{window._frtPdfOpenWin=_pdfOpenPreWin;window._frtPdfStage=_pdfSetStage;window._frtPdfFail=_pdfFail;}catch(_x){}
+
 function _deficIsOpen(d){return Model.getEffectiveStatus(d)==='open';}
 function _deficIsClosed(d){return Model.getEffectiveStatus(d)==='closed';}
 function _deficDesc(d){
@@ -2373,8 +2449,15 @@ summaryHtml=(_recsMode==='only')
   : (_dashHtmlFull+_progressBarsHtml+_deficSummaryHtml+_hiRecNoteHtml);
 
 // Open popup
-var w=window.open('','_blank');
-if(!w){showAlert('Popup blocked. Allow popups for this site.');return;}
+/* S725: use the tab opened on the inspector's tap. Asking for one HERE — after
+   the fetches, the prefetch and the link mint — is what the browser silently
+   refuses, and the refusal had nowhere to show itself. The fallback below is
+   kept for any path that reaches here without a pre-opened tab. */
+var w=null;
+try{ if(window._frtPdfWin&&!window._frtPdfWin.closed) w=window._frtPdfWin; }catch(_pw){}
+if(w){ window._frtPdfWin=null; _pdfDisarmWatchdog(); }
+else { try{ w=window.open('','_blank'); }catch(_ow){ w=null; } if(w) _pdfDisarmWatchdog(); }
+if(!w){_pdfSetStage('opening the report tab');_pdfFail('Your browser would not open a new tab. Allow pop-ups for arencon.app, then press Generate PDF again.');return;}
 var _pdfSN=Model.getSmartFilename();
 var _pdfSB=_pdfSN.replace(/\s+[A-Z]\d{2}([A-Z]\d{2})?$/,'');
 // Filename label: full joined name unless it's long (multi-select), then a
@@ -3181,6 +3264,10 @@ function _captureExportPDF(w,D){
       // can unlock and edit afterwards, with a warning (Mark, S509). A working
       // copy registers as not-issued and its pages already carry the DRAFT
       // COPY watermark.
+      /* S725: WHAT THIS PDF SAID — issued copies only (§4). The answer is not
+         known until the pre-ask above, which is why the record is written here
+         and not on the Export tap. A failure here must never cost the export. */
+      try{ if(_issuedCopy) _frtRecordExportSnapshot(); }catch(_snap){try{console.error('[S725 snapshot]',_snap);}catch(_e4){}}
       try{
         if(typeof _expId==='string'&&_expId&&Model.registerExport){
           Model.registerExport(_expId,!!_issuedCopy);
@@ -3199,11 +3286,16 @@ function _captureExportPDF(w,D){
 }
 // S457: export chrome (Export/Close cluster, counter-scaled, close-cleanup)
 // now lives in the shared library — lib/export/exportPreview.js.
-/* S724 — WHAT THIS PDF SAID.
-   §4: every export takes a snapshot; it is a consequence, not a prompt. The
-   number does not move and nobody is asked anything. Exporting B01 three
+/* S724 — WHAT THIS PDF SAID.  (S725: issued copies only.)
+   §4: an ISSUED export takes a snapshot; it is a consequence, not a prompt.
+   The number does not move and nobody is asked anything. Issuing B01 three
    times leaves three snapshots, all B01, all kept (§7), shown as ONE chip
    with the repeats one tap deep (§4.1).
+
+   A working copy and the on-screen preview record NOTHING (§4), so reviewing
+   and checking formatting stay free of consequence. §4's opening sentence
+   still reads "every export" and contradicts its own fourth paragraph — the
+   amendment is pending Mark's word; the code follows issued-only.
 
    A snapshot holds the words and never a picture (§7/§8) — a photograph
    belongs to the site visit and is referenced, not copied, which is why
@@ -3223,7 +3315,11 @@ function _frtRecordExportSnapshot(){
   }catch(_e724){}
 }
 
-try{ mountExportChrome(w,D,{onExport:function(){_frtRecordExportSnapshot();_captureExportPDF(w,D);}}); }catch(_uc){}
+/* S725: the snapshot used to be taken HERE, on every Export tap — including
+   working copies and preview checks. The ruling (§4) says only an issued PDF
+   writes an export record, so it now fires downstream, once the issued/working
+   question has actually been answered. */
+try{ mountExportChrome(w,D,{onExport:function(){_captureExportPDF(w,D);}}); }catch(_uc){}
 // S457: the S338 full-width banner is retired. Its zoom problem is now solved
 // by the unified counter-scaled cluster above (page zoom measured via
 // outerWidth/innerWidth — the readable signal S338's DPR attempt lacked —
@@ -3837,6 +3933,11 @@ export const initPDFExport={
   generate(type,options){
     var p=Model.getProject();if(!p){toast('No project loaded');return;}
     var opts=options||{};var isField=(type==='field');
+    // S725: adopt the tab exportview opened on the tap (or open one now as a
+    // fallback), then announce every stage from here on.
+    _pdfOpenPreWin();
+    _pdfSetStage('opening the report window');
+    _pdfArmWatchdog();
     var pfOv=document.createElement('div');pfOv.id='pdf-prefetch-overlay';
     pfOv.style.cssText='position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;font-family:Calibri,sans-serif;';
     pfOv.innerHTML='<div style="background:white;border-radius:12px;padding:28px 36px;box-shadow:0 8px 32px rgba(0,0,0,.3);text-align:center;min-width:320px;"><div style="font-size:16px;font-weight:700;color:#1C2333;margin-bottom:12px;">Preparing PDF Export</div><div id="pf-label" style="font-size:13px;color:#4A5568;margin-bottom:10px;">Fetching photos... 0/0</div><div style="width:100%;height:8px;background:#EDF2F7;border-radius:4px;overflow:hidden;"><div id="pf-bar" style="width:0%;height:100%;background:#2E9E72;border-radius:4px;transition:width .15s;"></div></div><div style="margin-top:12px;font-size:11px;color:#A0AEC0;">This may take a moment for large reports</div></div>';
@@ -3847,6 +3948,7 @@ export const initPDFExport={
     ]).then(function(results){
       var logo=(results[0]||'').trim();
       var fontB64=(results[1]||'').trim();
+      _pdfSetStage('fetching photos');
       return _prefetchR2PhotosForPDF(p,function(done,total){
         try{var lbl=document.getElementById('pf-label');var bar=document.getElementById('pf-bar');
         if(lbl)lbl.textContent='Fetching photos... '+done+'/'+total;
@@ -3857,6 +3959,7 @@ export const initPDFExport={
         // tokens (never the raw R2 URL). On any mint failure, links simply don't
         // appear — the raw account URL is never exposed.
         _pdfLinkByUrl={};
+        _pdfSetStage('building report snapshots');
         try{var lbl2=document.getElementById('pf-label');if(lbl2)lbl2.textContent='Building report snapshots…';}catch(e){}
         // S360: build frozen, content-addressed snapshots for marked/rotated photos
         // FIRST. The clickable link + in-PDF thumbnail both resolve to these.
@@ -3865,6 +3968,7 @@ export const initPDFExport={
           if(lbl3)lbl3.textContent='Building report snapshots… '+d+'/'+t;
           if(bar)bar.style.width=Math.round((d/Math.max(1,t))*100)+'%';}catch(e){}
         }).then(function(){
+        _pdfSetStage('securing photo links');
         try{var lbl2b=document.getElementById('pf-label');if(lbl2b)lbl2b.textContent='Securing photo links…';}catch(e){}
         var keyByUrl=_collectPhotoKeysForMint(p);
         // S360: also mint tokens for snapshot URLs (their bucket keys), so the
@@ -3882,6 +3986,7 @@ export const initPDFExport={
             });
           }
           try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e){}
+          _pdfSetStage('laying out the report');
           _exportPDFWithCache(p,logo,isField,type,r2Cache,opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,fontB64,opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode,{tier:opts.qualityTier,dwgTier:opts.dwgTier,dwgDpi:opts.dwgDpi}); // S496
         });
         });
@@ -3889,7 +3994,15 @@ export const initPDFExport={
     }).catch(function(e){
       try{var ov=document.getElementById('pdf-prefetch-overlay');if(ov)ov.remove();}catch(e2){}
       console.warn('[PDF] Error:',e);
+      // S725: the preparation failed and we are rendering without logo, font or
+      // photo cache. If THIS throws too, the export used to end in silence.
+      _pdfSetStage('laying out the report without photos (recovering from an earlier problem)');
+      try{
       _exportPDFWithCache(p,'',isField,type,{},opts.ctrFilter||'__all__',!!opts.isFinalComm,!!opts.showClosedSummary,'',opts.untaggedMode,(opts.includeRecs!==false),opts.recsMode,opts.includeSiteRecords,opts.recFooter,opts.inspTag||'off',opts.drawingPageSize||'letter',!!opts.internalMode);
+      }catch(_fb){
+        try{console.error('[PDF] Fallback render failed:',_fb);}catch(_c){}
+        _pdfFail('Please tell Mark the stage named above.');
+      }
     });
   }
 };
