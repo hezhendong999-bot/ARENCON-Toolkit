@@ -397,11 +397,17 @@ function issueDateLong(iso) {
 
 const HEAD_HTML = (sec, page) => {
   const h = state.header || {};
-  const org = 'ARENCON INC.' + (h.client ? ' — ' + h.client : ' — Master Content');
+  /* NO "ARENCON INC." HERE (Mark, this session). The running header identifies
+     the JOB, not the firm — the firm's identity belongs on the cover and in the
+     letterhead, and repeating it on every page costs the line that should carry
+     the client. The A03 draft and 7033.11 both put the firm's name here; both
+     are wrong, and 7310.17 governs. Left column is client, then document, then
+     where the work is. */
+  const who = h.client || 'Master Content';
   const where = [h.site, h.city].filter(Boolean).join(', ');
   const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
   return `<div class="pg-head">
-    <div class="r"><span>${escapeHtml(org)}</span>
+    <div class="r"><span>${escapeHtml(who)}</span>
       <span class="c">${escapeHtml(secTitle(sec))}</span>
       <span class="e">Section ${sec}</span></div>
     <div class="r"><span>${escapeHtml(h.doc_title || '')}</span>
