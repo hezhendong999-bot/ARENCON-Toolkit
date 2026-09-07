@@ -120,6 +120,13 @@ body[data-rail="fold"] .rail .body,body[data-insp="fold"] .inspector .body{displ
 .ln.draft .tx{box-shadow:inset 3px 0 0 var(--warn);padding-left:6px}
 .ln.carried .tx{box-shadow:inset 3px 0 0 var(--info);padding-left:6px}
 .ln.empty .tx{box-shadow:inset 3px 0 0 var(--fail);padding-left:6px;color:#7a7684}
+.ln.free{display:grid;grid-template-columns:minmax(0,1fr)}
+.ln.free.bul{grid-template-columns:.25in minmax(0,1fr)}
+.ln.free .dot{text-align:left}
+.spec-tbl{border-collapse:collapse;margin:0 auto;width:5.8in}
+.spec-tbl td{border:.5pt solid #000;padding:2px 6px;font-size:11pt;text-align:center}
+.spec-tbl td.h{font-weight:700;text-decoration:underline}
+.spec-tbl td.l{text-align:left}
 .blank{height:15.6px}
 .tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff}
 .edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px .5in}
@@ -269,10 +276,11 @@ function numbered(rows) {
     const list = kids.get(parent) || [];
     let n = 0;
     for (const r of list) {
-      n++;
-      const num = prefix ? `${prefix}.${n}` : String(n);
+      const numbered = ['part', 'article', 'clause'].includes(r.kind);
+      let num = '';
+      if (numbered) { n++; num = prefix ? `${prefix}.${n}` : String(n); }
       out.push({ ...r, num, lvl });
-      walk(r.id, num, lvl + 1);
+      walk(r.id, numbered ? num : prefix, numbered ? lvl + 1 : lvl);
     }
   })('_root', '', 1);
   return out;
@@ -318,6 +326,17 @@ const HEAD_HTML = (sec, page) => `<div class="pg-head"><div class="r">
     <span class="c">${escapeHtml(secTitle(sec))}</span>
     <span class="e">Section ${sec} &nbsp; Page ${page}</span></div></div>`;
 
+function tableHtml(r) {
+  let t; try { t = JSON.parse(r.body); } catch { return ''; }
+  const cell = (v, head, left) =>
+    `<td class="${head ? 'h' : ''} ${left ? 'l' : ''}">${escapeHtml(v)}</td>`;
+  return `<table class="spec-tbl" data-id="${r.id}">
+    <tr>${(t.head || []).map(h => cell(h, true)).join('')}</tr>
+    ${(t.rows || []).map(row => `<tr>${row.map((c, i) =>
+      cell(String(c).replace(/\|\|/g, ' · '), false, i > 0)).join('')}</tr>`).join('')}
+  </table>`;
+}
+
 function buildBlocks() {
   const blocks = [];
   for (const sec of activeSections()) {
@@ -330,11 +349,25 @@ function buildBlocks() {
         html: `<div class="ln empty" data-lvl="3"><div class="num"></div><div class="tx">[-] No wording written for this section yet.</div></div>` });
     }
     rows.forEach(r => {
-      if (r.lvl <= 2) blocks.push({ section: sec.code, keepNext: true, html: '<div class="blank"></div>' });
+      for (let i = 0; i < (r.blank_before ?? 1); i++)
+        blocks.push({ section: sec.code, keepNext: true, html: '<div class="blank"></div>' });
       const prov = r.provenance === 'approved' ? '' : r.provenance;
+      const sel = state.sel === r.id ? 'sel' : '';
+
+      if (r.kind === 'table') { blocks.push({ section: sec.code, id: r.id, html: tableHtml(r) }); return; }
+
+      if (r.kind === 'para' || r.kind === 'bullet') {
+        const ind = r.indent == null ? (r.lvl - 1) * 0.5 : r.indent;
+        const bullet = r.kind === 'bullet';
+        blocks.push({ section: sec.code, id: r.id,
+          html: `<div class="ln free ${bullet ? 'bul' : ''} ${prov} ${sel}" data-id="${r.id}"
+                   style="margin-left:${ind}in">${bullet ? '<div class="dot">\u2022</div>' : ''}<div class="tx">${escapeHtml(r.body)}</div></div>` });
+        return;
+      }
+
       const title = r.lvl <= 2 || (r.body.length <= 72 && !/[.,;:]$/.test(r.body));
       blocks.push({ section: sec.code, keepNext: title, id: r.id,
-        html: `<div class="ln ${prov} ${state.sel === r.id ? 'sel' : ''}" data-lvl="${r.lvl}" data-id="${r.id}"><div class="num">${r.num}</div><div class="tx">${escapeHtml(r.body)}</div></div>` });
+        html: `<div class="ln ${prov} ${sel}" data-lvl="${r.lvl}" data-id="${r.id}"><div class="num">${r.num}</div><div class="tx">${escapeHtml(r.body)}</div></div>` });
     });
     blocks.push({ section: sec.code, html: '<div class="blank"></div>' });
     blocks.push({ section: sec.code, html: `<div class="eos">END OF SECTION ${sec.code}</div>` });
@@ -585,7 +618,7 @@ async function runImport(nodes, progress) {
     if (!batch.length) return;
     await sb.insert('sg_clause', batch);          // parents ride in the same insert
     written += batch.length; batch = [];
-    progress(`Imported ${written} clauses…`);
+    progress(`Imported ${written} items…`);
   };
 
   for (const n of nodes) {
@@ -599,17 +632,38 @@ async function runImport(nodes, progress) {
       }
       continue;
     }
-    if (n.kind !== 'clause' || !cur) continue;
+    if (!cur || n.kind === 'enddiv') continue;
 
-    const lvl = n.level;
-    const body = (n.runs || []).map(r => r[0]).join('').trim();
-    const prov = n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved';
     const id = crypto.randomUUID();
-    batch.push({ id, section_id: cur.id, parent_id: stack[lvl - 1] || null,
-      sort_order: ++order, kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause',
-      body, lock_level: 'master', provenance: prov });
-    stack[lvl] = id;
-    Object.keys(stack).forEach(k => { if (+k > lvl) delete stack[k]; });
+    const blank = n.blank == null ? 1 : n.blank;
+    let row;
+
+    if (n.kind === 'clause') {
+      const lvl = n.level;
+      const body = (n.runs || []).map(r => r[0]).join('').trim();
+      row = { id, section_id: cur.id, parent_id: stack[lvl - 1] || null, sort_order: ++order,
+        kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause',
+        body, lock_level: 'master', blank_before: blank,
+        provenance: n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved' };
+      stack[lvl] = id;
+      Object.keys(stack).forEach(k => { if (+k > lvl) delete stack[k]; });
+    } else if (n.kind === 'para' || n.kind === 'bullet') {
+      // an unnumbered paragraph hangs off whatever clause it sits under
+      const body = (n.runs || []).map(r => r[0]).join('').trim();
+      if (!body) continue;
+      const deepest = Math.max(0, ...Object.keys(stack).map(Number));
+      row = { id, section_id: cur.id, parent_id: stack[deepest] || null, sort_order: ++order,
+        kind: n.kind, body, lock_level: 'master', blank_before: blank,
+        indent: n.x == null ? null : Math.round(((n.x - 72) / 72) * 100) / 100,
+        provenance: n._drafted ? 'draft' : 'approved' };
+    } else if (n.kind === 'table') {
+      const deepest = Math.max(0, ...Object.keys(stack).map(Number));
+      row = { id, section_id: cur.id, parent_id: stack[deepest] || null, sort_order: ++order,
+        kind: 'table', body: JSON.stringify({ head: n.head, rows: n.rows, style: n.style }),
+        lock_level: 'master', blank_before: blank, provenance: 'approved' };
+    } else continue;
+
+    batch.push(row);
     if (batch.length >= 120) await flush();
   }
   await flush();
