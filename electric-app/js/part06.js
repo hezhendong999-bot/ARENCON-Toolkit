@@ -1436,7 +1436,7 @@ function updateCompletionOverview(){
     return {phase:phase, name:name, sub:'Checklist', state:st, cnt: stat.done+' / '+stat.total, target:target};
   }
   // SETUP
-  items.push(clItem('Setup','1. Pre-Commissioning','s1',s1,'s1'));
+  items.push(clItem('Setup','1. Pre-Test','s1',s1,'s1'));
   items.push(clItem('Setup','2. Visual Inspection','s2',s2,'s2'));
   // TESTS
   items.push(clItem('Tests','3. Controller Tests','s3',s3,'s3'));

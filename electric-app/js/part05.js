@@ -1,12 +1,12 @@
 
 var PHASES = {  setup:    { label:'Setup',    panels:[
     {id:'proj',  label:'Summary'},
-    {id:'s1',    label:'1. Pre-Commissioning', dot:true},
+    {id:'s1',    label:'1. Pre-Test', dot:true},
     {id:'s2',    label:'2. Visual Inspection', dot:true}
   ]},
   tests:    { label:'Tests',    panels:[
     {id:'s3',    label:'3. Controller Tests', dot:true},
-    {id:'s4',    label:'4. Performance Test', dot:true},
+    {id:'s4',    label:'4. Fire Pump Test Results', dot:true},
     {id:'s5',    label:'5. FA & Signaling', dot:true}
   ]},
   closeout: { label:'Closeout', panels:[

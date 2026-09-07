@@ -141,6 +141,7 @@
     }
     function call(n, ev){ var f = window[n]; if (typeof f === 'function') return f(ev); }
     var cfg = dieselHeaderConfig({
+      title: 'Electric Fire Pump Commissioning Report',   /* S724: the shared config's default is Diesel's title; without this the Electric header read "Diesel". */
       logoSrc: ARENCON_LOGO,  /* S497: one logo, one source — lib/assets/logo.js */
       onBack: function(){ call('goBackToHub'); },
       onHome: function(){

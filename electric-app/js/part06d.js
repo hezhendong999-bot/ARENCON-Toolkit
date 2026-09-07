@@ -1163,8 +1163,8 @@ function resetCurrentPage() {
   _pushUndo();
   const active = PANELS.find(p => document.getElementById('panel-'+p)?.classList.contains('active'));
   if (!active) return;
-  const label = {'proj':'Project Info','s1':'Pre-Commissioning','s2':'Visual Inspection','s3':'Controller Tests',
-    's4':'Performance Test','s4pld':'Performance Test','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
+  const label = {'proj':'Project Info','s1':'Pre-Test','s2':'Visual Inspection','s3':'Controller Tests',
+    's4':'Fire Pump Test Results','s4pld':'Fire Pump Test Results','s5':'FA & Signaling','defic':'Deficiencies','sign':'Signature','sketch':'Sketches'}[active]||active;
   const _inv = _resetInventory(active);
   /* S699: name what goes. "Cannot be undone" stays true of the typed values,
      but it was never true of photographs — they soft-delete to Recently
@@ -1733,7 +1733,7 @@ function openHelp(){
         _helpSetDot(false);
       } else {
         bd.innerHTML = window._helpComingSoon
-          ? window._helpComingSoon('Diesel Fire Pump Commissioning')
+          ? window._helpComingSoon('Electric Fire Pump Commissioning')
           : '<div class="help-soon"><div class="help-soon-title">Guide coming soon</div></div>';
       }
     }

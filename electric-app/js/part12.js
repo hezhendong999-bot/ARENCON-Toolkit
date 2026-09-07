@@ -164,13 +164,13 @@ function _dslReportFilename(){
     // Standalone / pre-Hub boot: rebuild from the fields on screen.
     var pn = (document.getElementById('projnum')||{}).value || '';
     var nm = (document.getElementById('projname')||{}).value || '';
-    sfn = (pn + ' ' + nm).trim() || 'Diesel Pump Report';
+    sfn = (pn + ' ' + nm).trim() || 'Electric Pump Report';
   }
   var inst = 1;
   try{ if(typeof CloudSync!=='undefined' && CloudSync.instanceNumber) inst = CloudSync.instanceNumber; }catch(_){}
   var rev = '';
   try{ var r=(document.getElementById('revision')||{}).value; if(r) rev=' '+String(r).trim(); }catch(_){}
-  var name = sfn + ' DFP#' + inst + rev;
+  var name = sfn + ' EFP#' + inst + rev;
   /* Allow-list matches FRT's json.js EXACTLY — note the '.' that was missing.
      Windows-illegal characters are still excluded. */
   return name.replace(/[^a-zA-Z0-9._\-# ]/g, '_').replace(/\s+/g, ' ').trim();

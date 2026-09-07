@@ -1637,13 +1637,13 @@ async function _expAddImage(folder, src, name, usedNames){
 }
 function _expReadme(stats){
   var L=[];
-  L.push('ARENCON — Diesel Fire Pump Commissioning — Project Export');
-  L.push('========================================================');
+  L.push('ARENCON — Electric Fire Pump Commissioning — Project Export');
+  L.push('==========================================================');
   L.push('');
   L.push('Project #: '+_expProjNum());
   try{ var pn=document.getElementById('pi-projname'); if(pn&&pn.value) L.push('Project:   '+pn.value); }catch(e){}
   try{ var cl=document.getElementById('pi-client'); if(cl&&cl.value) L.push('Client:    '+cl.value); }catch(e){}
-  L.push('Tool:      Diesel Fire Pump Commissioning (code DFP), instance '+_expInstance());
+  L.push('Tool:      Electric Fire Pump Commissioning (code '+_EXPORT_TOOLCODE+'), instance '+_expInstance());
   L.push('Exported:  '+new Date().toLocaleString());
   L.push('Tool ver:  '+_EXPORT_VERSION);
   L.push('');
