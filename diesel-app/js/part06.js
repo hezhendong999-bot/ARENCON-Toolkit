@@ -1352,14 +1352,23 @@ function updateDeficTabBadge(){
 // 3-Point (all points entered AND result selected) + consultant signature.
 // PLD = optional/"skipped" until any PLD field is touched, then required.
 // Open deficiencies flag SEPARATELY (do NOT subtract from %).
-function _ovChecklistStat(sec){
-  var srcMap = {s1:(typeof S1!=='undefined'?S1:[]), s2:(typeof S2!=='undefined'?S2:[]), s3:(typeof S3!=='undefined'?S3:[]), s5:(typeof S5!=='undefined'?S5:[])};
-  var items = srcMap[sec] || [];
-  var total = items.length, done = 0;
-  for(var i=0;i<items.length;i++){
-    var id = (typeof cid==='function') ? cid(sec,i) : (sec+'_'+i);
-    if(clState[id] && clState[id].status) done++;
-  }
+/* S726 — UNIVERSAL. This kept a private map of the raw arrays {s1,s2,s3,s5},
+   which excluded the three MANDATORY FA signals (s5m), the churn run on both
+   test paths (s4/s4pld) and every custom item a user added. Same mechanism as
+   the S698 cover donut and the S723 sectionItems bug: a counter with its own
+   list. It now walks the SAME sections the cover walks, through the SAME
+   engine. Electric carries the identical change. */
+function _ovChecklistStat(secs){
+  var list = (typeof secs === 'string') ? [secs] : (secs || []);
+  var total = 0, done = 0;
+  list.forEach(function(sec){
+    var items = (typeof clSectionItems === 'function') ? (clSectionItems(sec) || []) : [];
+    for(var i=0;i<items.length;i++){
+      total++;
+      var id = (typeof cid==='function') ? cid(sec,i) : (sec+'_'+i);
+      if(clState[id] && clState[id].status) done++;
+    }
+  });
   return {total:total, done:done};
 }
 function _ovBatteryEntered(){
@@ -1424,16 +1433,23 @@ function updateCompletionOverview(){
   if(!rowsEl) return;
   var items=[]; // {phase, name, sub, state:'done|part|empty|skip', cnt, verdict, target}
 
-  var s1=_ovChecklistStat('s1'), s2=_ovChecklistStat('s2'), s3=_ovChecklistStat('s3'), s5=_ovChecklistStat('s5');
+  /* S726 — names and section membership come from CL_GROUPS, the same list the
+     cover donut and the tab strip read, so a row cannot be named one thing on
+     the Summary and another on the tab. Diesel's own vocabulary is preserved
+     because CL_GROUPS is where Diesel declares it. */
+  function _grp(i){ return (CL_GROUPS && CL_GROUPS[i]) ? CL_GROUPS[i] : {label:'', secs:[]}; }
+  var g1=_grp(0), g2=_grp(1), g3=_grp(2), g4=_grp(3), g5=_grp(4);
+  var s1=_ovChecklistStat(g1.secs), s2=_ovChecklistStat(g2.secs),
+      s3=_ovChecklistStat(g3.secs), s4=_ovChecklistStat(g4.secs), s5=_ovChecklistStat(g5.secs);
   function clItem(phase,name,sec,stat,target){
     var st = stat.total===0 ? 'empty' : (stat.done===stat.total ? 'done' : (stat.done>0 ? 'part' : 'empty'));
     return {phase:phase, name:name, sub:'Checklist', state:st, cnt: stat.done+' / '+stat.total, target:target};
   }
   // SETUP
-  items.push(clItem('Setup','1. Pre-Commissioning','s1',s1,'s1'));
-  items.push(clItem('Setup','2. Visual Inspection','s2',s2,'s2'));
+  items.push(clItem('Setup',g1.label,'s1',s1,'s1'));
+  items.push(clItem('Setup',g2.label,'s2',s2,'s2'));
   // TESTS
-  items.push(clItem('Tests','3. Controller Tests','s3',s3,'s3'));
+  items.push(clItem('Tests',g3.label,'s3',s3,'s3'));
   var batOk=_ovBatteryEntered();
   items.push({phase:'Tests', name:'Battery Start-Up', sub: batOk?'Test data entered':'No data yet', state: batOk?'done':'empty', cnt: batOk?'entered':'—', target:'s3'});
   var tp=_ovThreePointStat();
@@ -1445,20 +1461,30 @@ function updateCompletionOverview(){
   } else {
     items.push({phase:'Tests', name:'PLD Test', sub:'Not started — optional until used', state:'skip', cnt:'skipped', skip:true, target:'s4'});
   }
-  items.push(clItem('Tests','5. FA & Signaling','s5',s5,'s5'));
+  items.push(clItem('Tests',g4.label,'s4',s4,'s4'));
+  items.push(clItem('Tests',g5.label,'s5',s5,'s5'));
   // CLOSEOUT
   var sigOk=_ovSignaturePresent();
   items.push({phase:'Closeout', name:'Consultant Signature', sub: sigOk?'Signed':'Not yet signed', state: sigOk?'done':'empty', cnt: sigOk?'signed':'—', target:'sign'});
 
-  // % = completed counting-items / total counting-items (skipped PLD excluded from denominator)
-  var counting = items.filter(function(it){ return !it.skip; });
-  var doneCount = counting.filter(function(it){ return it.state==='done'; }).length;
-  var totalCount = counting.length;
-  var pct = totalCount ? Math.round(doneCount/totalCount*100) : 0;
+  /* S726 — UNIVERSAL. The screen and the PDF cover both printed a figure headed
+     "Inspection Completion" and they were not the same figure. The cover counts
+     answered checklist items over total; the screen counted how many rows of
+     the tracker below had gone green. On 1490.04 that read 75% (6 of 8 rows) on
+     the tablet against 92% (55 of 60 items) on the report.
+
+     The cover's definition wins: it is the one on the document handed to an
+     owner or an AHJ. Both now read answered/total over the SAME sections
+     (CL_GROUPS), so the two can only ever print the same number. The rows below
+     keep their own state — they are a to-do list, they just no longer drive the
+     headline. Electric carries the identical change. */
+  var _clAns = s1.done + s2.done + s3.done + s4.done + s5.done;
+  var _clTot = s1.total + s2.total + s3.total + s4.total + s5.total;
+  var pct = _clTot ? Math.round(100 * _clAns / _clTot) : 0;
 
   document.getElementById('ov-pct').textContent = pct+'%';
   document.getElementById('ov-bar-fill').style.width = pct+'%';
-  document.getElementById('ov-lbl-main').textContent = doneCount+' of '+totalCount+' items complete';
+  document.getElementById('ov-lbl-main').textContent = _clAns+' of '+_clTot+' checklist items answered';
 
   // render grouped rows
   var ICON = {done:'\u2713', part:'!', empty:'\u25CB', skip:'\u2014'};
