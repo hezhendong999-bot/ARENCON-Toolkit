@@ -83,33 +83,46 @@ body[data-rail="fold"] .rail .body,body[data-insp="fold"] .inspector .body{displ
 .pill.approved{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
 .pill.draft{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
 .pill.carried{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.sec.off{opacity:.45}
+.sec .fixed{flex:none;color:var(--ink3);font-size:8pt}
+.sw{flex:none;width:32px;height:18px;border-radius:10px;background:var(--sw-off);border:0;position:relative;cursor:pointer}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s}
+.sw[aria-checked="true"]{background:var(--brand)}
+.sw[aria-checked="true"]::after{transform:translateX(14px)}
 .pill.empty{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 45%,transparent);background:color-mix(in srgb,var(--fail) 12%,transparent)}
 
-/* paper */
+/* paper — matches the generated Word file: Letter, 1in sides, running header */
 .paper-col{overflow-y:auto;overflow-x:hidden;background:var(--deck);padding:22px 0 90px}
 .stage{transform-origin:top center}
-.page{width:8.5in;min-height:11in;margin:0 auto 22px;padding:1in .75in;background:#fff;color:#1B1A22;
-      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/1.42 Calibri,Carlito,sans-serif}
-.pg-head{display:flex;gap:10px;font-size:9pt;color:#555;border-bottom:.5pt solid #999;padding-bottom:4px;margin-bottom:22px}
-.pg-head .r{margin-left:auto;text-align:right}
-.ln{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:6px;padding:1px 0;border-radius:4px}
-.ln .num{font-variant-numeric:tabular-nums;text-align:left}
+.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1in 0.75in 0.4in;background:#fff;color:#1B1A22;
+      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/1.42 Calibri,Carlito,sans-serif;
+      position:relative;overflow:hidden}
+.pg-head{position:absolute;left:0.75in;right:0.75in;top:0.72in;font-size:11pt;color:#1B1A22;
+         border-bottom:.5pt solid #000;padding-bottom:2px}
+.pg-head .r{display:flex;gap:10px}
+.pg-head .r span:first-child{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
+.pg-head .r .c{flex:0 0 auto}
+.pg-head .r .e{margin-left:auto;text-align:right;flex:0 0 auto}
+.sec-title{font-weight:700;margin:0 0 0 0}
+.eos{font-weight:700;text-align:center;margin:0}
+/* ladder: each level's NUMBER starts where its parent's TEXT starts */
+.ln{display:grid;align-items:start;column-gap:0;padding:0}
+.ln .num{font-variant-numeric:tabular-nums}
 .ln .tx{min-width:0}
-.ln[data-lvl="1"] .tx{font-weight:700}
-.ln[data-lvl="2"] .tx{font-weight:700}
-.ln[data-lvl="1"],.ln[data-lvl="2"]{grid-template-columns:44px minmax(0,1fr)}
-.ln[data-lvl="2"]{margin-top:10px}
-.ln[data-lvl="3"]{padding-left:36px}
-.ln[data-lvl="4"]{padding-left:72px}
-.ln[data-lvl="5"]{padding-left:108px}
+.ln[data-lvl="1"]{grid-template-columns:.5in minmax(0,1fr);margin-left:0}
+.ln[data-lvl="2"]{grid-template-columns:.5in minmax(0,1fr);margin-left:.5in}
+.ln[data-lvl="3"]{grid-template-columns:.5in minmax(0,1fr);margin-left:1in}
+.ln[data-lvl="4"]{grid-template-columns:.75in minmax(0,1fr);margin-left:1.5in}
+.ln[data-lvl="5"]{grid-template-columns:.9in minmax(0,1fr);margin-left:2.25in}
+.ln[data-lvl="1"] .tx,.ln[data-lvl="2"] .tx{font-weight:700}
 .ln.sel{background:color-mix(in srgb,var(--brand) 12%,transparent);
         outline:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
-.ln.draft .tx{box-shadow:inset 3px 0 0 var(--warn);padding-left:8px}
-.ln.carried .tx{box-shadow:inset 3px 0 0 var(--info);padding-left:8px}
-.ln.empty .tx{box-shadow:inset 3px 0 0 var(--fail);padding-left:8px;color:#7a7684}
-.blank{height:13.4px}
+.ln.draft .tx{box-shadow:inset 3px 0 0 var(--warn);padding-left:6px}
+.ln.carried .tx{box-shadow:inset 3px 0 0 var(--info);padding-left:6px}
+.ln.empty .tx{box-shadow:inset 3px 0 0 var(--fail);padding-left:6px;color:#7a7684}
+.blank{height:15.6px}
 .tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff}
-.edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px 44px}
+.edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px .5in}
 .edhint kbd{font:9pt ui-monospace,Consolas,monospace;background:#eceaf0;border:1px solid #d6d2dc;border-radius:4px;padding:0 4px}
 .empty-state{color:var(--ink3);text-align:center;padding:60px 20px}
 
@@ -168,7 +181,7 @@ body[data-rail="fold"] .rail .body,body[data-insp="fold"] .inspector .body{displ
   </aside>
 
   <section class="paper-col" id="paperCol">
-    <div class="stage" id="stage"><div class="page" id="page"></div></div>
+    <div class="stage" id="stage"><div id="pages"></div></div>
   </section>
 
   <aside class="panel inspector" id="insp">
@@ -229,7 +242,8 @@ const PROJECT = new URLSearchParams(location.search).get('project');
 
 const state = {
   me: null, role: null, sections: [], sectionId: null,
-  clauses: [], sel: null, editing: null, dirty: 0,
+  clauses: [], sel: null, editing: null, systems: {},
+  header: { client: 'ARENCON INC. — Master Content' },
 };
 
 /* ── messages: never a browser alert ─────────────────────────────────── */
@@ -268,38 +282,119 @@ function numbered(rows) {
 function renderRail() {
   const byDiv = {};
   state.sections.forEach(s => (byDiv[s.division] = byDiv[s.division] || []).push(s));
-  const html = Object.keys(byDiv).sort().map(d => `<div class="divh">Division ${d}</div>` +
-    byDiv[d].map(s => {
-      const p = s._counts || {};
-      const worst = p.empty ? 'empty' : p.draft ? 'draft' : p.carried ? 'carried' : 'approved';
-      const n = (p.approved || 0) + (p.draft || 0) + (p.carried || 0) + (p.empty || 0);
-      return `<div class="sec ${s.id === state.sectionId ? 'on' : ''}" data-id="${s.id}">
-        <span class="code">${s.code}</span><span class="t">${s.title}</span>
-        <span class="pill ${worst}">${n || 0}</span></div>`;
+  const counts = (s) => {
+    const p = s._counts || {};
+    const worst = p.empty ? 'empty' : p.draft ? 'draft' : p.carried ? 'carried' : 'approved';
+    const n = (p.approved || 0) + (p.draft || 0) + (p.carried || 0) + (p.empty || 0);
+    return `<span class="pill ${worst}">${n || 0}</span>`;
+  };
+  $('#railBody').innerHTML = Object.keys(byDiv).sort().map(d =>
+    `<div class="divh">Division ${d}</div>` + byDiv[d].map(s => {
+      const sys = !!s.system_tag;
+      const on = !sys || state.systems[s.system_tag] !== false;
+      return `<div class="sec ${on ? '' : 'off'}" data-id="${s.id}" data-code="${s.code}"
+                   data-tag="${s.system_tag || ''}">
+        <span class="code">${s.code}</span>
+        <span class="t">${s.title}</span>
+        ${counts(s)}
+        ${sys ? `<button class="sw" data-tag="${s.system_tag}" aria-checked="${on}"
+                   title="Include this system"></button>`
+              : '<span class="fixed" title="Template section — always included">■</span>'}
+      </div>`;
     }).join('')).join('');
-  $('#railBody').innerHTML = html;
 }
 
-function renderPage() {
-  const sec = state.sections.find(s => s.id === state.sectionId);
-  if (!sec) { $('#page').innerHTML = '<div class="empty-state">Choose a section.</div>'; return; }
-  const rows = numbered(state.clauses);
-  const head = `<div class="pg-head"><div><b>ARENCON INC.</b><br>Master content</div>
-    <div class="r">Section ${sec.code}<br>${sec.title}</div></div>`;
-  if (!rows.length) {
-    $('#page').innerHTML = head +
-      `<div class="empty-state">No wording in this section yet.<br>
-       Use <b>Import</b> to load content, or add a clause once editing is enabled.</div>`;
-    fitPage(); return;
-  }
-  $('#page').innerHTML = head + rows.map(r => {
-    const prov = r.provenance === 'approved' ? '' : r.provenance;
-    return (r.lvl <= 2 ? '<div class="blank"></div>' : '') +
-      `<div class="ln ${prov} ${state.sel === r.id ? 'sel' : ''}" data-lvl="${r.lvl}" data-id="${r.id}">
-        <div class="num">${r.num}</div><div class="tx">${escapeHtml(r.body)}</div></div>`;
-  }).join('');
-  fitPage();
+/* The document is the WHOLE master, in section order — the same thing the
+   Word file prints. Template sections are always present; only sections that
+   belong to a system can be switched off. */
+function activeSections() {
+  return state.sections.filter(s => !s.system_tag || state.systems[s.system_tag] !== false);
 }
+
+const secTitle = code => (state.sections.find(s => s.code === code) || {}).title || '';
+
+const HEAD_HTML = (sec, page) => `<div class="pg-head"><div class="r">
+    <span>${escapeHtml(state.header.client)}</span>
+    <span class="c">${escapeHtml(secTitle(sec))}</span>
+    <span class="e">Section ${sec} &nbsp; Page ${page}</span></div></div>`;
+
+function buildBlocks() {
+  const blocks = [];
+  for (const sec of activeSections()) {
+    const rows = numbered(state.clauses.filter(c => c.section_id === sec.id));
+    blocks.push({ section: sec.code, keepNext: true,
+      html: `<div class="sec-title" data-sec="${sec.id}">Section ${sec.code} – ${escapeHtml(sec.title)}</div>` });
+    if (!rows.length) {
+      blocks.push({ section: sec.code, html: '<div class="blank"></div>' });
+      blocks.push({ section: sec.code,
+        html: `<div class="ln empty" data-lvl="3"><div class="num"></div><div class="tx">[-] No wording written for this section yet.</div></div>` });
+    }
+    rows.forEach(r => {
+      if (r.lvl <= 2) blocks.push({ section: sec.code, keepNext: true, html: '<div class="blank"></div>' });
+      const prov = r.provenance === 'approved' ? '' : r.provenance;
+      const title = r.lvl <= 2 || (r.body.length <= 72 && !/[.,;:]$/.test(r.body));
+      blocks.push({ section: sec.code, keepNext: title, id: r.id,
+        html: `<div class="ln ${prov} ${state.sel === r.id ? 'sel' : ''}" data-lvl="${r.lvl}" data-id="${r.id}"><div class="num">${r.num}</div><div class="tx">${escapeHtml(r.body)}</div></div>` });
+    });
+    blocks.push({ section: sec.code, html: '<div class="blank"></div>' });
+    blocks.push({ section: sec.code, html: `<div class="eos">END OF SECTION ${sec.code}</div>` });
+    blocks.push({ section: sec.code, pageBreak: true, html: '' });
+  }
+  return blocks;
+}
+
+/* Lay the blocks into Letter pages. A block is never split, so a clause can
+   never break across a page; keepNext travels with the block after it, so a
+   heading is never stranded at a page foot. */
+function paginate() {
+  const host = $('#pages');
+  host.innerHTML = '';
+  const blocks = buildBlocks();
+  if (!blocks.length) {
+    host.innerHTML = '<div class="page"><div class="empty-state">Nothing to show.</div></div>';
+    return;
+  }
+  const USABLE = (11 - 1 - 0.4) * 96;
+  let page = null, used = 0, pageNo = 0;
+
+  const newPage = (sec) => {
+    pageNo++;
+    page = document.createElement('div');
+    page.className = 'page';
+    page.innerHTML = HEAD_HTML(sec, pageNo);
+    host.appendChild(page);
+    used = 0;
+  };
+  newPage(blocks[0].section);
+
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    if (b.pageBreak) { if (i < blocks.length - 1) newPage(blocks[i + 1].section); continue; }
+    const holder = document.createElement('div');
+    holder.innerHTML = b.html;
+    const node = holder.firstElementChild;
+    if (!node) continue;
+    page.appendChild(node);
+    let h = node.offsetHeight;
+
+    if (b.keepNext && blocks[i + 1] && !blocks[i + 1].pageBreak) {
+      const probe = document.createElement('div');
+      probe.innerHTML = blocks[i + 1].html;
+      const pn = probe.firstElementChild;
+      if (pn) { page.appendChild(pn); h += pn.offsetHeight; page.removeChild(pn); }
+    }
+    if (used + h > USABLE && used > 0) {
+      page.removeChild(node);
+      newPage(b.section);
+      page.appendChild(node);
+      used = node.offsetHeight;
+    } else {
+      used += node.offsetHeight;
+    }
+  }
+}
+
+function renderPage() { paginate(); fitPage(); }
 
 const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -382,6 +477,8 @@ async function commitEdit(save) {
   } catch (err) { msg('Not saved: ' + err.message, true); renderPage(); return; }
   rec.body = val; rec.provenance = 'approved';
   renderPage(); renderInspector(); renderCounts();
+  const back = $(`.ln[data-id="${e.id}"]`);
+  if (back) back.scrollIntoView({ block: 'center' });
   setFresh(true);
   msg('Saved to the master. Published versions are unaffected.');
 }
@@ -400,19 +497,22 @@ async function loadSections() {
   state.sections.forEach(s => (s._counts = map[s.id] || {}));
 }
 
-async function loadSection(id) {
-  state.sectionId = id; state.sel = null;
-  try {
-    state.clauses = await sb.select('sg_clause', `select=*&section_id=eq.${id}&order=sort_order`);
-  } catch (err) { msg(err.message, true); return; }
-  renderRail(); renderPage(); renderInspector(); renderCounts();
+async function loadAllClauses() {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const page = await sb.select('sg_clause',
+      `select=*&order=section_id,sort_order&offset=${from}&limit=1000`);
+    rows.push(...page);
+    if (page.length < 1000) break;
+  }
+  state.clauses = rows;
 }
 
 function renderCounts() {
   const all = state.sections.reduce((a, s) => {
     Object.entries(s._counts || {}).forEach(([k, v]) => (a[k] = (a[k] || 0) + v)); return a; }, {});
   const sec = state.sections.find(s => s.id === state.sectionId);
-  const local = state.clauses.length;
+  const local = state.clauses.filter(c => !sec || c.section_id === sec.id).length;
   $('#stat').innerHTML = `<b>${state.sections.length}</b> sections · master holds ` +
     `<b>${all.approved || 0}</b> approved · <b>${all.carried || 0}</b> carried · ` +
     `<b>${all.draft || 0}</b> drafted · <b>${all.empty || 0}</b> unwritten` +
@@ -467,7 +567,8 @@ function importScreen() {
     $('#preview', v).textContent = 'Importing…';
     try {
       const n = await runImport(payload, t => ($('#preview', v).textContent = t));
-      v.remove(); await loadSections(); renderRail(); renderCounts();
+      v.remove(); await loadSections(); await loadAllClauses();
+      renderRail(); renderPage(); renderCounts();
       msg(`Imported ${n} clauses.`);
     } catch (err) {
       $('#preview', v).innerHTML = `<span class="err">${err.message}</span>`;
@@ -521,10 +622,10 @@ function measureChrome() {
   document.body.style.setProperty('--chrome-h', h + 'px');
 }
 function fitPage() {
-  const col = $('#paperCol'), stage = $('#stage'), page = $('#page');
+  const col = $('#paperCol'), stage = $('#stage'), host = $('#pages');
   const s = Math.min(1, Math.max(.55, (col.clientWidth - 24) / (8.5 * 96)));
   stage.style.transform = s < 1 ? `scale(${s.toFixed(4)})` : 'none';
-  stage.style.marginBottom = s < 1 ? Math.round(-(1 - s) * page.offsetHeight) + 'px' : '0px';
+  stage.style.marginBottom = s < 1 ? Math.round(-(1 - s) * (host.offsetHeight || 0)) + 'px' : '0px';
 }
 // Narrow windows fold the side panels rather than squeezing the page.
 let narrow = null;
@@ -556,9 +657,25 @@ function setTheme(t) {
 
 /* ── events ──────────────────────────────────────────────────────────── */
 $('#railBody').addEventListener('click', e => {
-  const s = e.target.closest('.sec'); if (s) loadSection(s.dataset.id);
+  const sw = e.target.closest('.sw');
+  if (sw) {
+    const tag = sw.dataset.tag;
+    state.systems[tag] = state.systems[tag] === false;
+    renderRail(); renderPage();
+    msg(state.systems[tag] === false
+      ? 'System excluded — its section is out of the document.'
+      : 'System included.');
+    return;
+  }
+  const row = e.target.closest('.sec');
+  if (!row) return;
+  state.sectionId = row.dataset.id;
+  const t = $(`.sec-title[data-sec="${row.dataset.id}"]`);
+  if (t) t.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  else msg('That section is switched off.');
+  renderCounts();
 });
-$('#page').addEventListener('click', e => {
+$('#pages').addEventListener('click', e => {
   const row = e.target.closest('.ln'); if (!row) return;
   const id = row.dataset.id;
   if (state.editing && state.editing.id === id) return;
@@ -611,7 +728,8 @@ async function boot() {
     await loadSections();
   } catch (err) { msg('Could not load the master: ' + err.message, true); return; }
   renderRail(); renderCounts(); setFresh(false);
-  if (state.sections.length) await loadSection(state.sections[0].id);
+  await loadAllClauses();
+  renderRail(); renderPage();
   fitWindow();
   setTimeout(fitWindow, 120);
 }
