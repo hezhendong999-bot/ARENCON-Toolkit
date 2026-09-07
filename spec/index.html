@@ -256,7 +256,22 @@ function msg(t, bad) {
 const nowTor = () => new Date().toLocaleString('en-CA',
   { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' });
 
-/* ── numbering is derived, never stored ──────────────────────────────── */
+/* ── numbering follows the source document ───────────────────────────────
+   Numbers are still never STORED — they are computed here every render, so
+   moving or deleting a clause renumbers everything below it. What changed is
+   HOW they are computed.
+
+   Counting tree position cannot reproduce Word. Where a source document jumps
+   from Part straight to a clause with no article between, the tree has no rung
+   at the middle level to count, so counting produced 1.1 where the Word file
+   prints 1.1.1. Word does not count position: it keeps a counter per outline
+   level and prints every rung, substituting 1 for any rung that has no item of
+   its own. A clause carries its own level from the document it came from
+   (source_level), so that is what drives the number.
+
+   Clauses authored inside the tool have no source level. For those, depth in
+   the tree is the level — which is the same answer, because nothing the tool
+   creates can skip a rung. */
 function numbered(rows) {
   const kids = new Map();
   rows.forEach(r => {
@@ -266,17 +281,25 @@ function numbered(rows) {
   });
   kids.forEach(a => a.sort((x, y) => x.sort_order - y.sort_order));
   const out = [];
-  (function walk(parent, prefix, lvl) {
+  const count = [];          // count[i] = current number at outline level i+1
+  (function walk(parent, depth) {
     const list = kids.get(parent) || [];
-    let n = 0;
     for (const r of list) {
-      const numbered = ['part', 'article', 'clause'].includes(r.kind);
-      let num = '';
-      if (numbered) { n++; num = prefix ? `${prefix}.${n}` : String(n); }
+      const isNum = ['part', 'article', 'clause'].includes(r.kind);
+      let num = '', lvl = depth;
+      if (isNum) {
+        lvl = r.source_level || depth;
+        count[lvl - 1] = (count[lvl - 1] || 0) + 1;
+        count.length = lvl;                       // a number resets all deeper levels
+        /* Fill any rung with no item of its own with 1 — this is the step that
+           reproduces the source, and the reason a clause can read 1.1.1 in a
+           section that has no 1.1 heading. */
+        num = Array.from({ length: lvl }, (_, i) => count[i] || 1).join('.');
+      }
       out.push({ ...r, num, lvl });
-      walk(r.id, numbered ? num : prefix, numbered ? lvl + 1 : lvl);
+      walk(r.id, isNum ? lvl + 1 : depth);
     }
-  })('_root', '', 1);
+  })('_root', 1);
   return out;
 }
 
