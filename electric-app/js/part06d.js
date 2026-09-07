@@ -985,7 +985,7 @@ function _applyLoadedState(raw) {
     _alsStep='apply-manifest';
     var _applyRes = dieselApplyViaManifest(s);
     if(_applyRes && _applyRes.failed && _applyRes.failed.length){
-      console.warn('[DIESEL] restore: '+_applyRes.failed.length+' key(s) failed', _applyRes.failed);
+      console.warn('[ELECTRIC] restore: '+_applyRes.failed.length+' key(s) failed', _applyRes.failed);
       try{
         if (typeof CloudSync !== 'undefined' && CloudSync && typeof CloudSync.reportDiag === 'function') {
           CloudSync.reportDiag('apply_partial', {

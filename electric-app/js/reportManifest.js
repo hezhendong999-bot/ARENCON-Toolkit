@@ -134,7 +134,7 @@ var KEYS = [
   { key: 'clState',
     collect: { kind: 'deepCopy', ref: 'clState' },
     apply:   { kind: 'custom', fn: 'applyClState' },
-    note: 'Runs the schema migration and strips per-item timestamps; both are Diesel history, not engine behaviour.' },
+    note: 'Runs the schema migration and strips per-item timestamps; both are legacy report history, not engine behaviour.' },
 
   { key: 'clSchemaVer',
     collect: { kind: 'constant', value: 2 },

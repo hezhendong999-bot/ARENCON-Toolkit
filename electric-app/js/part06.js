@@ -1458,15 +1458,28 @@ function updateCompletionOverview(){
   var sigOk=_ovSignaturePresent();
   items.push({phase:'Closeout', name:'7. Signature', sub: sigOk?'Consultant signed':'Not yet signed', state: sigOk?'done':'empty', cnt: sigOk?'signed':'—', target:'sign'});
 
-  // % = completed counting-items / total counting-items (skipped VFD excluded from denominator)
-  var counting = items.filter(function(it){ return !it.skip; });
-  var doneCount = counting.filter(function(it){ return it.state==='done'; }).length;
-  var totalCount = counting.length;
-  var pct = totalCount ? Math.round(doneCount/totalCount*100) : 0;
+  /* S725 — WHY THIS CHANGED. The screen and the PDF cover both printed a figure
+     headed "Inspection Completion" and they were not the same figure. The cover
+     counted answered checklist items over total items. The screen counted how
+     many rows of the tracker below had gone green — so recording one power
+     source, with not a single checklist item answered, read 14% on the tablet
+     and 0% on the report. A client and an inspector looking at the same
+     inspection saw two different numbers under one name.
+
+     The cover's definition wins: it is the one on the document handed to an
+     owner or an AHJ, and it cannot claim progress that nobody has recorded.
+     Both now read answered/total over the SAME sections the cover walks
+     (CL_GROUPS), so the two can only ever print the same number.
+
+     The rows below keep their own per-item state and are unaffected — they are
+     a to-do list, they just no longer drive the headline. */
+  var _clAns = s1.done + s2.done + s3.done + s4.done + s5.done;
+  var _clTot = s1.total + s2.total + s3.total + s4.total + s5.total;
+  var pct = _clTot ? Math.round(100 * _clAns / _clTot) : 0;
 
   document.getElementById('ov-pct').textContent = pct+'%';
   document.getElementById('ov-bar-fill').style.width = pct+'%';
-  document.getElementById('ov-lbl-main').textContent = doneCount+' of '+totalCount+' items complete';
+  document.getElementById('ov-lbl-main').textContent = _clAns+' of '+_clTot+' checklist items answered';
 
   // render grouped rows
   var ICON = {done:'\u2713', part:'!', empty:'\u25CB', skip:'\u2014'};
