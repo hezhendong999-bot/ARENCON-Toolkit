@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202609062140';
+var CACHE_NAME = 'arencon-frt-202609070145';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -40,6 +40,8 @@ var APP_FILES = [
   'frt/index.html',
   'ARENCON_Diesel_Fire_Pump_Commissioning.html',
   'diesel-app/index.html',
+  'electric-app/index.html',
+  'electric-app-sync.js',
   'ARENCON_Electric_Fire_Pump_Commissioning.html',
   'ARENCON_Project_Hub.html',
   'index.html',
@@ -96,6 +98,30 @@ var APP_FILES = [
   'diesel-app/js/reportManifest.js',
   'diesel-sync.js',
   'elec-build.js',
+  'electric-app/css/diesel-01.css',
+  'electric-app/css/diesel-02.css',
+  'electric-app/js/part01.js',
+  'electric-app/js/part02.js',
+  'electric-app/js/part03.js',
+  'electric-app/js/part04.js',
+  'electric-app/js/part05.js',
+  'electric-app/js/part06.js',
+  'electric-app/js/part06b.js',
+  'electric-app/js/part06c.js',
+  'electric-app/js/part06d.js',
+  'electric-app/js/part07.js',
+  'electric-app/js/part08.js',
+  'electric-app/js/part09.js',
+  'electric-app/js/part10.js',
+  'electric-app/js/part11.js',
+  'electric-app/js/part12.js',
+  'electric-app/js/part13.js',
+  'electric-app/js/part14.js',
+  'electric-app/js/part15.js',
+  'electric-app/js/part16.js',
+  'electric-app/js/pdfExport.js',
+  'electric-app/js/reportBindings.js',
+  'electric-app/js/reportManifest.js',
   'frt/css/frt.css',
   'frt/js/ai/assistant.js',
   'frt/js/ai/usage.js',

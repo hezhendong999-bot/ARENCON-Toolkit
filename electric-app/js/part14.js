@@ -1,0 +1,4 @@
+
+// S302: build banner — first thing to check when behavior looks stale.
+var ELECTRIC_BUILD = 'E001';
+console.info('%c[DIESEL] build ' + ELECTRIC_BUILD, 'background:#9C2742;color:#fff;padding:2px 8px;border-radius:4px;font-weight:bold;');

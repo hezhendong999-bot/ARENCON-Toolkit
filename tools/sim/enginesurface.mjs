@@ -88,6 +88,7 @@ const ENGINES = [
       'diesel-app/js/part06c.js',
       'diesel-app/js/part06d.js',
       'diesel-app/js/part03.js',
+      'electric-app/js/part06.js', 'electric-app/js/part06c.js',
       'ARENCON_Electric_Fire_Pump_Commissioning.html',
     ],
   },
@@ -120,6 +121,9 @@ const DIESEL_HOSTS = [
   'diesel-app/js/part13.js', 'diesel-app/js/part14.js', 'diesel-app/js/part15.js',
   'diesel-app/js/part16.js', 'diesel-app/js/pdfExport.js', 'diesel-app/js/reportManifest.js',
   'diesel-app/js/reportBindings.js', 'diesel-sync.js',
+  /* Electric rebuild (branch electric-rebuild) — same engines, own storage */
+  'electric-app/js/part06.js','electric-app/js/part06b.js','electric-app/js/part06c.js','electric-app/js/part06d.js',
+  'electric-app/js/pdfExport.js','electric-app/js/reportManifest.js','electric-app/js/reportBindings.js','electric-app-sync.js',
   'ARENCON_Electric_Fire_Pump_Commissioning.html',
 ];
 

@@ -52,6 +52,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 ENTRIES = [
     'frt/index.html',
     'diesel-app/index.html',
+    'electric-app/index.html',   # Electric rebuild — same S499 rule: the shell the field opens must be precached
     'ARENCON_Diesel_Fire_Pump_Commissioning.html',
     'ARENCON_Electric_Fire_Pump_Commissioning.html',
     'ARENCON_Project_Hub.html',

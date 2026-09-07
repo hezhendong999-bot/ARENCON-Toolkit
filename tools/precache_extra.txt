@@ -15,6 +15,14 @@ ARENCON_Diesel_Fire_Pump_Commissioning.html
 #   still has it does not hit a blank page. Do not link it from anywhere. Delete
 #   it once Mark confirms no one is reaching Diesel through an old bookmark.
 diesel-app/index.html
+electric-app/index.html
+# ^ Electric rebuild: the MODULAR Electric shell, same S499 rule — listed as a shell so a
+#   COLD device can open it with no signal. Its js/css come from the ENTRIES scan; its sync
+#   facade is electric-app-sync.js (below). NOT yet the Hub/portal target — direct URL only
+#   until Owner verifies on a tablet.
+electric-app-sync.js
+# ^ Electric rebuild's sync facade (temporary copy of diesel-sync.js). electric-sync.js
+#   further down is the OLD monolith's and stays until that monolith is retired.
 # ^ S499: the MODULAR Diesel shell. The Hub now points here, so this is what
 #   the field opens. Listed as a shell (like frt/index.html) so a COLD device
 #   with no prior visit can still open Diesel with no signal. The monolith

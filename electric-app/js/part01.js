@@ -1,0 +1,1 @@
+if(typeof ChartDataLabels!=='undefined') Chart.register(ChartDataLabels);
