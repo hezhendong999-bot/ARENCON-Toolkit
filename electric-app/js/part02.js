@@ -26,7 +26,7 @@
     import { lockScroll as _libLock, unlockScroll as _libUnlock } from '/lib/shared/scrollLock.js';
     import { ARENCON_LOGO } from '/lib/assets/logo.js';
     window.ArenconDlg = Dlg;
-    window.ArenconDlgDef = function(family){ return dialogDefaults('diesel', family); };
+    window.ArenconDlgDef = function(family){ return dialogDefaults('electric', family); };
     /* S505: shared Help engine + Diesel's own help cards. The engine is locked
        (registered per-tool, never modified here); importing dieselHelpCards runs
        its registerHelp() once. openHelp()/_helpSetDot() live in the classic host

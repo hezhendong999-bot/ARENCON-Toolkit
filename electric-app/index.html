@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- ARENCON Diesel Fire Pump Commissioning — build S509c (marker brought current: it read S462 for ~45 sessions, so it could not tell anyone which build a tablet was actually running. S508-S509c shipped: page-break budget corrected to the full sheet; charts sized to printed proportions before capture; overall verdict rewritten to one engine shared by screen and report, NFPA 20 wording, no IAR; placard scan no longer forwards undecodable bytes. Historical note from the S462 build follows.) (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
+<!-- ARENCON Electric Fire Pump Commissioning — build E002 (this shell is a copy of the Diesel shell with Electric content applied; the historical note below is inherited from that lineage and is kept because it records why the shared-module switchover happened. Diesel build marker S509c preserved for provenance.) (marker brought current: it read S462 for ~45 sessions, so it could not tell anyone which build a tablet was actually running. S508-S509c shipped: page-break budget corrected to the full sheet; charts sized to printed proportions before capture; overall verdict rewritten to one engine shared by screen and report, NFPA 20 wording, no IAR; placard scan no longer forwards undecodable bytes. Historical note from the S462 build follows.) (MODULARIZATION SWITCHOVER: the checklist engine, the whole lightbox viewer chrome, the photo mint path, and the signature pad now live in shared /lib/ modules instead of inline here — fix once, inherit everywhere. Checklist -> lib/ui/checklist.js (ArcChecklist). Lightbox -> lib/ui/lightbox.js (LightboxShell). Photo creation -> lib/data/photoMint.js (ArcPhoto.mint: ONE path, was 30 copy-pasted blocks; the R2 enqueue call stays BARE and never typeof-guarded, because a silent skip is exactly the photo-loss class). Signatures -> lib/ui/signaturePad.js (SigPad: vector strokes, forced dark ink in PDF export). Selection chrome -> lib/ui/markupSelection.js v2.2.0 (contour halo tracing each mark's true shape + high-visibility colours). All extracted VERBATIM from the S459 build and field-verified as a parallel deployed copy before this switchover; state (clState / customItems / deletedItems / _sigStrokes) stays host-owned. Keep this comment SINGLE and UNNESTED — a nested comment here once leaked visible page text, field report S316) -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -131,7 +131,7 @@ import { initLiveUpdate, restoreAfterUpdate } from '../lib/ui/liveUpdate.js';
 window.addEventListener('load', function () {
   try {
     initLiveUpdate({
-      toolName: 'diesel',
+      toolName: 'electric',
       buildFile: 'js/part14.js',
       buildVar: 'ELECTRIC_BUILD',
       buildValue: window.ELECTRIC_BUILD || null,
@@ -154,17 +154,17 @@ window.addEventListener('load', function () {
                        scroll: window.scrollY || 0 }; } catch (e) { return null; }
       }
     });
-    var _lu = restoreAfterUpdate('diesel');
+    var _lu = restoreAfterUpdate('electric');
     if (_lu && _lu.panel && typeof window.switchPanel === 'function') {
       setTimeout(function () {
         try { window.switchPanel(_lu.panel); window.scrollTo(0, _lu.scroll || 0); } catch (e) {}
       }, 400);
     }
-  } catch (e) { try { console.warn('[LiveUpdate] diesel arm failed', e); } catch (_) {} }
+  } catch (e) { try { console.warn('[LiveUpdate] electric arm failed', e); } catch (_) {} }
 });
 
 </script>
-<link rel="stylesheet" href="css/diesel-01.css?v=202609050406">
+<link rel="stylesheet" href="css/diesel-01.css?v=202609061700">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
 </head>
@@ -326,13 +326,22 @@ window.addEventListener('load', function () {
   <!-- ══ SECTION 3: PUMP/CONTROLLER/LOUVER TESTS ══ -->
   <div class="panel" id="panel-s3">
 
+    <div class="panel-hd">3. Controller Tests</div>
+
+    <!-- ELECTRIC: generator & automatic transfer switch checks LEAD section 3 -->
+    <div class="card" style="margin-bottom:14px;">
+      <div class="card-header mid">Generator &amp; Transfer Switch Tests</div>
+      <div class="card-body"><div id="cl-s3gen"></div></div>
+    </div>
+
     <div class="card">
       <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="7" y1="11" x2="7" y2="13"/><line x1="11" y1="11" x2="11" y2="13"/><line x1="15" y1="11" x2="15" y2="13"/></svg>Fire Pump Start-Up Test — Power Source</div>
       <div class="card-body">
         <div class="subsection-note">
           Pump to be operated <strong>12 times</strong> for controller test (6 manual, 6 automatic).<br>
-          Auto Test: Flow water via drain (batteries #1 &amp; #2 will alternate automatically).<br>
-          Manual Test: Press button #1 &amp; #2 alternately on pump controller. Rest <strong>20 seconds</strong> between each test.<p class="hint">Electric driver — each start-up is recorded against the power source it ran on (⚡ Normal or 🔌 Emergency). Confirm the controller starts the pump from both sources.</p> for all 12 start-ups. If cumulative &gt;45s, engine shall run for 5 minutes at full speed.
+          Auto Test: Flow water via drain.<br>
+          Manual Test: Press the start button on the pump controller. Rest <strong>20 seconds</strong> between each test.
+          <p class="hint">Electric driver — each start-up is recorded against the power source it ran on (⚡ Normal or 🔌 Emergency). Confirm the controller starts the pump from both sources across all 12 start-ups.</p>
         </div>
         <div class="battery-grid">
           <!-- Battery 1 -->
@@ -352,23 +361,19 @@ window.addEventListener('load', function () {
             </table>
           </div>
         </div>
-        <div style="margin-top:14px;background:white;border:1.5px solid var(--border);border-radius:8px;overflow:hidden;">
-          <div class="cumulative-row" id="cum-row">Combined Total Duration: <span id="cum-total">0.00</span> s</div>
-          <!-- ELECTRIC: the diesel 45-second cumulative start-up pass/fail row has no electric counterpart; removed with its logic -->
-        </div>
+        <!-- ELECTRIC: the diesel cumulative start-up duration readout and its 45-second
+             pass/fail row have no electric counterpart; both removed with their logic. -->
       </div>
     </div>
 
-    <!-- ELECTRIC: generator & automatic transfer switch checks — lead section 3, as in the single-file tool -->
-    <div class="card" style="margin-bottom:14px;">
-      <div class="card-header mid">Generator &amp; Transfer Switch Tests</div>
-      <div class="card-body"><div id="cl-s3gen"></div></div>
-    </div>
+    <!-- ELECTRIC: the Generator & Transfer Switch card now leads this panel (moved to the top) -->
     <div class="card"><div class="card-header"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="7" y1="11" x2="7" y2="13"/><line x1="11" y1="11" x2="11" y2="13"/><line x1="15" y1="11" x2="15" y2="13"/></svg>Controller &amp; Louver Items</div><div class="card-body"><div id="cl-s3"></div></div></div>
   </div>
 
   <!-- ══ SECTION 4a: 3-POINT TEST ══ -->
   <div class="panel" id="panel-s4">
+
+    <div class="panel-hd">4. Fire Pump Test Results</div>
 
     <div class="card">
       <div class="card-header mid"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Test Setup</div>
@@ -700,7 +705,7 @@ window.addEventListener('load', function () {
     <div class="card" style="margin-top:14px;">
       <div class="card-header">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
-        7-Point Performance Test — Fire Pump with Pressure Limiting Device (VFD)
+        7-Point Performance Test — Fire Pump with Variable Speed Drive (VFD)
       </div>
       <div class="card-body">
         <div class="subsection-note">
@@ -953,7 +958,7 @@ window.addEventListener('load', function () {
                 <option value="Sprinkler"></option><option value="Fire Alarm"></option>
                 <option value="Electrical"></option><option value="Mechanical"></option>
                 <option value="Plumbing"></option><option value="General Contractor"></option>
-                <option value="Fire Pump Supplier"></option><option value="Controller / TSSA Agent"></option>
+                <option value="Fire Pump Supplier"></option><option value="Controller Agent"></option>
               </datalist>
               <button class="btn btn-outline btn-sm" onclick="addContractorTag()">+ Add Contractor</button>
               <button class="btn btn-sm" onclick="addGeneralDeficiency()" style="background:#455A64;color:white;border:none;" title="Add deficiency not tied to a contractor">+ General Deficiency</button>
@@ -1057,7 +1062,7 @@ window.addEventListener('load', function () {
       </div>
       <div class="card-body">
         <div id="witness-sign-rows"></div>
-        <p style="font-size:12px;color:var(--silver);margin-top:4px;">Add witnesses (AHJ, owner representative, TSSA inspector, etc.).</p>
+        <p style="font-size:12px;color:var(--silver);margin-top:4px;">Add witnesses (AHJ, owner representative, electrical contractor, etc.).</p>
       </div>
     </div>
   </div>
@@ -1199,7 +1204,7 @@ window.addEventListener('load', function () {
 <script src="js/part15.js"></script>
 
 
-<link rel="stylesheet" href="css/diesel-02.css?v=202609050406" id="arencon-bold-overlay">
+<link rel="stylesheet" href="css/diesel-02.css?v=202609061700" id="arencon-bold-overlay">
 <script src="js/part16.js"></script>
 </body>
 </html>

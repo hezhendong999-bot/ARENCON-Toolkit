@@ -214,7 +214,7 @@ function _applyCloudSilent(cloudState) {
     var _c100 = _pick100(cloudState), _l100 = _pick100(local);
     var _differs = !!(_c100 && _l100 && String(_c100.disch) !== String(_l100.disch));
     if (local && contentEquals(cloudState, local)) {
-      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: (typeof ELECTRIC_BUILD!=='undefined'?ELECTRIC_BUILD:'?') });
       return;
     }
     // S25 EMPTY-CLOUD GUARD — never let a materially-empty cloud row
@@ -231,7 +231,7 @@ function _applyCloudSilent(cloudState) {
     w._applyLoadedState(JSON.stringify(merged));
     _noteFlowChanges(local, merged);   // S590: badge what this apply changed
     if (_differs) _diag('applied', { cloud: _c100, screen: _l100, applied: _pick100(merged),
-      build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      build: (typeof ELECTRIC_BUILD!=='undefined'?ELECTRIC_BUILD:'?') });
   } catch (e) {
     console.warn('[DieselSync] silent apply failed:', e && e.message);
     /* S643 — the outer half of the same blindness. A throw HERE (the host
@@ -306,7 +306,7 @@ const DieselR2 = {
     return Promise.resolve(R2P.upload(projectId, 'electric', type || 'original', fname, blob))
       .then(function () {
         return {
-          r2Key: 'photos/' + projectId + '/diesel/' + (type || 'original') + '/' + fname,
+          r2Key: 'photos/' + projectId + '/electric/' + (type || 'original') + '/' + fname,
           r2Url: R2P.getUrl(projectId, 'electric', type || 'original', fname)
         };
       })
@@ -391,8 +391,8 @@ const DieselJournal = createChangeJournal({
     };
   },
   whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
-  build:  function () { try { return window.DIESEL_BUILD || ''; } catch (_) { return ''; } },
-  tag: '[diesel]'
+  build:  function () { try { return window.ELECTRIC_BUILD || ''; } catch (_) { return ''; } },
+  tag: '[electric]'
 });
 try { window._dslJournal = DieselJournal; } catch (_) {}
 
@@ -805,7 +805,7 @@ const CloudSync = (function () {
        screen, and retire the durable pending flag when nothing differs. */
     /* S599 — the engine reports each pull decision; forward it to the database. */
     engine.onDiag = function (event, detail) {
-      try { _diag(event, Object.assign({ build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') }, detail || {})); }
+      try { _diag(event, Object.assign({ build: (typeof ELECTRIC_BUILD!=='undefined'?ELECTRIC_BUILD:'?') }, detail || {})); }
       catch (_) {}
     };
 
@@ -1647,7 +1647,7 @@ const CloudSync = (function () {
      guessing. */
   function getSyncDiag() {
     var d = {
-      build: (typeof DIESEL_BUILD !== 'undefined') ? DIESEL_BUILD : 'unknown',
+      build: (typeof ELECTRIC_BUILD !== 'undefined') ? ELECTRIC_BUILD : 'unknown',
       netUp: (navigator.onLine !== false),
       flagOnline: _online,
       user: null, tokenMinLeft: null,

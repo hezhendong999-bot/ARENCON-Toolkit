@@ -1917,7 +1917,7 @@ function _photoSrc(p){
   if(p._localSrc) return p._localSrc;
   if(p.r2Url) return p.r2Url;
   if(p.id && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
-    try{ return R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
+    try{ return R2Photos.getUrl(_r2FolderId, 'electric', 'original', _r2Fname(p)); }catch(_e){}
   }
   return '';
 }
@@ -2168,7 +2168,7 @@ function _r2EnqueuePhoto(photoObj){
   var r2Key = 'photos/' + _r2FolderId + '/electric/original/' + fname;
   photoObj.r2Key = r2Key;
   photoObj.r2Status = 'pending';
-  photoObj.r2Url = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', fname);
+  photoObj.r2Url = R2Photos.getUrl(_r2FolderId, 'electric', 'original', fname);
   // Phase 2: persist blob to the durable outbox BEFORE uploading, then drive.
   // Blob survives app kill; removed only after R2 confirms (HEAD/GET) it's present.
   if(typeof R2Outbox!=='undefined'){
@@ -2232,7 +2232,7 @@ function _dslLoadBakeImage(p){
     }
     if(p && p._annotated && !origSrc && p.id && typeof _r2FolderId!=='undefined' && _r2FolderId &&
        typeof R2Photos!=='undefined' && R2Photos.getUrl){
-      try{ origSrc = R2Photos.getUrl(_r2FolderId, 'diesel', 'original', _r2Fname(p)); }catch(_e){}
+      try{ origSrc = R2Photos.getUrl(_r2FolderId, 'electric', 'original', _r2Fname(p)); }catch(_e){}
     }
 
     /* S560: a retired photo carries its picture as a blob: object URL
@@ -2457,7 +2457,7 @@ async function _dslMarkupPersist(p, mk){
   var hub = (typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId);
   var markedFname = 'marked_' + _r2Fname(p).replace(/\.jpg$/,'') + '.jpg';
   var markedKey = hub ? ('photos/' + _r2FolderId + '/electric/marked/' + markedFname) : '';
-  var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'diesel', 'marked', markedFname) : '';
+  var markedUrl = (hub && typeof R2Photos!=='undefined') ? R2Photos.getUrl(_r2FolderId, 'electric', 'marked', markedFname) : '';
 
   // ── Stamp the photo (and any same-id references) ──
   var mkTs = Date.now();   // S301: annotation-state timestamp — merge arbitration
@@ -2631,7 +2631,7 @@ function _dslMarkupRevert(p){
      typeof _csHubMode!=='undefined' && _csHubMode && typeof _r2FolderId!=='undefined' && _r2FolderId &&
      typeof R2Photos!=='undefined' && R2Photos.remove){
     var fname = markedKey.split('/').pop();
-    try { R2Photos.remove(_r2FolderId, 'diesel', 'marked', decodeURIComponent(fname)).catch(function(e){
+    try { R2Photos.remove(_r2FolderId, 'electric', 'marked', decodeURIComponent(fname)).catch(function(e){
       console.warn('[DLB] revert: marked R2 delete failed (orphan until purge):', e&&e.message);
     }); } catch(e){ console.warn('[DLB] revert: marked R2 delete threw:', e&&e.message); }
   }

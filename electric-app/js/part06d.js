@@ -141,7 +141,7 @@ function _dieselOrphanPurge(confirmFlag){
   try {
     var a=document.createElement('a');
     a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(backup,null,1));
-    a.download='diesel_orphan_backup_'+Date.now()+'.json'; a.click();
+    a.download='electric_orphan_backup_'+Date.now()+'.json'; a.click();
   } catch(e){ console.error('[Orphans] backup download failed — ABORTING purge:', e); return rep; }
   // 2. Remove photos one at a time, re-resolving after each splice so indices
   //    stay valid (uses the same per-section remover the gallery delete uses,
@@ -441,7 +441,7 @@ async function _dieselR2OrphanReport(){
   var bucket=[], orphans=[], missing=[];
   for(var t=0;t<TYPES.length;t++){
     try{
-      var data=await R2Photos.list(pid,'diesel',TYPES[t]);
+      var data=await R2Photos.list(pid,'electric',TYPES[t]);
       (data.objects||[]).forEach(function(o){
         bucket.push({key:o.key, folder:TYPES[t], size:o.size||o.Size||''});
         if(!keep[o.key]) orphans.push({key:o.key, folder:TYPES[t], size:o.size||o.Size||''});
@@ -508,7 +508,7 @@ async function _dieselR2OrphanPurge(confirmFlag){
     var o=orphans[i];
     var fname=String(o.key).split('/').pop();
     try{
-      await R2Photos.remove(_r2FolderId,'diesel',o.folder,decodeURIComponent(fname));
+      await R2Photos.remove(_r2FolderId,'electric',o.folder,decodeURIComponent(fname));
       ok++;
     }catch(e){
       // remove() already swallows 404 as success; a throw here is a real failure.
@@ -566,7 +566,7 @@ async function _dieselDeadRefRepair(confirmFlag){
   try{
     var a=document.createElement('a');
     a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(backup,null,1));
-    a.download='diesel_deadref_backup_'+Date.now()+'.json'; a.click();
+    a.download='electric_deadref_backup_'+Date.now()+'.json'; a.click();
   }catch(e){ console.error('[DeadRef] backup download failed \u2014 ABORTING:', e); return dead; }
   // 2. Remove each dead record via the authoritative per-section remover,
   //    re-resolving by id each time so splices keep indices valid.

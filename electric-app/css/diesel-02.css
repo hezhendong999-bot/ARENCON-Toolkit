@@ -498,7 +498,7 @@ body[data-ptype="std"] #fig-netChart3pt .fig-hd svg{
   color:var(--m3)!important;
 }
 
-/* ── 7-Point PLD: purple ─────────────────────────────────────────────────── */
+/* ── 7-Point VFD: purple ─────────────────────────────────────────────────── */
 body[data-ptype="pld"] #perf-pld .card-header,
 body[data-ptype="pld"] #perf-pld .card-header svg,
 body[data-ptype="pld"] #perf-pld .fp-head .pt,
@@ -549,3 +549,21 @@ body[data-ptype="pld"] #perf-pld .fp-head .pt small{
   white-space:nowrap;
 }
 body.dark-mode #cloud-status #last-sync-text.is-stale{ color:#E0A36A; }
+
+/* ── Panel heading ────────────────────────────────────────────────────────
+   S724: a section used to open on a card whose name had nothing to do with
+   the tab that was just tapped (tab said "4. Fire Pump Test Results", the
+   page said "Test Setup"). This names the section on the page, in the same
+   words as the tab. Muted by design — burgundy stays on CTAs only. */
+.panel-hd{
+  font-family:Calibri,sans-serif;
+  font-weight:800;
+  font-size:calc(13px + var(--ts));
+  letter-spacing:1.1px;
+  text-transform:uppercase;
+  color:var(--steel);
+  padding:2px 2px 8px;
+  margin:0 0 4px;
+  border-bottom:1px solid var(--border);
+}
+body.dark-mode .panel-hd{ color:#8a94b0; border-bottom-color:rgba(255,255,255,.10); }

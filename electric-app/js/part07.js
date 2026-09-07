@@ -320,7 +320,7 @@ function _pgPurgePhoto(pid){
         var _dm = (ph.r2Key||'').match(/\/diesel\/([^/]+)\/([^/]+)$/);
         var _dtype = _dm ? _dm[1] : 'original';
         var _dfname = _dm ? decodeURIComponent(_dm[2]) : (ph.id + '.jpg');
-        R2Photos.remove(_r2FolderId, 'diesel', _dtype, _dfname).catch(function(e){
+        R2Photos.remove(_r2FolderId, 'electric', _dtype, _dfname).catch(function(e){
           console.warn('[purge] R2 remove failed (will orphan until sweep):', e && e.message);
         });
       }
@@ -1547,7 +1547,7 @@ async function _pgZipDownload(items){
 // no live state, no save, no R2 writes. The 3-door safe-LOAD half is gated to a
 // Mark-present session and is NOT built here.
 // ─────────────────────────────────────────────────
-var _EXPORT_TOOLCODE = 'DFP';              // Diesel Fire Pump
+var _EXPORT_TOOLCODE = 'DFP';              // export/file-naming code — kept as DFP by Owner decision; the tool is Electric
 var _EXPORT_VERSION   = 'S462';            // stamped into README + JSON wrapper
 
 function _expSanitize(s){
@@ -1587,7 +1587,7 @@ function _expItemRef(item){
   // Diesel is a single commissioning event: no FRT-style finding round/close
   // lifecycle, so NO status/round tag is applied (that data does not exist here).
   var ref = (item && item.badge) ? item.badge
-          : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-PLD',checklist:'Checklist',deficiency:'Deficiency',response:'Response','general-defic':'General',record:'Record',placard:'Placard',pump:'Pump',gauge:'Gauge','gauge-pld':'Gauge'}[item.type]||item.type)
+          : (item && item.type) ? ({flowtest:'FlowTest','flowtest-pld':'FlowTest-VFD',checklist:'Checklist',deficiency:'Deficiency',response:'Response','general-defic':'General',record:'Record',placard:'Placard',pump:'Pump',gauge:'Gauge','gauge-pld':'Gauge'}[item.type]||item.type)
           : 'Photo';
   return _expSanitize(ref).slice(0,40)||'Photo';
 }
@@ -1613,7 +1613,7 @@ function _expMarkedSrc(p){
   if(p._annotated && p.d) return p.d;   // strokes baked into the live data URL
   try{
     if(p.id && typeof _r2FolderId!=='undefined' && _r2FolderId && typeof R2Photos!=='undefined' && R2Photos.getUrl){
-      return R2Photos.getUrl(_r2FolderId,'diesel','marked','marked_'+_r2Fname(p).replace(/\.jpg$/,'')+'.jpg');
+      return R2Photos.getUrl(_r2FolderId,'electric','marked','marked_'+_r2Fname(p).replace(/\.jpg$/,'')+'.jpg');
     }
   }catch(_e){}
   return '';

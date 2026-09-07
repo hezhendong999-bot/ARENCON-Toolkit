@@ -22,19 +22,8 @@ const S2 = [
   { num:"2.2", text:"Confirm the installation of concentric and eccentric increaser/reducer (eccentric — flat side up on suction)." },
   { num:"2.3", text:"If the fire pump is equipped with a 170 psi VFD: Confirm if any fittings/couplings/valves between the fire pump discharge outlet to the discharge control valve, including the test header, are rated for 300 psi or more." },
   { num:"2.4", text:"Confirm the calibrated gauges have been installed on the suction and discharge side of the fire pump. Check the calibration date tag on the back of the gauge is not older than 12 months." },
-  { num:"2.5a", text:"Conduct diesel tank, concrete containment and dike inspection. Confirm no cracks on the fire pump pad. Confirm net capacity of the concrete dike exceeds 10% of diesel tank capacity. Unit: 1 US gal = 0.161 ft³. FM requires additional 2\" freeboard in addition to the required dike height (normally 6\" to 8\")." },
-  { num:"2.5b", text:"If a floor drain is located within the containment, it shall be plugged or provided with curb to prevent fuel entering the drain." },
-  { num:"2.5c", text:"Any concrete surface (e.g. pads, tank support, floor etc.) within the containment footprint shall be treated with an impermeable coating (e.g. Epoxy) / fuel oil sealant as per CSA B139-19." },
-  { num:"2.6", text:"Confirm tank diesel level at the level indicator on top of the diesel tank. Confirm the capacity of tank and tank type (double-wall) on the tank placard. The fuel tank shall be kept as full and maintained as practical at all times but never below 66% of tank capacity (pull the rod out and measure the length)." },
-  { num:"2.7", text:"Confirm the diesel fuel tank supports (2\" sch 40 pipes) are enclosed in concrete (sona-tube or concrete footing)." },
   { num:"2.8", text:"Confirm all valve tags have been provided within the fire pump room." },
   { num:"2.9", text:"Confirm firestopping provided at each pump room penetration, except exterior wall. Any exposed pump room structural steel (not full height wall pump rooms) shall be treated with min. 1-hr F.R.R. fire spray. Interior door and frames shall be equipped with automatic door closure and rated for min. 45 minutes." },
-  { num:"2.10", text:"Confirm if batteries and battery racks are provided." },
-  { num:"2.11", text:"Confirm pump engine exhaust is equipped with a muffler to discharge fumes to exterior. The discharge point shall be minimum of 12 ft above any accessible level, and not closer than 5 ft from any building openings." },
-  { num:"2.12", text:"The engine exhaust flex connection, exhaust pipe, long elbow and muffler shall be wrapped in high temperature insulation wrap and preferably c/w aluminum jacket within the pump room, regardless the height of the exhaust pipe. The exhaust flex connection shall be stainless steel, seamless or welded corrugated (not interlocked), not less than 12\" in length. The flex connection shall be mechanically guarded only, and shall not be wrapped." },
-  { num:"2.13", text:"After the muffler, the exhaust pipe shall be a stainless-steel pressure chimney that complies with CSA B139. Black steel pipe as exhaust pipe discharge to exterior is commonly done but is not acceptable. The chimney outlet shall be minimum of 2 ft above roof line and maintain sufficient clearance to building air intake per OFC." },
-  { num:"2.14", text:"Any ductwork, including intake and exhaust ducts, engine exhaust chimney that needs to travel within the building to roof after exiting the ceiling of pump room, shall be wrapped in min. 1-hr F.R.R. fire wrap. This is not required if the chimney discharges directly through the exterior wall of fire pump room." },
-  { num:"2.15", text:"Confirm if TSSA certificate \"Fuel Oil Distributor Inspections Above Ground Tanks\" has been provided at the diesel fuel tank. The TSSA certificate shall state which CSA B139 yearly edition is used (2019)." },
   { num:"2.16", text:"Confirm no shut-off valves installed on the fire pump & jockey ½\" pressure sensing lines. The pressure sensing line shall be installed between the fire pump/jockey discharge check valve and control valve. It is not acceptable to install the pressure sensing lines on the upstream side of the discharge check valve." },
   { num:"2.17", text:"If any inverted U shape overhead piping is installed on the upstream side of the fire pump suction outlet, a ½\" automatic air relief valve shall be provided at the top of the suction pipe." },
   { num:"2.18", text:"Confirm min. 10× pipe diameter is provided on the suction side of the fire pump, if the suction pipe is running perpendicular to the fire pump." },
@@ -47,8 +36,6 @@ const S3_gen = [
 ];
 
 const S3 = [
-  { num:"3.2", text:"Is the total combined battery start-up duration less than 45 seconds?" },
-  { num:"3.3", text:"Confirm combustion air intake louver is powered to close, and opens upon loss of power. Confirm combustion air intake louver opens upon engine running. Open the pump controller door and ask electrician to unplug the air intake louver jumper terminal (connected/stacked to the pump engine running terminal). The air intake louver should open upon disconnect." },
   { num:"3.4a", text:"Confirm air exhaust louver is connected to thermal stats and powered to open and not open upon loss of power. Turn down the thermal stats to activate exhaust louver and reset to original temperature. The air exhaust louver does not have to open upon pump running." },
   { num:"3.4b", text:"Upon pump test completion, obtain results from contractor for 3 test points (0%, 100%, 150%) and compare results with manufacturer specifications. The results should meet or exceed the pump specs." },
   { num:"3.4c", text:"Confirm fire pump packing is dripping water with or without pump operation. If water is spraying everywhere, ask the contractor to tighten the packing but not too tight. Confirm the packing is installed with a drain discharge to a floor drain. Water drip should be approximately 1 drip per second." },
@@ -328,7 +315,7 @@ const customItems = {}; // { section: [ {num,text,ref} ] }
 const CL_GROUPS = [
   { label:'1. Pre-Test', secs:['s1'] },
   { label:'2. Visual Inspection', secs:['s2'] },
-  { label:'3. Pump / Controller / Louver Tests',  secs:['s3gen','s3'] },   /* ELECTRIC: generator/ATS checks lead section 3 */
+  { label:'3. Controller Tests',  secs:['s3gen','s3'] },   /* ELECTRIC: generator/ATS checks lead section 3 */
   /* the churn run is answered once per test path — the screen has always
      counted both, and now the cover does too */
   { label:'4. Fire Pump Test Results',  secs:['s4','s4pld'] },
@@ -1358,14 +1345,22 @@ function updateDeficTabBadge(){
 // 3-Point (all points entered AND result selected) + consultant signature.
 // VFD = optional/"skipped" until any VFD field is touched, then required.
 // Open deficiencies flag SEPARATELY (do NOT subtract from %).
-function _ovChecklistStat(sec){
-  var srcMap = {s1:(typeof S1!=='undefined'?S1:[]), s2:(typeof S2!=='undefined'?S2:[]), s3:(typeof S3!=='undefined'?S3:[]), s5:(typeof S5!=='undefined'?S5:[])};
-  var items = srcMap[sec] || [];
-  var total = items.length, done = 0;
-  for(var i=0;i<items.length;i++){
-    var id = (typeof cid==='function') ? cid(sec,i) : (sec+'_'+i);
-    if(clState[id] && clState[id].status) done++;
-  }
+/* S724: this used to read its own hard-coded map of the raw arrays (S1, S2, S3,
+   S5). That map silently excluded the generator/ATS checks, the three mandatory
+   FA signals, the section-4 churn item and every custom item a user added — so
+   the Summary and the checklist could disagree, and did. It now walks the SAME
+   sections the cover donut walks, through the SAME engine. One source. */
+function _ovChecklistStat(secs){
+  var list = (typeof secs === 'string') ? [secs] : (secs || []);
+  var total = 0, done = 0;
+  list.forEach(function(sec){
+    var items = (typeof clSectionItems === 'function') ? (clSectionItems(sec) || []) : [];
+    for(var i=0;i<items.length;i++){
+      total++;
+      var id = (typeof cid==='function') ? cid(sec,i) : (sec+'_'+i);
+      if(clState[id] && clState[id].status) done++;
+    }
+  });
   return {total:total, done:done};
 }
 function _ovBatteryEntered(){
@@ -1430,16 +1425,22 @@ function updateCompletionOverview(){
   if(!rowsEl) return;
   var items=[]; // {phase, name, sub, state:'done|part|empty|skip', cnt, verdict, target}
 
-  var s1=_ovChecklistStat('s1'), s2=_ovChecklistStat('s2'), s3=_ovChecklistStat('s3'), s5=_ovChecklistStat('s5');
+  /* S724: names and section membership come from CL_GROUPS — the same list the
+     cover donut and the tab strip read. A row can no longer be named one thing
+     on the Summary and another on the tab. */
+  function _grp(i){ return (CL_GROUPS && CL_GROUPS[i]) ? CL_GROUPS[i] : {label:'', secs:[]}; }
+  var g1=_grp(0), g2=_grp(1), g3=_grp(2), g4=_grp(3), g5=_grp(4);
+  var s1=_ovChecklistStat(g1.secs), s2=_ovChecklistStat(g2.secs),
+      s3=_ovChecklistStat(g3.secs), s4=_ovChecklistStat(g4.secs), s5=_ovChecklistStat(g5.secs);
   function clItem(phase,name,sec,stat,target){
     var st = stat.total===0 ? 'empty' : (stat.done===stat.total ? 'done' : (stat.done>0 ? 'part' : 'empty'));
     return {phase:phase, name:name, sub:'Checklist', state:st, cnt: stat.done+' / '+stat.total, target:target};
   }
   // SETUP
-  items.push(clItem('Setup','1. Pre-Test','s1',s1,'s1'));
-  items.push(clItem('Setup','2. Visual Inspection','s2',s2,'s2'));
+  items.push(clItem('Setup',g1.label,'s1',s1,'s1'));
+  items.push(clItem('Setup',g2.label,'s2',s2,'s2'));
   // TESTS
-  items.push(clItem('Tests','3. Controller Tests','s3',s3,'s3'));
+  items.push(clItem('Tests',g3.label,'s3',s3,'s3'));
   var batOk=_ovBatteryEntered();
   items.push({phase:'Tests', name:'Start-Up Test — Power Source', sub: batOk?'Power source recorded':'No data yet', state: batOk?'done':'empty', cnt: batOk?'entered':'—', target:'s3'});
   var tp=_ovThreePointStat();
@@ -1451,10 +1452,11 @@ function updateCompletionOverview(){
   } else {
     items.push({phase:'Tests', name:'VFD Test', sub:'Not started — optional until used', state:'skip', cnt:'skipped', skip:true, target:'s4'});
   }
-  items.push(clItem('Tests','5. FA & Signaling','s5',s5,'s5'));
+  items.push(clItem('Tests',g4.label,'s4',s4,'s4'));
+  items.push(clItem('Tests',g5.label,'s5',s5,'s5'));
   // CLOSEOUT
   var sigOk=_ovSignaturePresent();
-  items.push({phase:'Closeout', name:'Consultant Signature', sub: sigOk?'Signed':'Not yet signed', state: sigOk?'done':'empty', cnt: sigOk?'signed':'—', target:'sign'});
+  items.push({phase:'Closeout', name:'7. Signature', sub: sigOk?'Consultant signed':'Not yet signed', state: sigOk?'done':'empty', cnt: sigOk?'signed':'—', target:'sign'});
 
   // % = completed counting-items / total counting-items (skipped VFD excluded from denominator)
   var counting = items.filter(function(it){ return !it.skip; });
@@ -2252,7 +2254,7 @@ function renderPldTable() {
   var ratedB=_ratedRpmPld();
   var bn=document.getElementById('pld-fp-banner');
   if(bn) bn.innerHTML = '<b>Rated speed: '+(ratedB?ratedB+' RPM':'set rated RPM above')+'</b> &nbsp;·&nbsp; '
-    + 'NFPA 20 acceptance on w/o-PLD adjusted net: churn (0%) \u2264 140% rated · rated (100%) \u2265 100% · peak (150%) \u2265 65% rated, vs placard net @ 100%. '
+    + 'NFPA 20 acceptance on w/o-VFD adjusted net: churn (0%) \u2264 140% rated · rated (100%) \u2265 100% · peak (150%) \u2265 65% rated, vs placard net @ 100%. '
     + 'VFD device check: w/VFD discharge \u2264 VFD setting (\u2264+3 psi flagged, &gt;+3 psi fails). '
     + 'Each point flagged (\u2691) if outside \u00B11% of placard (\u00A714.2.4.2). Per-point dropdown overrides verdict. '
     + '<b>w/o PRV &amp; VFD</b> tested at 0%, 100%, 150% only; <b>w/ VFD</b> at all 7 points.';
@@ -2371,7 +2373,7 @@ function updatePldCalcCells(i) {
     var _gtp = window.PumpAcceptance.gateTarget(row.pct, v.ratedNet, v.adjNet);
     if(_gtp){ gTxt = _gtp.label; okPld = _gtp.met; }
     noEl.innerHTML = '<span class="el">Net</span><span class="ev">'+netTxt+'</span>'+
-      '<span class="ea" title="w/o-PLD adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
+      '<span class="ea" title="w/o-VFD adjusted net (speed-corrected) vs NFPA 20 acceptance gate">'+
       '<span class="ea-adj '+(okPld?'pass':'fail')+'">adj '+adjTxt+'</span>'+(gTxt?'<span class="ea-req">req '+gTxt+'</span>':'')+'</span>';
   }
   // w/ VFD held pill: device tag + recorded Net (controlled — not scored)
