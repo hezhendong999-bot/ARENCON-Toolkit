@@ -1283,7 +1283,7 @@ function syncAllFields() {
 function getProjectSaveKey(){
   var el=document.getElementById('pi-projno');
   var pno=(el&&el.value.trim())?el.value.trim().replace(/[^a-zA-Z0-9._-]/g,'_'):'default';
-  return 'diesel_'+pno;
+  return 'electric_'+pno;
 }
 
 // ── 6. Share/Export with Web Share API ──
@@ -1500,7 +1500,7 @@ var _csProjectId = null;
 var _csInstanceId = null;
 // ══ END CLOUDSYNC INTEGRATION ══
 
-const SAVE_KEY = 'arencon_pump_v10';
+const SAVE_KEY = 'arencon_epump_v10';
 
 // Revision system
 let formRevision = 'R00';

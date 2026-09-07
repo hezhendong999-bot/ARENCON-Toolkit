@@ -891,14 +891,14 @@ function loadAutosave() {
   _idbGet(key).then(function(val){
     if(!val){
       // Try localStorage migration
-      var lsVal = localStorage.getItem(key) || localStorage.getItem('arencon_pump_v10');
+      var lsVal = localStorage.getItem(key) || localStorage.getItem('arencon_epump_v10');
       if(lsVal){ _idbPut(key,lsVal); val=lsVal; }
     }
     if(val) _applyLoadedState(val);
     updateIDBStorageBar();
   }).catch(function(){
     // IDB unavailable — localStorage only
-    var val=localStorage.getItem(key)||localStorage.getItem('arencon_pump_v10');
+    var val=localStorage.getItem(key)||localStorage.getItem('arencon_epump_v10');
     if(val)_applyLoadedState(val);
   });
 }

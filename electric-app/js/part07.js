@@ -317,7 +317,7 @@ function _pgPurgePhoto(pid){
     _pgRemovePhoto(hit);   // real splice + surface re-render (the old hard-delete path)
     try {
       if(_csHubMode && _r2FolderId && ph && ph.id && typeof R2Photos!=='undefined' && R2Photos.remove){
-        var _dm = (ph.r2Key||'').match(/\/diesel\/([^/]+)\/([^/]+)$/);
+        var _dm = (ph.r2Key||'').match(/\/electric\/([^/]+)\/([^/]+)$/);
         var _dtype = _dm ? _dm[1] : 'original';
         var _dfname = _dm ? decodeURIComponent(_dm[2]) : (ph.id + '.jpg');
         R2Photos.remove(_r2FolderId, 'electric', _dtype, _dfname).catch(function(e){
