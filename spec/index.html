@@ -846,6 +846,19 @@ async function mountHeader() {
 
   window.__specHdr = buildHeader2($('#spec-header'), cfg);
   try { window.__specHdr.setTheme(document.documentElement.getAttribute('data-theme')); } catch {}
+
+  /* RE-FIT AFTER LAYOUT. The engine decides how many controls fit on the bar
+     by measuring its container. Mounting happens before the three-pane shell
+     has been laid out and while the sign-in veil is still up, so that first
+     measurement sees almost no width and folds the logo and EVERY button away
+     — which is why the bar arrived carrying only a title. Measuring once more
+     after the browser has actually laid the page out is what puts them back.
+     Guarded because a missing refit must not cost us the header entirely. */
+  const refit = () => { try { window.__specHdr.refit(); } catch {} measureChrome(); fitWindow(); };
+  requestAnimationFrame(() => requestAnimationFrame(refit));
+  addEventListener('resize', refit);
+  try { new ResizeObserver(refit).observe($('#spec-header')); } catch {}
+  window.__specRefit = refit;   /* boot() calls this again once auth resolves */
   measureChrome(); fitWindow();
 }
 
@@ -876,6 +889,9 @@ async function boot() {
   /* Publish stays disabled for anyone who cannot publish globally. Only
      principals put wording in front of every future job. */
   try { window.__specHdr && window.__specHdr.setControlHidden('publish', !canEdit()); } catch {}
+  /* The veil is down and the panes are real by now — measure against the
+     layout the user actually sees, not the one that existed at mount. */
+  try { window.__specRefit && window.__specRefit(); } catch {}
   try {
     await loadSections();
   } catch (err) { msg('Could not load the master: ' + err.message, true); return; }
