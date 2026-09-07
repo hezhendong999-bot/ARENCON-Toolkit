@@ -579,9 +579,17 @@ function importScreen() {
     try {
       payload = JSON.parse(await file.text());
       const secs = payload.filter(n => n.kind === 'division').length;
-      const cls = payload.filter(n => n.kind === 'clause').length;
+      /* COUNT EVERYTHING, NOT JUST NUMBERED CLAUSES. The old preview showed
+         only 'clause', so a file carrying hundreds of paragraphs, bullets and
+         tables reported a number that looked like a loss. Showing the real
+         mix is also the only way you can tell, before writing anything,
+         whether the file lost items on the way in. */
+      const k = (t) => payload.filter(n => n.kind === t).length;
+      const cls = k('clause'), other = k('para') + k('bullet') + k('table');
       $('#preview', v).innerHTML =
-        `<b>${secs}</b> sections · <b>${cls}</b> clauses found.<br>` +
+        `<b>${secs}</b> sections · <b>${cls}</b> numbered clauses · ` +
+        `<b>${other}</b> paragraphs, bullets and tables ` +
+        `(<b>${cls + other}</b> items in total).<br>` +
         `Sections already in the master keep their existing clauses; only empty ones are filled. ` +
         `Nothing is deleted.`;
       $('#apply', v).disabled = false;
@@ -637,19 +645,31 @@ async function runImport(nodes, progress) {
 
     const id = crypto.randomUUID();
     const blank = n.blank == null ? 1 : n.blank;
+    /* PROVENANCE DEFAULT IS 'carried', NOT 'approved'. Importing content is
+       not reviewing it. The old default silently asserted that every imported
+       clause was Mark-reviewed 7310.17 wording, which no import can know — the
+       merged files carry no record of which parent a clause came from. A false
+       'approved' is unrecoverable (nothing later flags it); a 'carried' that
+       should have been approved is one promotion away. */
     const shape = (over) => Object.assign({
       id, section_id: cur.id, parent_id: null, sort_order: ++order,
       kind: 'clause', body: '', lock_level: 'master',
-      blank_before: blank, indent: null, provenance: 'approved',
+      blank_before: blank, indent: null, provenance: 'carried',
     }, over);
     let row;
 
     if (n.kind === 'clause') {
       const lvl = n.level;
       const body = (n.runs || []).map(r => r[0]).join('').trim();
-      row = shape({ parent_id: stack[lvl - 1] || null,
+      /* PARENT = NEAREST SHALLOWER LEVEL THAT IS ACTUALLY OPEN. Demanding
+         exactly lvl-1 detached whole runs of clauses: several sections jump
+         from Part straight to clause with no article between, and every one
+         of those landed at the root instead of under its Part. An orphan here
+         is not cosmetic — the tree is what derives the printed numbering. */
+      const open = Object.keys(stack).map(Number).filter(k => k < lvl);
+      row = shape({ parent_id: (open.length ? stack[Math.max(...open)] : null),
         kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause', body,
-        provenance: n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved' });
+        provenance: n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'carried' });
       stack[lvl] = id;
       Object.keys(stack).forEach(k => { if (+k > lvl) delete stack[k]; });
     } else if (n.kind === 'para' || n.kind === 'bullet') {
@@ -659,7 +679,8 @@ async function runImport(nodes, progress) {
       const deepest = Math.max(0, ...Object.keys(stack).map(Number));
       row = shape({ parent_id: stack[deepest] || null, kind: n.kind, body,
         indent: n.x == null ? null : Math.round(((n.x - 72) / 72) * 100) / 100,
-        provenance: n._drafted ? 'draft' : 'approved' });
+        provenance: n._drafted ? 'draft'
+                  : body.startsWith('[-]') ? 'empty' : 'carried' });
     } else if (n.kind === 'table') {
       const deepest = Math.max(0, ...Object.keys(stack).map(Number));
       row = shape({ parent_id: stack[deepest] || null, kind: 'table',
