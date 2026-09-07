@@ -22,11 +22,11 @@ const S2 = [
   { num:"2.2", text:"Confirm the installation of concentric and eccentric increaser/reducer (eccentric — flat side up on suction)." },
   { num:"2.3", text:"If the fire pump is equipped with a 170 psi VFD: Confirm if any fittings/couplings/valves between the fire pump discharge outlet to the discharge control valve, including the test header, are rated for 300 psi or more." },
   { num:"2.4", text:"Confirm the calibrated gauges have been installed on the suction and discharge side of the fire pump. Check the calibration date tag on the back of the gauge is not older than 12 months." },
-  { num:"2.8", text:"Confirm all valve tags have been provided within the fire pump room." },
-  { num:"2.9", text:"Confirm firestopping provided at each pump room penetration, except exterior wall. Any exposed pump room structural steel (not full height wall pump rooms) shall be treated with min. 1-hr F.R.R. fire spray. Interior door and frames shall be equipped with automatic door closure and rated for min. 45 minutes." },
-  { num:"2.16", text:"Confirm no shut-off valves installed on the fire pump & jockey ½\" pressure sensing lines. The pressure sensing line shall be installed between the fire pump/jockey discharge check valve and control valve. It is not acceptable to install the pressure sensing lines on the upstream side of the discharge check valve." },
-  { num:"2.17", text:"If any inverted U shape overhead piping is installed on the upstream side of the fire pump suction outlet, a ½\" automatic air relief valve shall be provided at the top of the suction pipe." },
-  { num:"2.18", text:"Confirm min. 10× pipe diameter is provided on the suction side of the fire pump, if the suction pipe is running perpendicular to the fire pump." },
+  { num:"2.5", text:"Confirm all valve tags have been provided within the fire pump room." },
+  { num:"2.6", text:"Confirm firestopping provided at each pump room penetration, except exterior wall. Any exposed pump room structural steel (not full height wall pump rooms) shall be treated with min. 1-hr F.R.R. fire spray. Interior door and frames shall be equipped with automatic door closure and rated for min. 45 minutes." },
+  { num:"2.7", text:"Confirm no shut-off valves installed on the fire pump & jockey ½\" pressure sensing lines. The pressure sensing line shall be installed between the fire pump/jockey discharge check valve and control valve. It is not acceptable to install the pressure sensing lines on the upstream side of the discharge check valve." },
+  { num:"2.8", text:"If any inverted U shape overhead piping is installed on the upstream side of the fire pump suction outlet, a ½\" automatic air relief valve shall be provided at the top of the suction pipe." },
+  { num:"2.9", text:"Confirm min. 10× pipe diameter is provided on the suction side of the fire pump, if the suction pipe is running perpendicular to the fire pump." },
 ];
 
 const S3_gen = [
