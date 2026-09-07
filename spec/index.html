@@ -478,39 +478,40 @@ function importScreen() {
 
 async function runImport(nodes, progress) {
   const secByCode = Object.fromEntries(state.sections.map(s => [s.code, s]));
-  let written = 0, cur = null, stack = {}, order = 0;
-  const batch = [];
+  let written = 0, cur = null, stack = {}, order = 0, batch = [];
+
   const flush = async () => {
     if (!batch.length) return;
-    await sb.insert('sg_clause', batch);
-    written += batch.length; batch.length = 0;
+    await sb.insert('sg_clause', batch);          // parents ride in the same insert
+    written += batch.length; batch = [];
     progress(`Imported ${written} clauses…`);
   };
+
   for (const n of nodes) {
     if (n.kind === 'division') {
+      await flush();
       const code = (n.text.match(/Section (\S+(?: \S+)*?) –/) || [])[1];
       cur = secByCode[code] || null; stack = {}; order = 0;
       if (cur) {
-        const existing = await sb.select('sg_clause',
-          `select=id&section_id=eq.${cur.id}&limit=1`);
-        if (existing.length) cur = null;             // already populated: leave it alone
+        const existing = await sb.select('sg_clause', `select=id&section_id=eq.${cur.id}&limit=1`);
+        if (existing.length) cur = null;           // already populated: leave it alone
       }
       continue;
     }
     if (n.kind !== 'clause' || !cur) continue;
-    await flush();
+
     const lvl = n.level;
     const body = (n.runs || []).map(r => r[0]).join('').trim();
     const prov = n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved';
     const id = crypto.randomUUID();
-    const row = { id, section_id: cur.id, parent_id: stack[lvl - 1] || null,
+    batch.push({ id, section_id: cur.id, parent_id: stack[lvl - 1] || null,
       sort_order: ++order, kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause',
-      body, lock_level: 'master', provenance: prov };
-    await sb.insert('sg_clause', row);
-    written++; if (written % 25 === 0) progress(`Imported ${written} clauses…`);
+      body, lock_level: 'master', provenance: prov });
     stack[lvl] = id;
     Object.keys(stack).forEach(k => { if (+k > lvl) delete stack[k]; });
+    if (batch.length >= 120) await flush();
   }
+  await flush();
   return written;
 }
 
