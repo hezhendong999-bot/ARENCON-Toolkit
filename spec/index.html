@@ -636,15 +636,19 @@ async function runImport(nodes, progress) {
 
     const id = crypto.randomUUID();
     const blank = n.blank == null ? 1 : n.blank;
+    const shape = (over) => Object.assign({
+      id, section_id: cur.id, parent_id: null, sort_order: ++order,
+      kind: 'clause', body: '', lock_level: 'master',
+      blank_before: blank, indent: null, provenance: 'approved',
+    }, over);
     let row;
 
     if (n.kind === 'clause') {
       const lvl = n.level;
       const body = (n.runs || []).map(r => r[0]).join('').trim();
-      row = { id, section_id: cur.id, parent_id: stack[lvl - 1] || null, sort_order: ++order,
-        kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause',
-        body, lock_level: 'master', blank_before: blank,
-        provenance: n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved' };
+      row = shape({ parent_id: stack[lvl - 1] || null,
+        kind: lvl === 1 ? 'part' : lvl === 2 ? 'article' : 'clause', body,
+        provenance: n._drafted ? 'draft' : body.startsWith('[-]') ? 'empty' : 'approved' });
       stack[lvl] = id;
       Object.keys(stack).forEach(k => { if (+k > lvl) delete stack[k]; });
     } else if (n.kind === 'para' || n.kind === 'bullet') {
@@ -652,15 +656,13 @@ async function runImport(nodes, progress) {
       const body = (n.runs || []).map(r => r[0]).join('').trim();
       if (!body) continue;
       const deepest = Math.max(0, ...Object.keys(stack).map(Number));
-      row = { id, section_id: cur.id, parent_id: stack[deepest] || null, sort_order: ++order,
-        kind: n.kind, body, lock_level: 'master', blank_before: blank,
+      row = shape({ parent_id: stack[deepest] || null, kind: n.kind, body,
         indent: n.x == null ? null : Math.round(((n.x - 72) / 72) * 100) / 100,
-        provenance: n._drafted ? 'draft' : 'approved' };
+        provenance: n._drafted ? 'draft' : 'approved' });
     } else if (n.kind === 'table') {
       const deepest = Math.max(0, ...Object.keys(stack).map(Number));
-      row = { id, section_id: cur.id, parent_id: stack[deepest] || null, sort_order: ++order,
-        kind: 'table', body: JSON.stringify({ head: n.head, rows: n.rows, style: n.style }),
-        lock_level: 'master', blank_before: blank, provenance: 'approved' };
+      row = shape({ parent_id: stack[deepest] || null, kind: 'table',
+        body: JSON.stringify({ head: n.head, rows: n.rows, style: n.style }) });
     } else continue;
 
     batch.push(row);
