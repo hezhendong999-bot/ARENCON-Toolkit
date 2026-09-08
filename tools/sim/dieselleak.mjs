@@ -207,13 +207,120 @@ check('every Electric source file is either scanned or knowingly skipped',
       unlisted.length ? 'not scanned (no user-facing strings expected): ' + unlisted.join(', ')
                       : 'all scanned');
 
-console.log('\n── strip list ──');
+/* ── PART 2: THE PLUMBING (added S727) ──────────────────────────────────────
+   Everything above reads WORDS AN INSPECTOR CAN SEE, and deliberately exempts
+   anything identifier-shaped: no-whitespace strings are ids, keys, classes and
+   paths, and a term glued to its neighbour by - or _ is part of a name.
+
+   Those exemptions are correct for wording and were exactly why three real
+   defects walked straight through this probe in S727. All three were the tool
+   name sitting in a STORAGE PATH, not in a sentence:
+
+     · 'diesel_' + projectNo   — the local record name. BOTH tools computed the
+                                 same one into the same store, so a shared
+                                 tablet holding one project with both pump types
+                                 kept ONE local safety copy instead of two,
+                                 last writer wins. Exempted above as glued-to-_.
+     · 'arencon_pump_v10'      — a Diesel-era localStorage key that Electric
+                                 also read, so Electric could load a Diesel
+                                 report body. Exempted above as identifier-like.
+     · /\/diesel\/(…)/         — permanent delete recovered a photo's type and
+                                 filename from its R2 key by matching the tool
+                                 name. Never fired on Electric keys, so the code
+                                 fell back to original/<id>.jpg and purging a
+                                 marked-up copy could remove the ORIGINAL.
+                                 Never seen at all: a regex is not a string.
+
+   So this part reads the raw source instead, and treats the tool name as a
+   SUBSTRING anywhere inside a string literal or a regex literal. Comments are
+   still stripped — a comment explaining a removal is not a leak.
+
+   Everything is a failure unless it is on PLUMBING_ALLOW below, because the
+   safe default here is the opposite of the safe default for wording: an unknown
+   sentence is probably prose, an unknown storage path is probably a collision. */
+
+const PLUMBING_ALLOW = [
+  ['css/diesel-01.css', 'stylesheet filename — Owner ruled: no filename churn'],
+  ['css/diesel-02.css', 'stylesheet filename — Owner ruled: no filename churn'],
+  ['ARENCON_DIESEL',    'IndexedDB database is SHARED on purpose; isolation comes from the record key, which must be electric_'],
+  ['[DieselMarkup]',    'developer console tag, never rendered'],
+  ['_dieselOrphanPurge','developer console hint naming a function, never rendered'],
+];
+
+function stripComments(src, isHtml) {
+  let t = src.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^[ \t]*\/\/.*$/gm, ' ');
+  if (isHtml) t = t.replace(/<!--[\s\S]*?-->/g, ' ');
+  return t;
+}
+
+const PLUMB_FILES = fs.readdirSync(path.join(REPO, 'electric-app/js'))
+  .filter(f => f.endsWith('.js')).map(f => 'electric-app/js/' + f)
+  .concat(['electric-app/index.html']);
+
+let plumbHits = 0;
+for (const rel of PLUMB_FILES) {
+  const abs = path.join(REPO, rel);
+  if (!fs.existsSync(abs)) continue;
+  const t = stripComments(fs.readFileSync(abs, 'utf8'), rel.endsWith('.html'));
+  const found = [];
+
+  const push = (kind, text) => {
+    if (!/diesel/i.test(text)) return;
+    if (PLUMBING_ALLOW.some(([a]) => text.includes(a))) return;
+    found.push(kind + ' ' + JSON.stringify(text.slice(0, 90)));
+  };
+
+  let m;
+  const strRe = /'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\]|\\.)*)`/g;
+  while ((m = strRe.exec(t)) !== null) push('string', m[1] || m[2] || m[3] || '');
+
+  /* Regex literals. Crude on purpose — a false positive here costs one line on
+     the allow list; a false negative cost a deleted original photo. */
+  const reRe = /\/(?:[^/\\\n[]|\\.|\[[^\]\n]*\])+\/[gimsuy]*/g;
+  while ((m = reRe.exec(t)) !== null) push('regex', m[0]);
+
+  plumbHits += found.length;
+  check('no diesel storage path: ' + rel, found.length === 0,
+        found.length ? found.slice(0, 6).join('\n           ') : 'clean');
+}
+
+/* Named regression guards. The scan above would catch all three, but a probe
+   that says "diesel leak in part06c.js" a year from now is far less use than
+   one that names the defect and what it did. */
+const _read = (rel) => {
+  const abs = path.join(REPO, rel);
+  return fs.existsSync(abs) ? fs.readFileSync(abs, 'utf8') : '';
+};
+const _c = _read('electric-app/js/part06c.js');
+const _d = _read('electric-app/js/part06d.js');
+const _p = _read('electric-app/js/part07.js');
+
+check("S727 · local record name is Electric's own, not Diesel's",
+      /return\s+'electric_'\s*\+\s*pno/.test(_c) && !/'diesel_'\s*\+\s*pno/.test(_c),
+      "getProjectSaveKey() must return 'electric_'+pno — 'diesel_' means both tools share one local safety copy");
+
+check('S727 · legacy localStorage fallback cannot reach a Diesel report',
+      !/'arencon_pump_v10'/.test(_c) && !/'arencon_pump_v10'/.test(_d),
+      "'arencon_pump_v10' is Diesel-era; Electric must use 'arencon_epump_v10'");
+
+check('S727 · permanent delete reads Electric photo keys',
+      /\\\/electric\\\//.test(_p) && !/\\\/diesel\\\//.test(_p),
+      'the purge regex must match /electric/ or it deletes the wrong R2 object');
+
+/* Diesel must NOT be swept clean — it is the tool these terms belong to. */
+const _dc = _read('diesel-app/js/part06c.js');
+check('Diesel keeps its own storage identity (guards against over-correction)',
+      /'diesel_'\s*\+\s*pno/.test(_dc),
+      'diesel-app must still use diesel_+pno; fixing Electric must never touch Diesel');
+
+
 for (const [term, reason] of STRIP) {
   console.log('   ' + (perTerm.get(term) ? 'HIT ' : 'ok  ') + term.padEnd(14) + reason);
 }
 
 const pass = results.every(Boolean);
 console.log('\n' + (pass
-  ? 'PASS — no diesel-only wording reaches an Electric screen (' + totalHits + ' hit(s))'
-  : 'FAIL — ' + totalHits + ' diesel leak(s) on Electric screens'));
+  ? 'PASS — no diesel-only wording reaches an Electric screen, and no Electric '
+    + 'storage path points at Diesel (' + totalHits + ' wording hit(s), ' + plumbHits + ' plumbing hit(s))'
+  : 'FAIL — ' + totalHits + ' diesel leak(s) on Electric screens, ' + plumbHits + ' diesel storage path(s) in Electric'));
 process.exit(pass ? 0 : 1);
