@@ -122,7 +122,7 @@ body[data-rail="fold"] .rail .railhead{display:none}
    ONE header line. Three lines overran it and printed on top of the section
    heading. The firm's real page reserves this room; so does this one. */
 .page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 1in 0.4in;background:#fff;color:#1B1A22;
-      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/1.42 Calibri,Carlito,sans-serif;
+      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/13.4pt Calibri,Carlito,sans-serif;  /* Word single spacing, measured */
       position:relative;overflow:hidden}
 /* ── Running header — read from the Word file, not inferred ──────────────
    document.xml sectPr:  pgMar left/right 1440 (1in), header 1440 (1in from
@@ -174,11 +174,11 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .cover-prep{text-align:center;margin-top:1.1in;line-height:1.35}
 .cover-no{text-align:center;margin-top:1in}
 .cover-no small{font-size:8pt}
-.page.blank{display:flex;align-items:center;justify-content:center}
+.page.pg-blank{display:flex;align-items:center;justify-content:center}
 .blank-note{color:#000}
 .toc-title{text-align:center;font-weight:700;font-size:12pt;margin:.3in 0 .35in}
 .toc-sec{display:flex;align-items:baseline;gap:4px;padding-left:.5in}
-.toc-sec .n{width:.5in;flex:none}
+.toc-sec .n{width:1in;flex:none;white-space:nowrap}
 .dots{flex:1;border-bottom:1px dotted #000;transform:translateY(-3px);margin:0 4px}
 .pg{color:#777}
 .sec-title{font-weight:700;margin:0 0 0 0}
@@ -195,9 +195,17 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .ln[data-lvl="1"] .tx,.ln[data-lvl="2"] .tx{font-weight:700}
 .ln.sel{background:color-mix(in srgb,var(--brand) 12%,transparent);
         outline:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
-.ln.draft .tx{box-shadow:inset 3px 0 0 var(--warn);padding-left:6px}
-.ln.carried .tx{box-shadow:inset 3px 0 0 var(--info);padding-left:6px}
-.ln.empty .tx{box-shadow:inset 3px 0 0 var(--fail);padding-left:6px;color:#7a7684}
+/* Provenance is REVIEW chrome, not document formatting. It used to be an inset
+   bar plus 6px of padding INSIDE the text column, which pushed every clause
+   6px off the position Word prints it at and drew a coloured rule down the
+   whole page. The marker now lives in the left page margin: absolutely
+   positioned against the page, so it never moves the text and prints
+   nowhere near it. */
+.ln.draft::before,.ln.carried::before,.ln.empty::before{content:'';position:absolute;left:.62in;width:3px;height:13.4pt;border-radius:2px}
+.ln.draft::before{background:var(--warn)}
+.ln.carried::before{background:var(--info)}
+.ln.empty::before{background:var(--fail)}
+.ln.empty .tx{color:#7a7684}
 .ln.free{display:grid;grid-template-columns:minmax(0,1fr)}
 .ln.free.bul{grid-template-columns:.25in minmax(0,1fr)}
 .ln.free .dot{text-align:left}
@@ -205,7 +213,7 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .spec-tbl td{border:.5pt solid #000;padding:2px 6px;font-size:11pt;text-align:center}
 .spec-tbl td.h{font-weight:700;text-decoration:underline}
 .spec-tbl td.l{text-align:left}
-.blank{height:15.6px}
+.blank{height:13.4pt}   /* one empty Word paragraph = one line */
 .tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff}
 .edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px .5in}
 .edhint kbd{font:9pt ui-monospace,Consolas,monospace;background:#eceaf0;border:1px solid #d6d2dc;border-radius:4px;padding:0 4px}
@@ -758,7 +766,7 @@ function paginate() {
   const pages = [['cover', coverHtml()], ['blank', BLANK_HTML], ['toc', tocHtml(toc)]];
   for (const [kind, html] of pages) {
     const p = document.createElement('div');
-    p.className = 'page front ' + kind;   /* .front suppresses the running header */
+    p.className = 'page front pg-' + kind;   /* pg- prefix: 'blank' alone collides with the empty-line rule */
     p.innerHTML = html;
     front.appendChild(p);
   }
