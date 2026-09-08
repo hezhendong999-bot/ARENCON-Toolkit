@@ -132,7 +132,14 @@ body[data-rail="fold"] .rail .railhead{display:none}
    smaller and grey, the title right-grouped instead of centred, the rule on
    the whole block, and a date that does not exist in the file. */
 .pg-head{position:absolute;left:1in;right:1in;top:1in;font-size:11pt;line-height:13.4pt;color:#1B1A22}
-.pg-head .r{display:grid;grid-template-columns:1fr auto 1fr;align-items:baseline;white-space:nowrap}
+/* minmax(0,1fr), not 1fr. A bare 1fr will not shrink below its content's
+   minimum width, so a long client name or address pushed the centre and right
+   columns outward and the right-hand value stopped short of the margin
+   instead of sitting hard against it. Word's tab stops are absolute — centre
+   at the midpoint, right at the text edge — and these columns now behave the
+   same way regardless of what the left cell holds. */
+.pg-head .r{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+            align-items:baseline;white-space:nowrap}
 .pg-head .r > span:first-child{overflow:hidden;text-overflow:ellipsis}
 .pg-head .r .c{text-align:center}
 .pg-head .r .e{text-align:right}
@@ -142,6 +149,31 @@ body[data-rail="fold"] .rail .railhead{display:none}
    italic reads as "not yet entered" at a glance and cannot be mistaken for a
    real project number on a printed page. */
 .pg-head .ph{color:#928E9C;font-style:italic}
+/* ── front matter ───────────────────────────────────────────────────────
+   Spacing straight off the Word paragraphs: 1780 twips (1.24in) above the
+   title block, 288 (0.20in) between title lines, 1500 (1.04in) before
+   "Prepared for:", 940 (0.65in) before the project number. Title lines are
+   24 half-points (12pt); everything below them is 22 (11pt). No running
+   header on any of these three pages — each is its own section in the file. */
+.page.front .pg-head{display:none}
+.cover{text-align:center}
+.cv-mark{display:flex;justify-content:center;align-items:baseline;gap:7px;margin-bottom:1.24in}
+.cv-mark .a{font-weight:700;letter-spacing:.06em;font-size:12.5pt}
+.cv-mark .i{font-size:8pt;letter-spacing:.10em}
+.cv-t{font-size:12pt;margin-bottom:.20in}
+.cv-block .cv-t:last-child{margin-bottom:0}
+.cv-for{margin-top:1.04in}
+.cv-proj{margin-top:.65in}
+.cv-s{font-size:11pt;line-height:1.4}
+.cv-blank{text-align:center;font-size:11pt}
+.toc-h{text-align:center;font-size:11pt;margin-bottom:.25in}
+/* Leader dots between title and page number, the way a Word TOC prints. */
+.toc-r{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:8px;
+       align-items:baseline;font-size:11pt;line-height:1.9}
+.toc-r .tc{font-variant-numeric:tabular-nums}
+.toc-r .tt{overflow:hidden;white-space:nowrap;
+           border-bottom:1px dotted #928E9C;transform:translateY(-3px)}
+.toc-r .tp{font-variant-numeric:tabular-nums}
 .sec-title{font-weight:700;margin:0 0 0 0}
 .eos{font-weight:700;text-align:center;margin:0}
 /* ladder: each level's NUMBER starts where its parent's TEXT starts */
@@ -548,6 +580,56 @@ function tableHtml(r) {
   </table>`;
 }
 
+/* ── front matter ────────────────────────────────────────────────────────
+   Read from document.xml, not invented. The file opens with three pages, each
+   its own section break, none carrying the running header:
+
+     cover   letterhead, then centred 12pt title lines 0.20in apart, then
+             "prepared" / "by" / "ARENCON INC.", then 1.04in of air, then
+             "Prepared for:" and the client at 11pt, then 0.65in more air and
+             "Project No: …" with the date beneath.
+     blank   "This page left blank intentionally", centred, 11pt.
+     toc     "Table of Contents" centred 11pt with 0.25in after it, then the
+             entries — a Word TOC field in the file, generated here.
+
+   Note the cover says "Project No:" while the running header says
+   "Project #:". That is what the file does; both are reproduced verbatim
+   rather than quietly harmonised. */
+const PH = (v, tpl) => v ? escapeHtml(v) : `<span class="ph">${escapeHtml(tpl)}</span>`;
+
+function coverHtml() {
+  const h = state.header || {};
+  const title = (h.doc_title || '').trim();
+  const titled = title
+    ? title.split('\n').map(l => `<div class="cv-t">${escapeHtml(l.trim())}</div>`).join('')
+    : `<div class="cv-t"><span class="ph">Project Specification Title</span></div>`;
+  const where = [h.site, h.city].filter(Boolean).join(', ');
+  const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
+  return `<div class="cover">
+    <div class="cv-mark"><span class="a">ARENCON</span><span class="i">INC.</span></div>
+    <div class="cv-block">${titled}
+      <div class="cv-t">prepared</div>
+      <div class="cv-t">by</div>
+      <div class="cv-t">ARENCON INC.</div></div>
+    <div class="cv-for">
+      <div class="cv-s">Prepared for:</div>
+      <div class="cv-s">${PH(h.client, 'Client Name')}</div>
+      <div class="cv-s">${PH(where, 'Site Address, City, Province')}</div></div>
+    <div class="cv-proj">
+      <div class="cv-s">Project No: ${PH(proj, '0000.00 A01')}</div>
+      <div class="cv-s">${PH(issueDateLong(h.issue_date), 'Date of Issuance')}</div></div>
+  </div>`;
+}
+
+const BLANK_HTML = '<div class="cv-blank">This page left blank intentionally</div>';
+
+function tocHtml(entries) {
+  return '<div class="toc-h">Table of Contents</div>' +
+    entries.map(e => `<div class="toc-r"><span class="tc">${escapeHtml(e.code)}</span>` +
+      `<span class="tt">${escapeHtml(e.title)}</span>` +
+      `<span class="tp">${e.page}</span></div>`).join('');
+}
+
 function buildBlocks() {
   const blocks = [];
   for (const sec of activeSections()) {
@@ -605,6 +687,14 @@ function paginate() {
   const USABLE = (11 - 1.62 - 0.4) * 96;
   let page = null, used = 0, pageNo = 0;
 
+  /* FRONT MATTER GOES ON AFTER THE BODY IS LAID OUT, NOT BEFORE. The table of
+     contents has to state the page each section starts on, and that is not
+     known until the body has actually been paginated — writing it first would
+     mean guessing. So the body is laid out, each section's opening page is
+     recorded as it happens, and the three front pages are then inserted ahead
+     of it. They carry no running header and no page number, exactly as the
+     file's own section breaks have them, so the body still starts at Page 1. */
+  const toc = [];
   const newPage = (sec) => {
     pageNo++;
     page = document.createElement('div');
@@ -612,6 +702,10 @@ function paginate() {
     page.innerHTML = HEAD_HTML(sec, pageNo);
     host.appendChild(page);
     used = 0;
+    if (!toc.length || toc[toc.length - 1].code !== sec) {
+      const s = state.sections.find(x => x.code === sec);
+      toc.push({ code: sec, title: (s || {}).title || '', page: pageNo });
+    }
   };
   newPage(blocks[0].section);
 
@@ -640,6 +734,17 @@ function paginate() {
       used += node.offsetHeight;
     }
   }
+
+  /* Now the body is laid out and toc[] holds the real opening page of every
+     section, so the front matter can be built and put in front of it. */
+  const front = document.createDocumentFragment();
+  for (const html of [coverHtml(), BLANK_HTML, tocHtml(toc)]) {
+    const p = document.createElement('div');
+    p.className = 'page front';     /* .front suppresses the running header */
+    p.innerHTML = html;
+    front.appendChild(p);
+  }
+  host.insertBefore(front, host.firstChild);
 }
 
 function renderPage() { paginate(); fitPage(); }
