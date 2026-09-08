@@ -1547,7 +1547,7 @@ async function _pgZipDownload(items){
 // no live state, no save, no R2 writes. The 3-door safe-LOAD half is gated to a
 // Mark-present session and is NOT built here.
 // ─────────────────────────────────────────────────
-var _EXPORT_TOOLCODE = 'DFP';              // export/file-naming code — kept as DFP by Owner decision; the tool is Electric
+var _EXPORT_TOOLCODE = 'EFP';              // export/file-naming code — matches the Hub's EFP prefix for this tool
 var _EXPORT_VERSION   = 'S462';            // stamped into README + JSON wrapper
 
 function _expSanitize(s){

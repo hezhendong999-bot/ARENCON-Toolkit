@@ -30,18 +30,18 @@ const S2 = [
 ];
 
 const S3_gen = [
-  { num:"3.0a", text:"Confirm emergency generator is installed and operational. Verify generator auto-starts upon loss of normal power to the fire pump controller." },
-  { num:"3.0b", text:"Confirm automatic transfer switch (ATS) transfers fire pump controller from normal power to emergency power within 10 seconds. Verify re-transfer to normal power upon restoration." },
-  { num:"3.0c", text:"Confirm generator output voltage and frequency are within acceptable tolerances (voltage ±5%, frequency ±0.5 Hz) under fire pump load." },
+  { num:"3.1", text:"Confirm emergency generator is installed and operational. Verify generator auto-starts upon loss of normal power to the fire pump controller." },
+  { num:"3.2", text:"Confirm automatic transfer switch (ATS) transfers fire pump controller from normal power to emergency power within 10 seconds. Verify re-transfer to normal power upon restoration." },
+  { num:"3.3", text:"Confirm generator output voltage and frequency are within acceptable tolerances (voltage ±5%, frequency ±0.5 Hz) under fire pump load." },
 ];
 
 const S3 = [
-  { num:"3.4a", text:"Confirm air exhaust louver is connected to thermal stats and powered to open and not open upon loss of power. Turn down the thermal stats to activate exhaust louver and reset to original temperature. The air exhaust louver does not have to open upon pump running." },
-  { num:"3.4b", text:"Upon pump test completion, obtain results from contractor for 3 test points (0%, 100%, 150%) and compare results with manufacturer specifications. The results should meet or exceed the pump specs." },
-  { num:"3.4c", text:"Confirm fire pump packing is dripping water with or without pump operation. If water is spraying everywhere, ask the contractor to tighten the packing but not too tight. Confirm the packing is installed with a drain discharge to a floor drain. Water drip should be approximately 1 drip per second." },
-  { num:"3.4d", text:"Constantly touch the pump housing to ensure the fire pump is not overheating during operation. Immediately terminate the pump test if it overheats." },
-  { num:"3.4e", text:"The automatic pump shut-off setting on the pump controller shall be unchecked (disabled)." },
-  { num:"3.4f", text:"Confirm the following terminals are connected in the pump controller, and live test to ensure FACP receives minimum three signals: Pump engine running; Pump engine/controller/room trouble (combined via jumper wire); Controller main switch turned to off or manual position." },
+  { num:"3.4", text:"Confirm air exhaust louver is connected to thermal stats and powered to open and not open upon loss of power. Turn down the thermal stats to activate exhaust louver and reset to original temperature. The air exhaust louver does not have to open upon pump running." },
+  { num:"3.5", text:"Upon pump test completion, obtain results from contractor for 3 test points (0%, 100%, 150%) and compare results with manufacturer specifications. The results should meet or exceed the pump specs." },
+  { num:"3.6", text:"Confirm fire pump packing is dripping water with or without pump operation. If water is spraying everywhere, ask the contractor to tighten the packing but not too tight. Confirm the packing is installed with a drain discharge to a floor drain. Water drip should be approximately 1 drip per second." },
+  { num:"3.7", text:"Constantly touch the pump housing to ensure the fire pump is not overheating during operation. Immediately terminate the pump test if it overheats." },
+  { num:"3.8", text:"The automatic pump shut-off setting on the pump controller shall be unchecked (disabled)." },
+  { num:"3.9", text:"Confirm the following terminals are connected in the pump controller, and live test to ensure FACP receives minimum three signals: Pump running; Pump/controller/room trouble (combined via jumper wire); Controller main switch turned to off or manual position." },
 ];
 
 const S4_items = [
