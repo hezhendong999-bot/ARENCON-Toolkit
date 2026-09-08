@@ -115,20 +115,28 @@ body[data-rail="fold"] .rail .railhead{display:none}
    page uses. The old 1in left only a 0.28in band above the body, which fits
    ONE header line. Three lines overran it and printed on top of the section
    heading. The firm's real page reserves this room; so does this one. */
-.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 0.75in 0.4in;background:#fff;color:#1B1A22;
+.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 1in 0.4in;background:#fff;color:#1B1A22;
       box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/1.42 Calibri,Carlito,sans-serif;
       position:relative;overflow:hidden}
-.pg-head{position:absolute;left:0.75in;right:0.75in;top:0.72in;font-size:11pt;color:#1B1A22;
-         border-bottom:.5pt solid #000;padding-bottom:2px}
-.pg-head .r{display:flex;gap:10px;line-height:1.25}
-/* Rows 2 and 3 are the supporting lines in the firm's header block: smaller
-   and quieter than row 1 so the client and section stay the things you read
-   first. Empty middle cells still hold their column so the right-hand values
-   stay aligned down all three rows. */
-.pg-head .r + .r{font-size:9.5pt;color:#5E5B68}
-.pg-head .r span:first-child{flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
-.pg-head .r .c{flex:0 0 auto}
-.pg-head .r .e{margin-left:auto;text-align:right;flex:0 0 auto}
+/* ── Running header — read from the Word file, not inferred ──────────────
+   document.xml sectPr:  pgMar left/right 1440 (1in), header 1440 (1in from
+   the top edge), top 2332 (1.62in), bottom 576 (0.4in).
+   header1.xml: THREE paragraphs, ALL Calibri 11pt, spacing-after 0, same
+   colour. Tab stops set the columns against a 6.5in text width:
+     para 1  tabs center@4680 right@9360  → left text · CENTRED title · right code
+     para 2  tabs right@9360              → left text · right "Page N"
+     para 3  tabs right@9360 + pBdr bottom single 0.75pt black, space 2pt
+             → left text · right "Project #: …", and the rule sits under THIS
+               row only.
+   What I had wrong before this: sides at 0.75in, header at 0.72in, rows 2–3
+   smaller and grey, the title right-grouped instead of centred, the rule on
+   the whole block, and a date that does not exist in the file. */
+.pg-head{position:absolute;left:1in;right:1in;top:1in;font-size:11pt;line-height:13.4pt;color:#1B1A22}
+.pg-head .r{display:grid;grid-template-columns:1fr auto 1fr;align-items:baseline;white-space:nowrap}
+.pg-head .r > span:first-child{overflow:hidden;text-overflow:ellipsis}
+.pg-head .r .c{text-align:center}
+.pg-head .r .e{text-align:right}
+.pg-head .r.rule{border-bottom:.75pt solid #000;padding-bottom:2pt}
 .sec-title{font-weight:700;margin:0 0 0 0}
 .eos{font-weight:700;text-align:center;margin:0}
 /* ladder: each level's NUMBER starts where its parent's TEXT starts */
@@ -401,15 +409,11 @@ function issueDateLong(iso) {
 
 const HEAD_HTML = (sec, page) => {
   const h = state.header || {};
-  /* EXACTLY the three rows the firm's Word header carries, and nothing else:
-       row 1   <client>          <section title>   Section <code>
-       row 2   <document title>                    Page <n>
-       row 3   <site, city>                        Project #: <no> <rev>
-     Two corrections from my earlier version, both mine:
-     - "ARENCON INC." is gone. The header identifies the JOB; the firm's name
-       belongs on the cover and the letterhead (Mark).
-     - The issue date is gone. I put it in the middle of row 3; the Word header
-       has no date anywhere. The date belongs on the cover, not on every page. */
+  /* Mirrors header1.xml paragraph for paragraph. Every row is a 3-column grid
+     so the centre tab (para 1) and the right tabs (all three) land where
+     Word's tab stops put them. Rows 2 and 3 leave the centre cell empty,
+     exactly as those paragraphs have no centre tab. The rule is on row 3
+     only. No date anywhere — the file has none. */
   const who = h.client || 'Master Content';
   const where = [h.site, h.city].filter(Boolean).join(', ');
   const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
@@ -418,8 +422,10 @@ const HEAD_HTML = (sec, page) => {
       <span class="c">${escapeHtml(secTitle(sec))}</span>
       <span class="e">Section ${sec}</span></div>
     <div class="r"><span>${escapeHtml(h.doc_title || '')}</span>
+      <span class="c"></span>
       <span class="e">Page ${page}</span></div>
-    <div class="r"><span>${escapeHtml(where)}</span>
+    <div class="r rule"><span>${escapeHtml(where)}</span>
+      <span class="c"></span>
       <span class="e">${proj ? 'Project #: ' + escapeHtml(proj) : ''}</span></div>
   </div>`;
 };
@@ -578,7 +584,11 @@ function paginate() {
     host.innerHTML = '<div class="page"><div class="empty-state">Nothing to show.</div></div>';
     return;
   }
-  const USABLE = (11 - 1 - 0.4) * 96;
+  /* Page budget from the Word file's sectPr: 11in tall, top 1.62in, bottom
+     0.4in. This was hardcoded to a 1in top while the page CSS said 1.62in,
+     so every page was laid out 0.62in taller than it really was and the last
+     lines ran off the bottom edge. */
+  const USABLE = (11 - 1.62 - 0.4) * 96;
   let page = null, used = 0, pageNo = 0;
 
   const newPage = (sec) => {
