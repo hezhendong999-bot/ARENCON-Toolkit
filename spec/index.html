@@ -137,6 +137,11 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .pg-head .r .c{text-align:center}
 .pg-head .r .e{text-align:right}
 .pg-head .r.rule{border-bottom:.75pt solid #000;padding-bottom:2pt}
+/* Placeholders occupy the same space at the same size as a real value — only
+   the colour differs — so filling a field never reflows the header. Grey and
+   italic reads as "not yet entered" at a glance and cannot be mistaken for a
+   real project number on a printed page. */
+.pg-head .ph{color:#928E9C;font-style:italic}
 .sec-title{font-weight:700;margin:0 0 0 0}
 .eos{font-weight:700;text-align:center;margin:0}
 /* ladder: each level's NUMBER starts where its parent's TEXT starts */
@@ -413,20 +418,29 @@ const HEAD_HTML = (sec, page) => {
      so the centre tab (para 1) and the right tabs (all three) land where
      Word's tab stops put them. Rows 2 and 3 leave the centre cell empty,
      exactly as those paragraphs have no centre tab. The rule is on row 3
-     only. No date anywhere — the file has none. */
-  const who = h.client || 'Master Content';
+     only. No date anywhere — the file has none.
+
+     UNFILLED FIELDS SHOW THE TEMPLATE, NOT NOTHING. Collapsing a blank field
+     hid two of the three rows, so the header looked like a different header
+     rather than an empty one — you could not see the format you were filling
+     in. Placeholders are drawn in the same position and size as real values
+     but greyed, so the shape is honest AND nobody mistakes 0000.00 A01 for a
+     real project number on an issued document. */
+  const ph = (v, tpl) => v
+    ? escapeHtml(v)
+    : `<span class="ph">${escapeHtml(tpl)}</span>`;
   const where = [h.site, h.city].filter(Boolean).join(', ');
   const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
   return `<div class="pg-head">
-    <div class="r"><span>${escapeHtml(who)}</span>
+    <div class="r"><span>${ph(h.client, 'Client Name')}</span>
       <span class="c">${escapeHtml(secTitle(sec))}</span>
       <span class="e">Section ${sec}</span></div>
-    <div class="r"><span>${escapeHtml(h.doc_title || '')}</span>
+    <div class="r"><span>${ph(h.doc_title, 'Project Specification Title')}</span>
       <span class="c"></span>
       <span class="e">Page ${page}</span></div>
-    <div class="r rule"><span>${escapeHtml(where)}</span>
+    <div class="r rule"><span>${ph(where, 'Site Address, City, Province')}</span>
       <span class="c"></span>
-      <span class="e">${proj ? 'Project #: ' + escapeHtml(proj) : ''}</span></div>
+      <span class="e">Project #: ${ph(proj, '0000.00 A01')}</span></div>
   </div>`;
 };
 
