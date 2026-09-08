@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202609080415';
+var CACHE_NAME = 'arencon-frt-202609081130';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -289,6 +289,74 @@ var CDN_ASSETS = [
 ];
 
 // Install — precache app shell + CDN assets
+/* ═══ S727 — WHY A NEW WORKER COULD NEVER FINISH INSTALLING ══════════════════
+   8 Sep 2026: a machine kept booting Electric E004 through repeated hard
+   refreshes while the origin served E007. GitHub Pages had built cleanly and
+   all 226 precached files existed. The install was aborting.
+
+   That abort is CORRECT and stays (see S718d below): if any app file cannot be
+   downloaded, the new worker is discarded and the device keeps its last
+   complete build rather than a half-downloaded one. What was wrong is what
+   made the downloads fail in the first place:
+
+     · ALL 226 files were fetched AT ONCE, every one with cache:'reload' so
+       none could be served from the HTTP cache. That is a 226-request burst at
+       the origin from a standing start. Pages throttles it, a phone on one bar
+       drops part of it, and any single casualty fails the whole install.
+     · A failed fetch was FINAL. One dropped response — the most ordinary thing
+       on a field connection — cost the entire update, and the next visit
+       repeated the same burst with the same result. A device could sit a build
+       behind indefinitely and nothing on screen ever said so.
+
+   So: bound the burst, and retry a file before giving up on it. Both changes
+   make the download SUCCEED more often. Neither weakens the guarantee — if a
+   file still cannot be fetched after its retries, appFailures is populated
+   exactly as before and the install still aborts.
+
+   Deliberately NOT done: falling back to the HTTP cache on the last attempt.
+   That is how a "new" cache gets filled with old bodies (S622i), and it would
+   trade a device stuck on a known-good old build for a device running a build
+   that silently mixes two. Stuck and honest beats live and mixed. */
+var PRECACHE_MAX_PARALLEL = 6;   /* concurrent origin requests during install */
+var PRECACHE_TRIES        = 3;   /* attempts per file before it counts failed */
+var _pcActive = 0;
+var _pcQueue  = [];
+
+function _pcSlot() {
+  /* Resolves when a download slot is free. Every acquire is matched by exactly
+     one _pcRelease() in a finally-equivalent below, or the queue stalls and the
+     install hangs forever — worse than failing. */
+  if (_pcActive < PRECACHE_MAX_PARALLEL) { _pcActive++; return Promise.resolve(); }
+  return new Promise(function(res) { _pcQueue.push(res); });
+}
+function _pcRelease() {
+  var next = _pcQueue.shift();
+  if (next) { next(); } else { _pcActive--; }
+}
+
+/* Fetch one precache URL: bounded concurrency, bypassing the HTTP cache, with
+   a short backoff between attempts. Rejects only after every attempt has been
+   spent, so the caller's failure handling is unchanged. */
+function precacheFetch(url) {
+  return _pcSlot().then(function() {
+    var attempt = 0;
+    function go() {
+      attempt++;
+      return fetch(new Request(url, { cache: 'reload' })).then(function(resp) {
+        if (!resp || !resp.ok) throw new Error('HTTP ' + (resp && resp.status));
+        return resp;
+      }).catch(function(err) {
+        if (attempt >= PRECACHE_TRIES) throw err;
+        /* 400ms, then 800ms. Long enough to clear a throttle, short enough
+           that a full install does not outlast the user's patience. */
+        return new Promise(function(r) { setTimeout(r, 400 * attempt); }).then(go);
+      });
+    }
+    return go().then(function(resp) { _pcRelease(); return resp; },
+                     function(err)  { _pcRelease(); throw err; });
+  });
+}
+
 self.addEventListener('install', function(e) {
   e.waitUntil(
     caches.open(CACHE_NAME).then(function(cache) {
@@ -308,7 +376,7 @@ self.addEventListener('install', function(e) {
            bodies. The pill honestly said an update existed; tapping it reloaded
            the same old app out of the "new" cache until the CDN expired.
            cache:'reload' forces every precached body to come from the origin. */
-        return fetch(new Request(url, { cache: 'reload' })).then(function(resp) {
+        return precacheFetch(url).then(function(resp) {
           if (!resp || !resp.ok) throw new Error('HTTP ' + (resp && resp.status));
           return cache.put(url, resp);
         }).catch(function(err) {
