@@ -31,6 +31,7 @@ import { seedLedger, record as recordVersion, currentVersion as ledgerTip,
          issueTarget as ledgerIssueTarget, revertPlan as ledgerRevertPlan,
          remove as ledgerRemove, nextDraft as ledgerNextDraft,
          parseVersion as ledgerParse } from './data/versionSeq.js';
+import { renderVersionNav } from './ui/versionNav.js';
 import { wordsDigest } from './data/reportWords.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
@@ -1131,6 +1132,12 @@ function _updateHeaderForProject() {
   if (pb) pb.classList.add('visible');
   var pbFn = document.getElementById('pb-filename');
   if (pbFn) pbFn.textContent = Model.getSmartFilename();
+  /* S726 — the version navigator draws from the same moment the header does.
+     Display only; it reads the ledger and writes nothing. Wrapped because a
+     failure here must never cost the header. */
+  try { renderVersionNav(proj, (proj.info && proj.info.revision) || 'A01'); }
+  catch (_vn) { try { console.warn('[S726 nav]', _vn); } catch (_e) {} }
+
   var pbBadge = document.getElementById('pb-badge');
   if (pbBadge) {
     var rev = (proj.info && proj.info.revision) || 'A01';
@@ -3342,7 +3349,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S725';
+var FRT_BUILD = 'S726';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.

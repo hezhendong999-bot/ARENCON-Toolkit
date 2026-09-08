@@ -13,7 +13,7 @@
 <title>ARENCON — Field Review Tool</title>
 <!-- S331 #auth: universal sign-in gate. Must load FIRST. -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="css/frt.css?v=745">
+<link rel="stylesheet" href="css/frt.css?v=746">
 <script>
 // Service Worker registration — network-first HTML, cache-first CDN assets
 if('serviceWorker' in navigator){
@@ -228,6 +228,11 @@ function ensurePdfJs(cb){
     <div class="nav-tab" data-tab="deficiencies">Deficiencies</div>
     <div class="nav-tab" data-tab="photos">Photos</div>
   </div>
+
+  <!-- ═══ VERSION NAVIGATOR (S726) ═══
+       §11 of the versioning ruling. Renders itself; hides entirely when a
+       report has fewer than two revisions, which is the common field case. -->
+  <div class="version-nav" id="version-nav" style="display:none;"></div>
 </div>
 
 <!-- ═══ MOBILE MENU OVERLAY ═══ -->

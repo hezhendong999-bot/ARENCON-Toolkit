@@ -11881,3 +11881,26 @@ body.frt-issued-ro [data-action="closed-note"]{
   resize:none !important;
   cursor:default;
 }
+
+/* ═══ VERSION NAVIGATOR — S726 ══════════════════════════════════════════
+   Approved: DEMO_version_navigator_v5_S726.html, per §11.
+   Sits directly under .section-nav and belongs to the same bar family — one
+   shade behind the tab bar so it reads as chrome, not as a new component.
+   Every size rides var(--ts) so the text-size control moves it. */
+.version-nav{background:var(--b-chrome-bg);border-bottom:1px solid var(--b-bar-rule);padding:0 14px;}
+.version-nav .ver-row{display:flex;align-items:center;gap:6px;overflow-x:auto;scrollbar-width:none;min-height:42px;padding:4px 0;}
+.version-nav .ver-row::-webkit-scrollbar{display:none;}
+.version-nav .ver-row + .ver-row{border-top:1px solid var(--b-bar-rule);}
+.version-nav .ver-lab{font-size:calc(10.5px + var(--ts));letter-spacing:.6px;text-transform:uppercase;font-weight:700;color:var(--b-chrome-fg);opacity:.45;padding-right:8px;white-space:nowrap;}
+.version-nav .vchip{display:inline-flex;align-items:center;gap:5px;font-family:Calibri,sans-serif;font-size:calc(12.5px + var(--ts));font-weight:600;color:var(--b-chrome-fg);background:transparent;border:1.5px solid var(--b-bar-rule);border-radius:6px;padding:0 11px;height:32px;white-space:nowrap;transition:all .15s;}
+.version-nav button.vchip{cursor:pointer;font-family:Calibri,sans-serif;}
+.version-nav button.vchip:hover{border-color:var(--arencon);color:var(--arencon);}
+.version-nav .vchip.active{background:var(--arencon);border-color:var(--arencon);color:#fff;}
+.version-nav .vchip.live{border-color:var(--yes);color:var(--yes);}
+.version-nav .vchip.live.active{background:var(--yes);border-color:var(--yes);color:#fff;}
+.version-nav .vchip.fold{opacity:.6;font-weight:400;}
+.version-nav .vchip .lk{font-size:calc(10.5px + var(--ts));opacity:.8;}
+.version-nav .vtag{font-size:calc(10px + var(--ts));font-weight:700;padding:1px 6px;border-radius:4px;background:#E3F2FD;color:#0277BD;}
+body.dark-mode .version-nav .vtag{background:#071525;color:#4FC3F7;}
+.version-nav .vchip.active .vtag{background:rgba(255,255,255,.2);color:#fff;}
+@media(pointer:coarse){.version-nav button.vchip:hover{border-color:var(--b-bar-rule);color:var(--b-chrome-fg);}}
