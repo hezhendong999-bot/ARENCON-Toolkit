@@ -148,6 +148,44 @@ for (const [global, file] of [
   });
 }
 
+/* S728 — the eight engines that used to sit in UNCOVERED_KNOWN. They were
+   called "factory engines" but every one of them assigns a plain API
+   object onto window (MarkupPolyline.create, MarkupSelection.install,
+   LightboxShell.build …) and the hosts call members on THAT object — so
+   the plain treatment is exactly right: the surface is the global and the
+   handles are the global name. What differs is the hosts: Lane A's drawing
+   viewer and lightbox, both pump tools, the old single-file Diesel, and two
+   lib/ui engines (deficiencies, flowPhotoModal) that are hosts of these
+   even though they are engines themselves. A member a host calls that the
+   engine never returns fails here for every one of them, same as the
+   checklist donut would have. */
+const MARKUP_HOSTS = DIESEL_HOSTS.concat([
+  'frt/js/viewer/markupEngine.js', 'frt/js/viewer/markup.js',
+  'frt/js/viewer/markupSelBridge.js', 'frt/js/ui/lightbox.js',
+  'lib/ui/deficiencies.js', 'lib/ui/flowPhotoModal.js', 'lib/ui/lightbox.js',
+  'diesel-app/index.html', 'electric-app/index.html',
+  'ARENCON_Diesel_Fire_Pump_Commissioning.html',
+]);
+for (const [global, file] of [
+  ['ArcPhoto',        'lib/data/photoMint.js'],
+  ['LightboxShell',   'lib/ui/lightbox.js'],
+  ['MarkupEraser',    'lib/ui/markupEraser.js'],
+  ['MarkupPolyline',  'lib/ui/markupPolyline.js'],
+  ['MarkupSelection', 'lib/ui/markupSelection.js'],
+  ['MarkupText',      'lib/ui/markupText.js'],
+  ['MarkupTools',     'lib/ui/markupTools.js'],
+  ['SigPad',          'lib/ui/signaturePad.js'],
+]) {
+  ENGINES.push({
+    name: global,
+    file,
+    global,
+    surface: (g) => g,
+    handles: [global, 'window.' + global],
+    hosts: MARKUP_HOSTS.filter((h) => h !== file),   // an engine is not its own host
+  });
+}
+
 console.log('\n═══ ENGINE SURFACE — do the hosts and the shared engines agree? ═══');
 console.log('source:', REPO, '\n');
 
@@ -219,13 +257,9 @@ const withApi = [];
 
 const covered = new Set(ENGINES.map((e) => e.file));
 const UNCOVERED_KNOWN = [
-  /* Markup, lightbox and photo-mint engines are FACTORY engines whose
-     hosts live in Lane A (frt/**), which this Lane C probe does not own.
-     They need their own rows with the right hosts and stub configs —
-     tracked, not excused indefinitely. */
-  'lib/data/photoMint.js', 'lib/ui/lightbox.js', 'lib/ui/markupEraser.js',
-  'lib/ui/markupPolyline.js', 'lib/ui/markupSelection.js',
-  'lib/ui/markupText.js', 'lib/ui/markupTools.js', 'lib/ui/signaturePad.js',
+  /* S728: emptied. The eight markup / lightbox / photo-mint / signature
+     engines are covered above (MARKUP_HOSTS rows). If a new shared engine
+     appears it lands here as a failure until it gets a row. */
 ];
 const newlyUncovered = withApi
   .filter((f) => !covered.has(f) && !UNCOVERED_KNOWN.includes(f)).sort();
