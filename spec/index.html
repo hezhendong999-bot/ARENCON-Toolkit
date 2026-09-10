@@ -78,16 +78,8 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .dochdr-btn:hover{border-color:var(--brand)}
 .dochdr-btn .miss{display:block;font-weight:400;font-size:9.5pt;color:var(--warn);margin-top:3px}
 .dochdr-btn .set{display:block;font-weight:400;font-size:9.5pt;color:var(--ink3);margin-top:3px}
-/* Form grid for the Document details panel. Two columns on a desktop screen,
-   one on anything narrow — the panel is reachable from a tablet too. */
-.dh-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
-.dh-grid .wide{grid-column:1 / -1}
-.dh-f label{display:block;font-size:9.5pt;color:var(--ink2);margin-bottom:4px}
-.dh-f input{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
-  background:var(--surface);color:var(--ink);font:11pt Calibri,sans-serif}
-.dh-f input:focus{outline:none;border-color:var(--brand)}
-.dh-f .hint{font-size:9pt;color:var(--ink3);margin-top:4px}
-@media (max-width:640px){.dh-grid{grid-template-columns:1fr}}
+/* Document details form CSS: DELETED (S11). The form is the dialog engine's
+   own form family, styled inside its shadow root. Nothing here could reach it. */
 .edge{position:absolute;top:8px;z-index:5;width:22px;height:34px;border:1px solid var(--line);
       background:var(--surface2);color:var(--ink3);cursor:pointer;border-radius:6px;font-size:11px;line-height:1}
 .rail .edge{right:-1px;border-radius:6px 0 0 6px}
@@ -186,7 +178,7 @@ body[data-rail="fold"] .rail .railhead{display:none}
 /* ladder: each level's NUMBER starts where its parent's TEXT starts */
 .ln{display:grid;align-items:start;column-gap:0;padding:0}
 .ln .num{font-variant-numeric:tabular-nums}
-.ln .tx{min-width:0}
+.ln .tx{min-width:0;min-height:13.4pt}   /* an empty row (just inserted) keeps one line so it can be reached */
 .ln[data-lvl="1"]{grid-template-columns:.5in minmax(0,1fr);margin-left:0}
 .ln[data-lvl="2"]{grid-template-columns:.5in minmax(0,1fr);margin-left:.5in}
 .ln[data-lvl="3"]{grid-template-columns:.5in minmax(0,1fr);margin-left:1in}
@@ -214,7 +206,7 @@ body[data-rail="fold"] .rail .railhead{display:none}
 .spec-tbl td.h{font-weight:700;text-decoration:underline}
 .spec-tbl td.l{text-align:left}
 .blank{height:13.4pt}   /* one empty Word paragraph = one line */
-.tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff}
+.tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff;min-height:13.4pt}
 .edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px .5in}
 .edhint kbd{font:9pt ui-monospace,Consolas,monospace;background:#eceaf0;border:1px solid #d6d2dc;border-radius:4px;padding:0 4px}
 .empty-state{color:var(--ink3);text-align:center;padding:60px 20px}
@@ -227,6 +219,16 @@ body[data-rail="fold"] .rail .railhead{display:none}
       border-radius:10px;padding:10px 12px;font-size:10pt}
 .hist{font-size:10pt;color:var(--ink2);padding:5px 0;border-top:1px solid var(--line)}
 .hist b{color:var(--ink);font-weight:600}
+/* Clause actions. Quiet chip-like buttons on the panel surface; semantic colour
+   only where the action carries meaning (approve = ok, delete = fail). Brand
+   burgundy is deliberately absent — nothing here is the page's primary CTA. */
+.acts{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:4px}
+.act{font:10pt Calibri,sans-serif;color:var(--ink);background:var(--surface2);border:1px solid var(--line);
+     border-radius:8px;padding:6px 10px;cursor:pointer;line-height:1.1}
+.act:hover{border-color:var(--ink3);background:var(--b-chrome-hover)}
+.act.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.act.danger{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 45%,transparent);background:color-mix(in srgb,var(--fail) 10%,transparent)}
+@media (pointer:coarse){.act{padding:10px 12px}}
 
 /* overlays */
 .veil{position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center}
@@ -329,6 +331,13 @@ const sb = (() => {
     upsert: (table, row) => rest(table, { method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
       body: JSON.stringify(row) }).then(() => true),
+    /* Postgres function call. Every structural edit to the clause tree — insert,
+       delete, move, approve — goes through one of these so the renumbering of
+       the section and the history record land in the SAME transaction. Doing
+       it as a chain of PATCHes from the browser leaves a half-moved section
+       behind if the tab closes between calls. */
+    rpc: (fn, args) => rest(`rpc/${fn}`, { method: 'POST',
+      body: JSON.stringify(args || {}) }).then(r => r.body),
   };
 })();
 
@@ -539,49 +548,42 @@ function renderDocHdrBtn() {
 
 async function docHeaderScreen() {
   /* The dialog engine is the toolkit's ONLY dialog. No confirm(), no alert(),
-     and no per-tool lookalike panel. */
+     and no per-tool lookalike panel.
+
+     S11 fix: this used to be a panel filled with the host's own <label>/<input>
+     markup. The engine renders inside a shadow root, so none of the host's
+     form CSS ever reached it and the panel arrived as raw browser defaults —
+     inline labels, unstyled boxes, hints as bare text. The engine has a form
+     family for exactly this; the host now DELETES its own form and calls it.
+     The example values became placeholders, which is where they belong. */
   const { Dlg } = await import('../lib/ui/dialogEngine.js');
   const h = Object.assign({}, state.header || {});
-  const field = ([key, label, hint, cls]) => `
-    <div class="dh-f ${cls}"><label for="dh-${key}">${label}</label>
-      <input id="dh-${key}" type="text" value="${escapeHtml(h[key] || '')}">
-      ${hint ? `<div class="hint">${hint}</div>` : ''}</div>`;
-  Dlg.panel({
-    title: 'Document details', icon: '¶', accent: 'slate', width: 720,
-    build(bd) {
-      bd.innerHTML = `<div class="dh-grid">
-        ${DH_FIELDS.map(field).join('')}
-        <div class="dh-f"><label for="dh-issue_date">Date of issuance</label>
-          <input id="dh-issue_date" type="date" value="${escapeHtml(h.issue_date || '')}">
-          <div class="hint">Defaults to today — click to pick a date.</div></div>
-      </div>`;
+  const out = await Dlg.form({
+    title: 'Document details', icon: '¶', accent: 'slate', width: 560,
+    message: 'Entered once per job. Prints on the cover, the table of contents and every running page header.',
+    fields: [
+      ...DH_FIELDS.map(([key, label, hint]) =>
+        ({ key, label, type: 'text', value: h[key] || '', placeholder: hint.replace(/^e\.g\. /, '') })),
       /* type="date" is the browser's own calendar: it opens on click, it is
          reachable by keyboard, and it hands back an unambiguous YYYY-MM-DD
          rather than a typed string whose format we would have to guess. */
-    },
-    buttons: [
-      { label: 'Cancel', kind: 'cancel' },
-      { label: 'Save', kind: 'primary', async onClick(api) {
-          const patch = { scope: HDR_SCOPE(), updated_at: new Date().toISOString() };
-          DH_FIELDS.forEach(([k]) => {
-            const el = $('#dh-' + k, api.body); patch[k] = el ? el.value.trim() : '';
-          });
-          const d = $('#dh-issue_date', api.body);
-          patch.issue_date = (d && d.value) ? d.value : null;
-          try { patch.updated_by = state.me.id; } catch {}
-          try {
-            await sb.upsert('sg_doc_header', patch);
-            state.header = patch;
-            renderDocHdrBtn();
-            renderPage();          /* every page header reprints immediately */
-            setFresh(true);
-            msg('Document details saved.');
-            api.close();
-          } catch (e) { msg('Could not save — you may not have permission.', true); }
-          return false;            /* the panel closes on success, not on click */
-        } },
+      { key: 'issue_date', label: 'Date of issuance', type: 'date', value: h.issue_date || todayTor() },
     ],
+    submitText: 'Save',
   });
+  if (!out) return;
+  const patch = { scope: HDR_SCOPE(), updated_at: new Date().toISOString() };
+  DH_FIELDS.forEach(([k]) => (patch[k] = out[k] || ''));
+  patch.issue_date = out.issue_date || null;
+  try { patch.updated_by = state.me.id; } catch {}
+  try {
+    await sb.upsert('sg_doc_header', patch);
+    state.header = patch;
+    renderDocHdrBtn();
+    renderPage();          /* every page header reprints immediately */
+    setFresh(true);
+    msg('Document details saved.');
+  } catch (e) { msg('Could not save — you may not have permission.', true); }
 }
 
 function tableHtml(r) {
@@ -607,9 +609,9 @@ function tableHtml(r) {
      toc     "Table of Contents" centred 11pt with 0.25in after it, then the
              entries — a Word TOC field in the file, generated here.
 
-   Note the cover says "Project No:" while the running header says
-   "Project #:". That is what the file does; both are reproduced verbatim
-   rather than quietly harmonised. */
+   The source file said "Project No:" on the cover and "Project #:" in the
+   running header. Mark ruled (S11): "Project #:" everywhere. The cover now
+   follows the header; the Word file was the inconsistency. */
 const PH = (v, tpl) => v ? escapeHtml(v) : `<span class="ph">${escapeHtml(tpl)}</span>`;
 
 /* Split as a template literal so the address is never a harvestable
@@ -638,7 +640,7 @@ function coverHtml() {
       <div class="t">${PH(h.city, 'City, Province')}</div>
     </div>
     <div class="cover-prep">Prepared for:<br><br>${PH(h.client, 'Client Name')}</div>
-    <div class="cover-no">Project No: ${PH(h.project_no, '0000.00')}
+    <div class="cover-no">Project #: ${PH(h.project_no, '0000.00')}
       <small>${PH(h.revision, 'A01')}</small><br>
       ${PH(issueDateLong(h.issue_date), 'Date of Issuance')}</div>`;
 }
@@ -788,8 +790,38 @@ function renderInspector() {
   }
   const provText = { approved: 'Approved firm wording (7310.17)', carried: 'Carried from 7033.11 — not reviewed',
                      draft: 'Drafted — never reviewed', empty: 'No wording written' }[r.provenance];
+  /* The action bar is the on-paper editing surface. Every button here maps to
+     one atomic database function (see sb.rpc) or to the in-place editor, and
+     every one is hidden from anyone who cannot write the master — an inspector
+     sees the record, not a set of dead controls. Keyboard equivalents are
+     listed beside each so the inspector doubles as the cheat-sheet. */
+  const tools = !canEdit() ? '' : `
+    <div class="insp-h">Edit</div>
+    <div class="acts">
+      <button class="act" data-act="edit" title="Edit wording in place (Enter)">Edit wording</button>
+      ${r.provenance !== 'approved' && r.kind !== 'table'
+        ? `<button class="act ok" data-act="approve" title="Mark this wording as reviewed firm standard">Approve as-is</button>` : ''}
+    </div>
+    <div class="insp-h">Insert</div>
+    <div class="acts">
+      <button class="act" data-act="ins-after" title="New clause after this one, same level (Enter while editing)">Clause below</button>
+      <button class="act" data-act="ins-child" title="New clause one level under this one">Sub-clause</button>
+      <button class="act" data-act="ins-bullet" title="Bullet point under this clause">Bullet</button>
+      <button class="act" data-act="ins-para" title="Unnumbered paragraph under this clause">Paragraph</button>
+    </div>
+    <div class="insp-h">Move</div>
+    <div class="acts">
+      <button class="act" data-act="up" title="Move up (Alt+&uarr;)">&uarr; Up</button>
+      <button class="act" data-act="down" title="Move down (Alt+&darr;)">&darr; Down</button>
+      <button class="act" data-act="out" title="Promote one level (Shift+Tab)">&larr; Promote</button>
+      <button class="act" data-act="in" title="Demote one level (Tab)">&rarr; Demote</button>
+    </div>
+    <div class="acts">
+      <button class="act danger" data-act="delete" title="Delete this clause and everything under it (Delete)">Delete&hellip;</button>
+    </div>`;
   el.innerHTML = `
     <div class="insp-h">Clause</div><div class="mono">${r.id.slice(0, 8)}</div>
+    ${tools}
     <div class="insp-h">Provenance</div>
     <div><span class="pill ${r.provenance}">${provText}</span></div>
     <div class="insp-h">Lock</div>
@@ -798,6 +830,7 @@ function renderInspector() {
     ${r.spec_note ? `<div class="insp-h">Guidance</div><div class="note">${escapeHtml(r.spec_note)}</div>` : ''}
     <div class="insp-h">History</div><div id="hist" class="hist">Loading…</div>`;
   loadHistory(r.id);
+  $$('.act', el).forEach(b => (b.onclick = () => clauseAction(b.dataset.act, r.id)));
 }
 
 async function loadHistory(id) {
@@ -816,12 +849,15 @@ async function loadHistory(id) {
 /* ── editing on the page ─────────────────────────────────────────────── */
 function canEdit() { return ['admin', 'super_admin'].includes(state.role); }
 
-function startEdit(id) {
+function startEdit(id, fresh) {
   if (!canEdit()) { msg('Master wording is principals only.', true); return; }
   const row = $(`.ln[data-id="${id}"]`); if (!row) return;
   const tx = $('.tx', row);
   const rec = state.clauses.find(c => c.id === id);
-  state.editing = { id, before: rec.body };
+  /* fresh = a row inserted seconds ago with nothing typed yet. If the editor
+     is left with it still empty, the row is removed again rather than leaving
+     a blank line in the master. */
+  state.editing = { id, before: rec.body, fresh: !!fresh };
   tx.textContent = rec.body;
   tx.setAttribute('contenteditable', 'true');
   tx.focus();
@@ -829,7 +865,8 @@ function startEdit(id) {
   const sl = getSelection(); sl.removeAllRanges(); sl.addRange(rg);
   const hint = document.createElement('div');
   hint.className = 'edhint'; hint.id = 'edhint';
-  hint.innerHTML = '<kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · <kbd>Esc</kbd> cancel';
+  hint.innerHTML = '<kbd>Enter</kbd> save &amp; new clause below · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · ' +
+    '<kbd>Esc</kbd> cancel · <kbd>Tab</kbd>/<kbd>Shift</kbd>+<kbd>Tab</kbd> demote/promote';
   row.after(hint);
 }
 
@@ -842,15 +879,22 @@ async function commitEdit(save) {
   if (!tx) return;
   const val = tx.textContent.trim();
   tx.removeAttribute('contenteditable');
+  const rec = state.clauses.find(c => c.id === e.id);
+  if (e.fresh && (!save || val === '')) {
+    /* Inserted, then abandoned empty — take it back out quietly. It never
+       held wording, so there is nothing to confirm. */
+    try { await sb.rpc('sg_clause_delete', { p_id: e.id }); await reloadSection(rec.section_id); }
+    catch (err) { msg('Could not remove the empty clause: ' + err.message, true); }
+    afterChange(null); return;
+  }
   if (!save || val === e.before) { renderPage(); return; }
 
-  const rec = state.clauses.find(c => c.id === e.id);
   try {
     await sb.update('sg_clause', `id=eq.${e.id}`, {
       body: val, provenance: 'approved', approved_by: state.me.id,
       approved_at: new Date().toISOString(), updated_at: new Date().toISOString() });
     await sb.insert('sg_clause_event', {
-      clause_id: e.id, section_code: currentCode(), action: 'edit',
+      clause_id: e.id, section_code: secCodeOf(rec), action: 'edit',
       before: { body: e.before, provenance: rec.provenance },
       after: { body: val, provenance: 'approved' }, actor: state.me.id });
   } catch (err) { msg('Not saved: ' + err.message, true); renderPage(); return; }
@@ -863,6 +907,96 @@ async function commitEdit(save) {
 }
 
 const currentCode = () => (state.sections.find(s => s.id === state.sectionId) || {}).code;
+const secCodeOf = (rec) => (state.sections.find(s => s.id === rec.section_id) || {}).code;
+
+/* ── structural editing ──────────────────────────────────────────────────
+   Insert, delete, move, approve. Each is ONE call to a database function that
+   changes the tree, renumbers the section and writes the history row inside a
+   single transaction. The browser never patches sort orders itself. */
+const NUMBERED = ['part', 'article', 'clause'];
+function depthOf(rec) {
+  let d = 1, p = rec.parent_id;
+  while (p) { const r = state.clauses.find(c => c.id === p); if (!r) break; d++; p = r.parent_id; }
+  return d;
+}
+function descendantsOf(id) {
+  const out = []; const walk = (pid) => state.clauses.filter(c => c.parent_id === pid)
+    .forEach(c => { out.push(c); walk(c.id); });
+  walk(id); return out;
+}
+
+/* After a structural change the server has renumbered the WHOLE section, so
+   the browser's copy of that section is stale as a set. Reload it rather than
+   patching one row and trusting the rest still line up. */
+async function reloadSection(sectionId) {
+  const fresh = await sb.select('sg_clause', `select=*&section_id=eq.${sectionId}&order=sort_order`);
+  state.clauses = state.clauses.filter(c => c.section_id !== sectionId).concat(fresh);
+  const sec = state.sections.find(s => s.id === sectionId);
+  if (sec) { const m = {}; fresh.forEach(c => (m[c.provenance] = (m[c.provenance] || 0) + 1)); sec._counts = m; }
+}
+
+function afterChange(id, note) {
+  state.sel = id || null;
+  renderRail(); renderPage(); renderInspector(); renderCounts(); setFresh(true);
+  const back = id && $(`.ln[data-id="${id}"]`);
+  if (back) back.scrollIntoView({ block: 'center' });
+  if (note) msg(note);
+}
+
+async function clauseAction(act, id) {
+  if (!canEdit()) { msg('Master wording is principals only.', true); return; }
+  const rec = state.clauses.find(c => c.id === id); if (!rec) return;
+  if (state.editing) await commitEdit(true);
+  try {
+    if (act === 'edit') { startEdit(id); return; }
+    if (act === 'approve') {
+      await sb.rpc('sg_clause_approve', { p_id: id });
+      await reloadSection(rec.section_id);
+      afterChange(id, 'Approved as firm wording.');
+      return;
+    }
+    if (act.startsWith('ins-')) {
+      const which = act.slice(4);                       // after | child | bullet | para
+      const mode = which === 'after' ? 'after' : 'child';
+      /* A sibling takes the anchor's kind; a sub-clause takes the numbered
+         kind for its depth (under a Part comes an Article); bullets and
+         paragraphs are what they say. */
+      const kind = which === 'after' ? rec.kind
+                 : which === 'child' ? (depthOf(rec) === 1 ? 'article' : 'clause')
+                 : which;
+      const row = await sb.rpc('sg_clause_insert', {
+        p_section: rec.section_id, p_anchor: id, p_mode: mode, p_kind: kind,
+        p_body: '', p_blank: kind === 'bullet' ? 0 : 1, p_indent: null });
+      await reloadSection(rec.section_id);
+      afterChange(row.id);
+      startEdit(row.id, true);                          // fresh: cancelling removes it again
+      return;
+    }
+    if (['up', 'down', 'in', 'out'].includes(act)) {
+      await sb.rpc('sg_clause_move', { p_id: id, p_op: act });
+      await reloadSection(rec.section_id);
+      afterChange(id);
+      return;
+    }
+    if (act === 'delete') { await deleteClause(rec); return; }
+  } catch (err) { msg('Not saved: ' + err.message, true); }
+}
+
+async function deleteClause(rec) {
+  const kids = descendantsOf(rec.id).length;
+  const { Dlg } = await import('../lib/ui/dialogEngine.js');
+  const ok = await Dlg.confirmDanger({
+    title: 'Delete clause',
+    message: kids ? `Delete this clause and the ${kids} item${kids > 1 ? 's' : ''} under it?`
+                  : 'Delete this clause?',
+    detail: 'Everything below it renumbers automatically.',
+    undoNote: 'The wording is kept in the clause history and is not lost, but there is no restore button yet — a principal would have to put it back.',
+    confirmText: 'Delete' });
+  if (!ok) return;
+  const n = await sb.rpc('sg_clause_delete', { p_id: rec.id });
+  await reloadSection(rec.section_id);
+  afterChange(null, `Deleted ${n} item${n > 1 ? 's' : ''}.`);
+}
 
 /* ── data ────────────────────────────────────────────────────────────── */
 async function loadSections() {
@@ -1124,13 +1258,42 @@ $('#pages').addEventListener('click', e => {
   if (state.sel === id) { startEdit(id); return; }
   state.sel = id;
   $$('.ln.sel').forEach(n => n.classList.remove('sel'));
-  row.classList.add('sel');
+  /* focusout may already have re-rendered the page under this click, so mark
+     the row that is on the page now, not the one the event was born on. */
+  ($(`.ln[data-id="${id}"]`) || row).classList.add('sel');
   renderInspector();
 });
+/* Keyboard editing. While typing: Enter saves and opens a new clause below,
+   Ctrl+Enter just saves, Esc cancels, Tab / Shift+Tab re-level, Alt+arrows
+   move. With a clause merely selected (nothing being typed, focus not in a
+   form field): Enter edits, Delete asks before deleting, and the same move keys
+   work — so a principal can walk a section with the keyboard alone. */
 document.addEventListener('keydown', e => {
   if (state.editing) {
-    if (e.key === 'Escape') { e.preventDefault(); commitEdit(false); }
-    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(true); }
+    const id = state.editing.id;
+    if (e.key === 'Escape') { e.preventDefault(); commitEdit(false); return; }
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(true); return; }
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      commitEdit(true).then(() => state.clauses.find(c => c.id === id) && clauseAction('ins-after', id));
+      return;
+    }
+    if (e.key === 'Tab') { e.preventDefault(); clauseAction(e.shiftKey ? 'out' : 'in', id); return; }
+    if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault(); clauseAction(e.key === 'ArrowUp' ? 'up' : 'down', id);
+    }
+    return;
+  }
+  if (!state.sel || !canEdit()) return;
+  if (document.querySelector('[data-arencon-dialog], .veil')) return;   /* a dialog owns the keys */
+  if (e.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+  if (e.target.closest('#spec-header')) return;
+  const id = state.sel;
+  if (e.key === 'Enter') { e.preventDefault(); startEdit(id); return; }
+  if (e.key === 'Delete') { e.preventDefault(); clauseAction('delete', id); return; }
+  if (e.key === 'Tab') { e.preventDefault(); clauseAction(e.shiftKey ? 'out' : 'in', id); return; }
+  if (e.altKey && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    e.preventDefault(); clauseAction(e.key === 'ArrowUp' ? 'up' : 'down', id);
   }
 });
 document.addEventListener('focusout', e => {
