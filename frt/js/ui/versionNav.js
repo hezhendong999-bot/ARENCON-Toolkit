@@ -43,7 +43,14 @@ function _group(entries) {
   entries.forEach(function (e) {
     var p = parseVersion(e.v);
     if (!p) return;
-    var key = p.issued ? e.v : (p.onIssue || p.letter + String(p.major));
+    /* A pre-issue draft (A01, A02) has no B above it. It is its own chip —
+       S726b: the first build invented a parent key ("A1") and then DREW the
+       key as though it were a version. There is no A1. */
+    if (p.letter === 'A') {
+      groups.push({ key: e.v, issued: false, drafts: [], standalone: true });
+      return;
+    }
+    var key = p.issued ? e.v : p.onIssue;
     if (!byKey[key]) {
       byKey[key] = { key: key, issued: false, drafts: [], records: 0 };
       groups.push(byKey[key]);
@@ -92,6 +99,7 @@ function _esc(s) {
    window.Model in this app, so the fold button re-renders from these instead of
    reaching for a global that does not exist. */
 var _openGroup = null;
+var _openFor = null;
 var _lastProj = null;
 var _lastCurrent = '';
 
@@ -104,16 +112,28 @@ export function renderVersionNav(proj, current) {
 
   var entries = _liveEntries(proj && proj.versions);
 
-  /* §11: collapses to nothing when there is only one revision — the common
-     field case. An inspector on a first visit must not lose a strip of tablet
-     height to a control with nothing in it. */
-  if (entries.length < 2) { mount.style.display = 'none'; return; }
+  /* S726b — Mark's ruling (10 Sep): the strip is always present and always
+     shows the current revision, even when that is all there is. A predictable
+     fixed band beats a control you have to hunt for. The §11 hide-at-one rule
+     is superseded by this ruling. */
+  if (!entries.length) {
+    /* A project from before the ledger existed has no history yet. The tool's
+       own accessor would create one on first touch; this is display, so we
+       derive the same single entry WITHOUT writing it. */
+    var seedV = parseVersion(current) ? current : 'A01';
+    entries = [{ v: seedV, issued: !!(parseVersion(seedV) || {}).issued, inferred: true }];
+  }
   mount.style.display = '';
 
   var groups = _group(entries);
+  /* The open group ALWAYS follows the current revision when the revision
+     changes. A fold tap can open another group until the next change.
+     S726b: the first build decided this once and never again, so it stuck on
+     whatever it saw first and hid the live draft behind a "⋯1". */
+  if (_openFor !== current) { _openFor = current; _openGroup = null; }
   if (!_openGroup) {
     var curP = parseVersion(current);
-    _openGroup = curP ? (curP.issued ? current : (curP.onIssue || null)) : null;
+    _openGroup = curP ? (curP.issued ? current : (curP.onIssue || current)) : null;
     if (!_openGroup && groups.length) _openGroup = groups[groups.length - 1].key;
   }
 
@@ -125,11 +145,15 @@ export function renderVersionNav(proj, current) {
   row.appendChild(lab);
 
   groups.forEach(function (g) {
+    var isCur = (g.key === current);
+    if (g.standalone) {
+      row.appendChild(_chip(_esc(g.key), isCur ? 'live active' : ''));
+      return;
+    }
     var recs = g.issued ? _recordCount(proj, g.key) : 0;
     var txt = _esc(g.key);
     if (g.issued) txt += ' <span class="lk">\uD83D\uDD12</span>';
     if (recs > 1) txt += ' <span class="vtag">' + recs + '\u00D7</span>';
-    var isCur = (g.key === current);
     row.appendChild(_chip(txt, isCur ? 'active' : ''));
 
     if (g.key === _openGroup) {
