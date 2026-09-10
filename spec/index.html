@@ -773,6 +773,7 @@ function paginate() {
     front.appendChild(p);
   }
   host.insertBefore(front, host.firstChild);
+  state.toc = toc;   /* the Word export seeds its TOC field from this */
 }
 
 function renderPage() { paginate(); fitPage(); }
@@ -907,6 +908,32 @@ async function commitEdit(save) {
 }
 
 const currentCode = () => (state.sections.find(s => s.id === state.sectionId) || {}).code;
+
+/* ── Word export ─────────────────────────────────────────────────────────
+   The deliverable. Hands the SAME numbered rows the page renders from to the
+   Word engine (spec/js/docx.js), so what prints is what is on screen: same
+   numbering, same blank lines, same header fields. Nothing is re-derived. */
+async function exportWord() {
+  const { buildSpecDocx, specFileName } = await import('./js/docx.js');
+  const h = state.header || {};
+  const sections = activeSections().map(sec => ({ code: sec.code, title: sec.title,
+    rows: numbered(state.clauses.filter(c => c.section_id === sec.id)) }));
+  const blank = DH_FIELDS.filter(([k]) => !h[k]).length;
+  msg(blank ? `Building the Word file — ${blank} document detail${blank > 1 ? 's' : ''} still blank, placeholders will print.`
+            : 'Building the Word file…');
+  try {
+    const blob = await buildSpecDocx({
+      sections, header: h, toc: state.toc || [], logo: LOGO_SRC,
+      address: ['1551 CATERPILLAR ROAD, SUITE 206', 'MISSISSAUGA, ON  L4X 2Z6 CANADA', '',
+                'P: 905 615 1774', 'F: 905 615 9351', 'E: ' + MAIL] });
+    const name = specFileName(h);
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    msg('Word file ready — ' + name);
+  } catch (e) { msg('Word export failed: ' + e.message, true); }
+}
 const secCodeOf = (rec) => (state.sections.find(s => s.id === rec.section_id) || {}).code;
 
 /* ── structural editing ──────────────────────────────────────────────────
@@ -1354,6 +1381,7 @@ async function mountHeader() {
     logoSrc: LOGO_SRC,
     onBack: goBack,
     onImport: importScreen,
+    onWord: exportWord,
     onPublish: () => msg('Publishing arrives with the version navigator.'),
     onHelp: openHelp,
     /* Flip the HOST, then mirror — setTheme() already does both. */
