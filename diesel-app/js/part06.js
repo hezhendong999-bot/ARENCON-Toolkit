@@ -1044,23 +1044,18 @@ document.getElementById('global-file-input').addEventListener('change', function
 
   // 1. Flow test photos (PLD) — flagged via fi._target
   if(fi._target === '__flowtestpld') {
-    Array.from(files).forEach(function(f){
-      if(!f.type.startsWith('image/')) return;
-      const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); };
-      r.readAsDataURL(f);
-    });
+    /* S728: ONE creation path. _pfFlowTestPld (part06c) mints, enqueues the R2
+       upload so the cloud address is born with the photo, pushes and renders.
+       This site used to mint+push with no enqueue — a record that never learned
+       where its photo lives (the S722 blank-pointer cause). */
+    Array.from(files).forEach(function(f){ _pfFlowTestPld(f); });
     reset(); return;
   }
 
   // 2. Flow test photos (3-point) — flagged via currentPhotoId sentinel
   if(currentPhotoId === '__flowtest') {
-    Array.from(files).forEach(function(f){
-      if(!f.type.startsWith('image/')) return;
-      const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbs(); };
-      r.readAsDataURL(f);
-    });
+    /* S728: ONE creation path — see the PLD branch above. */
+    Array.from(files).forEach(function(f){ _pfFlowTest(f); });
     reset(); return;
   }
 

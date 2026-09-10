@@ -1138,11 +1138,9 @@ function triggerFlowTestCameraPld() {
 }
 function handleFlowTestDropPld(e) {
   e.preventDefault();
-  Array.from(e.dataTransfer.files).filter(f=>f.type.startsWith('image/')).forEach(f=>{
-    const r=new FileReader();
-    r.onload=ev=>{ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); };
-    r.readAsDataURL(f);
-  });
+  /* S728: ONE creation path — _pfFlowTestPld attaches the cloud address at
+     birth (S626 pattern). This drop handler used to mint+push without it. */
+  Array.from(e.dataTransfer.files).forEach(function(f){ _pfFlowTestPld(f); });
 }
 function renderFlowTestThumbsPld() {
   if(typeof _renderRecordZones==='function') _renderRecordZones();
@@ -1167,15 +1165,8 @@ function triggerFlowTestCamera() {
 function handleFlowTestDrop(e) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
-  Array.from(e.dataTransfer.files).forEach(f => {
-    if(!f.type.startsWith('image/')) return;
-    const r = new FileReader();
-    r.onload = ev => {
-      flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name));
-      renderFlowTestThumbs();
-    };
-    r.readAsDataURL(f);
-  });
+  /* S728: ONE creation path — see handleFlowTestDropPld. */
+  Array.from(e.dataTransfer.files).forEach(function(f){ _pfFlowTest(f); });
 }
 function renderFlowTestThumbs() {
   // Flow-chart photos now live as an evidence tile in 4a/4b; refresh those.

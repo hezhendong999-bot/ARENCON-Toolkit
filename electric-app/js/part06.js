@@ -41,7 +41,7 @@ const S3 = [
   { num:"3.6", text:"Confirm fire pump packing is dripping water with or without pump operation. If water is spraying everywhere, ask the contractor to tighten the packing but not too tight. Confirm the packing is installed with a drain discharge to a floor drain. Water drip should be approximately 1 drip per second." },
   { num:"3.7", text:"Constantly touch the pump housing to ensure the fire pump is not overheating during operation. Immediately terminate the pump test if it overheats." },
   { num:"3.8", text:"The automatic pump shut-off setting on the pump controller shall be unchecked (disabled)." },
-  { num:"3.9", text:"Confirm the following terminals are connected in the pump controller, and live test to ensure FACP receives minimum three signals: Pump running; Pump/controller/room trouble (combined via jumper wire); Controller main switch turned to off or manual position." },
+  { num:"3.9", text:"Confirm the remote signal terminals are connected in the pump controller, and live test to ensure the FACP receives each signal required by NFPA 20 Cl. 10.4.7.2: Pump or motor running; Loss of phase (any phase, pump running or at rest); Phase reversal; Controller connected to alternate power source (where an alternate source / transfer switch is provided). Where the controller combines trouble conditions on one common terminal via jumper wire, confirm the combined signal annunciates at the FACP as pump controller trouble." },
 ];
 
 const S4_items = [
@@ -1037,23 +1037,18 @@ document.getElementById('global-file-input').addEventListener('change', function
 
   // 1. Flow test photos (VFD) — flagged via fi._target
   if(fi._target === '__flowtestpld') {
-    Array.from(files).forEach(function(f){
-      if(!f.type.startsWith('image/')) return;
-      const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotosPld.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbsPld(); };
-      r.readAsDataURL(f);
-    });
+    /* S728: ONE creation path. _pfFlowTestPld (part06c) mints, enqueues the R2
+       upload so the cloud address is born with the photo, pushes and renders.
+       This site used to mint+push with no enqueue — a record that never learned
+       where its photo lives (the S722 blank-pointer cause). */
+    Array.from(files).forEach(function(f){ _pfFlowTestPld(f); });
     reset(); return;
   }
 
   // 2. Flow test photos (3-point) — flagged via currentPhotoId sentinel
   if(currentPhotoId === '__flowtest') {
-    Array.from(files).forEach(function(f){
-      if(!f.type.startsWith('image/')) return;
-      const r=new FileReader();
-      r.onload=ev=>{ flowTestPhotos.push(ArcPhoto.mint(ev.target.result,f.name)); renderFlowTestThumbs(); };
-      r.readAsDataURL(f);
-    });
+    /* S728: ONE creation path — see the PLD branch above. */
+    Array.from(files).forEach(function(f){ _pfFlowTest(f); });
     reset(); return;
   }
 
