@@ -1,8 +1,8 @@
 {
-  "generatedAt": "2026-09-09T10:03:00.304Z",
-  "rows": 72,
-  "photoPointers": 1718,
-  "uniqueUrls": 1262,
+  "generatedAt": "2026-09-10T09:59:07.204Z",
+  "rows": 73,
+  "photoPointers": 1782,
+  "uniqueUrls": 1324,
   "brokenCount": 23,
   "broken": [
     {
@@ -10,6 +10,17 @@
       "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
       "tool_key": "frt",
       "instance": 1,
+      "photoId": "dp_1774751677732_8dp5pw",
+      "r2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
+      "r2Url": "https://files.arencon.app/photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
+      "ctx": "ctr:ctr_1774406575672_3a9c:obs",
+      "status": "404"
+    },
+    {
+      "row_id": "d57441e3-9879-4401-b162-179b7889d3fa",
+      "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
+      "tool_key": "frt",
+      "instance": 2,
       "photoId": "dp_1774751677732_8dp5pw",
       "r2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
       "r2Url": "https://files.arencon.app/photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
@@ -238,17 +249,6 @@
     },
     {
       "row_id": "f8782eae-d766-4ee8-859e-17cd6a56a0ba",
-      "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
-      "tool_key": "frt",
-      "instance": 2,
-      "photoId": "dp_1774751677732_8dp5pw",
-      "r2Key": "photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
-      "r2Url": "https://files.arencon.app/photos/1490.04_Attic_Space_Sprinkler_Upgrade/frt/original/1490.04_defic_mnb5bqqz_o551.jpg",
-      "ctx": "ctr:ctr_1774406575672_3a9c:obs",
-      "status": "404"
-    },
-    {
-      "row_id": "d57441e3-9879-4401-b162-179b7889d3fa",
       "project_id": "7249121d-463e-416e-a3aa-643910f3f6a7",
       "tool_key": "frt",
       "instance": 2,
