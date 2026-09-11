@@ -29,13 +29,17 @@ const CONCURRENCY = 12;          // parallel HEAD/GET probes
 const PROBE_TIMEOUT_MS = 15000;
 
 /* S632 — known backlog of photo records saved with no pointer and no bytes.
-   39 flow-test photos on 7318.02 (both projects) and 7155.51; every one of
-   their objects was confirmed present in R2, so nothing is lost — the saved
-   records simply do not say where. The write-side cause is open against the
-   pump tools; the Hub reads them by rebuilding the address from the photo id.
-   DROP THIS TO 0 once the write side is fixed and the 39 records are repaired.
-   Leaving it here permanently would re-blind the sweep by a slower route. */
-const NO_POINTER_BASELINE = 39;
+   S728 CLOSED THE PUMP-TOOL HALF: the write-side cause (four flow-test photo
+   creation sites minting without an R2 enqueue) is fixed in both pump tools
+   and held by tools/sim/flowpointer.mjs; the 42 Diesel flow-test records were
+   repaired in place (r2Key/r2Url/r2Status written from the id-derived address
+   the sweep had already verified present in R2 — 7 rows, 5 projects, 0 lost).
+   WHAT REMAINS (7, all FRT, Lane A): 6 `drawings` records and 1 contractor-
+   thread deficiency photo whose address the sweep cannot rebuild from the id
+   ("no-address"). They are the baseline below — named, not hidden. DROP THIS
+   TO 0 once Lane A adjudicates those seven. Leaving a baseline here that is
+   larger than the known list would re-blind the sweep by a slower route. */
+const NO_POINTER_BASELINE = 7;
 
 function idOf(x){ return x && (x.id || x._id || null); }
 
