@@ -57,6 +57,23 @@ import { createRealtime } from './lib/data/realtime.js';           // S629: live
 import { merge3, applyResolutions, summarizeConflict } from './lib/data/merge.js';
 import * as Dlg from './lib/ui/dialogEngine.js';
 
+/* ── S728: ONE sync file for both pump tools ────────────────────────────────
+ * electric-app-sync.js was a byte copy of this file with the tool name changed
+ * in eleven places, kept in lockstep by hand. It is gone. The host declares its
+ * tool BEFORE this module loads:
+ *     <script>window.ARC_PUMP_TOOL = 'electric';</script>
+ * Anything else — including nothing at all — is Diesel, so live Diesel behaves
+ * byte-for-byte as it did. Every tool literal below reads TOOL / _toolBuild(). */
+const TOOL = (function () {
+  try { return (window.ARC_PUMP_TOOL === 'electric') ? 'electric' : 'diesel'; } catch (_) { return 'diesel'; }
+})();
+function _toolBuild(fallback) {
+  try {
+    const b = (TOOL === 'electric') ? window.ELECTRIC_BUILD : window.DIESEL_BUILD;
+    return (typeof b !== 'undefined') ? b : fallback;
+  } catch (_) { return fallback; }
+}
+
 /* ── Sync-only metadata DB (NEW — never touches ARENCON_DIESEL) ─────────── */
 /* S544: version 2 adds 'photoOutbox' — the bookkeeping store the shared photo
    engine needs. Upgrades here are additive-only (createIDB never touches an
@@ -204,7 +221,7 @@ function _applyCloudSilent(cloudState) {
     var _c100 = _pick100(cloudState), _l100 = _pick100(local);
     var _differs = !!(_c100 && _l100 && String(_c100.disch) !== String(_l100.disch));
     if (local && contentEquals(cloudState, local)) {
-      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      if (_differs) _diag('gate_blocked_apply', { cloud: _c100, screen: _l100, build: _toolBuild('?') });
       return;
     }
     // S25 EMPTY-CLOUD GUARD — never let a materially-empty cloud row
@@ -221,7 +238,7 @@ function _applyCloudSilent(cloudState) {
     w._applyLoadedState(JSON.stringify(merged));
     _noteFlowChanges(local, merged);   // S590: badge what this apply changed
     if (_differs) _diag('applied', { cloud: _c100, screen: _l100, applied: _pick100(merged),
-      build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') });
+      build: _toolBuild('?') });
   } catch (e) {
     console.warn('[DieselSync] silent apply failed:', e && e.message);
     /* S643 — the outer half of the same blindness. A throw HERE (the host
@@ -284,7 +301,7 @@ const model = {
  * their bytes in `.d` rather than `.dataUrl`. Uploading through R2Photos keeps
  * the token-refresh behaviour Diesel already relies on in the field. */
 const DieselR2 = {
-  TOOL_KEY: 'diesel',
+  TOOL_KEY: TOOL,
   get WORKER_URL() {
     try { return (window.R2Photos && window.R2Photos.WORKER_URL) || ''; } catch (_) { return ''; }
   },
@@ -293,11 +310,11 @@ const DieselR2 = {
     const R2P = window.R2Photos;
     if (!R2P || !projectId || !blob) return Promise.resolve(null);
     const fname = filename || R2P.generateFilename('heal');
-    return Promise.resolve(R2P.upload(projectId, 'diesel', type || 'original', fname, blob))
+    return Promise.resolve(R2P.upload(projectId, TOOL, type || 'original', fname, blob))
       .then(function () {
         return {
-          r2Key: 'photos/' + projectId + '/diesel/' + (type || 'original') + '/' + fname,
-          r2Url: R2P.getUrl(projectId, 'diesel', type || 'original', fname)
+          r2Key: 'photos/' + projectId + '/' + TOOL + '/' + (type || 'original') + '/' + fname,
+          r2Url: R2P.getUrl(projectId, TOOL, type || 'original', fname)
         };
       })
       .catch(function (e) {
@@ -381,14 +398,14 @@ const DieselJournal = createChangeJournal({
     };
   },
   whoami: function () { try { return (Auth.getUser && Auth.getUser().email) || ''; } catch (_) { return ''; } },
-  build:  function () { try { return window.DIESEL_BUILD || ''; } catch (_) { return ''; } },
-  tag: '[diesel]'
+  build:  function () { try { return _toolBuild('') || ''; } catch (_) { return ''; } },
+  tag: '[' + TOOL + ']'
 });
 try { window._dslJournal = DieselJournal; } catch (_) {}
 
 /* ── The shared engine instance ─────────────────────────────────────────── */
 const engine = createSync({
-  toolKey: 'diesel',
+  toolKey: TOOL,
   Auth: Auth,
   IDB: SyncIDB,
   model: model,
@@ -795,7 +812,7 @@ const CloudSync = (function () {
        screen, and retire the durable pending flag when nothing differs. */
     /* S599 — the engine reports each pull decision; forward it to the database. */
     engine.onDiag = function (event, detail) {
-      try { _diag(event, Object.assign({ build: (typeof DIESEL_BUILD!=='undefined'?DIESEL_BUILD:'?') }, detail || {})); }
+      try { _diag(event, Object.assign({ build: _toolBuild('?') }, detail || {})); }
       catch (_) {}
     };
 
@@ -1637,7 +1654,7 @@ const CloudSync = (function () {
      guessing. */
   function getSyncDiag() {
     var d = {
-      build: (typeof DIESEL_BUILD !== 'undefined') ? DIESEL_BUILD : 'unknown',
+      build: _toolBuild('unknown'),
       netUp: (navigator.onLine !== false),
       flagOnline: _online,
       user: null, tokenMinLeft: null,

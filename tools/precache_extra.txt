@@ -17,12 +17,9 @@ ARENCON_Diesel_Fire_Pump_Commissioning.html
 diesel-app/index.html
 electric-app/index.html
 # ^ Electric rebuild: the MODULAR Electric shell, same S499 rule — listed as a shell so a
-#   COLD device can open it with no signal. Its js/css come from the ENTRIES scan; its sync
-#   facade is electric-app-sync.js (below). NOT yet the Hub/portal target — direct URL only
-#   until Owner verifies on a tablet.
-electric-app-sync.js
-# ^ Electric rebuild's sync facade (temporary copy of diesel-sync.js). electric-sync.js
-#   further down is the OLD monolith's and stays until that monolith is retired.
+#   COLD device can open it with no signal. Its js/css come from the ENTRIES scan. Its sync
+#   facade is diesel-sync.js (S728: ONE file for both pump tools; the host sets
+#   window.ARC_PUMP_TOOL='electric' before loading it). Hub/portal target since E007.
 # ^ S499: the MODULAR Diesel shell. The Hub now points here, so this is what
 #   the field opens. Listed as a shell (like frt/index.html) so a COLD device
 #   with no prior visit can still open Diesel with no signal. The monolith

@@ -245,6 +245,7 @@ const PLUMBING_ALLOW = [
   ['ARENCON_DIESEL',    'IndexedDB database is SHARED on purpose; isolation comes from the record key, which must be electric_'],
   ['[DieselMarkup]',    'developer console tag, never rendered'],
   ['_dieselOrphanPurge','developer console hint naming a function, never rendered'],
+  ['diesel-sync.js', 'S728: the ONE pump-sync facade both tools load; the page sets window.ARC_PUMP_TOOL=electric first. Filename kept — Owner: no filename churn'],
 ];
 
 function stripComments(src, isHtml) {

@@ -123,7 +123,7 @@ const DIESEL_HOSTS = [
   'diesel-app/js/reportBindings.js', 'diesel-sync.js',
   /* Electric rebuild (branch electric-rebuild) — same engines, own storage */
   'electric-app/js/part06.js','electric-app/js/part06b.js','electric-app/js/part06c.js','electric-app/js/part06d.js',
-  'electric-app/js/pdfExport.js','electric-app/js/reportManifest.js','electric-app/js/reportBindings.js','electric-app-sync.js',
+  'electric-app/js/pdfExport.js','electric-app/js/reportManifest.js','electric-app/js/reportBindings.js',
   'ARENCON_Electric_Fire_Pump_Commissioning.html',
 ];
 
