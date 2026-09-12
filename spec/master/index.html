@@ -109,6 +109,14 @@ h2{font-size:12pt;font-weight:600;margin:24px 0 10px}
 .src.firm{color:var(--ink3);border-color:var(--line)}
 .src.code{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
 .src.insurer{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.std .sact{display:flex;align-items:center;gap:7px;align-self:start}
+.std .body{display:contents}
+.stdfold{margin:2px 0 16px}
+.stdfold>summary{cursor:pointer;color:var(--ink3);font-size:10pt;padding:6px 2px;list-style:none;user-select:none}
+.stdfold>summary::-webkit-details-marker{display:none}
+.stdfold>summary::before{content:'\25B8 ';display:inline-block;transition:transform .15s}
+.stdfold[open]>summary::before{transform:rotate(90deg)}
+.stdfold>summary:hover{color:var(--ink)}
 
 .co{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;
   border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--surface)}
@@ -238,16 +246,39 @@ const readOnlyNote = () => isPrincipal() ? '' :
   `<div class="mini" style="margin-bottom:14px">You can read everything here. Changes to the firm are made by the principals — propose one from inside a job and it will appear in their inbox.</div>`;
 
 function stdCard(s) {
-  return `<button class="std ${s.active ? '' : 'off'}" data-std="${s.id}">
+  return `<div class="std ${s.active ? '' : 'off'}" data-std="${s.id}" style="cursor:pointer">
     <span class="l1"><span class="desig">${esc(s.designation)}</span>
       <span class="ed ${s.edition ? '' : 'none'}">${s.edition ? esc(s.edition) : 'edition not set'}</span>
       ${s.province ? `<span class="chip mute">${esc(PROVN[s.province] || s.province)}</span>` : ''}
       ${s.insurer ? `<span class="chip mute">${esc(INSN[s.insurer] || s.insurer)}</span>` : ''}</span>
-    <span class="src ${s.source}">${s.source}</span>
+    <span class="sact"><span class="src ${s.source}">${s.source}</span>
+      ${isPrincipal() ? `<button class="btn sm" data-tstd="${s.id}">${s.active ? 'Remove' : 'Restore'}</button>` : ''}</span>
     ${s.title ? `<span class="ti">${esc(s.title)}</span>` : ''}
-  </button>`;
+  </div>`;
 }
-function wireStds(root) { $$('[data-std]', root).forEach(b => b.onclick = () => editStd(state.stds.find(s => s.id === b.dataset.std))); }
+function wireStds(root) {
+  $$('[data-std]', root).forEach(b => b.onclick = e => {
+    if (e.target.closest('[data-tstd]')) return;
+    editStd(state.stds.find(s => s.id === b.dataset.std));
+  });
+  $$('[data-tstd]', root).forEach(b => b.onclick = e => {
+    e.stopPropagation(); retireStd(state.stds.find(s => s.id === b.dataset.tstd));
+  });
+}
+
+async function retireStd(s) {
+  if (!isPrincipal() || !s) { if (!isPrincipal()) msg('Principals only.', true); return; }
+  if (s.active) {
+    const D = await Dlg();
+    const ok = await D.confirmDanger({ title: 'Remove this standard', message: `Remove \u201C${s.designation}\u201D from the firm master?`,
+      detail: 'It stops being cited on new jobs. Jobs that already carry it keep their own copy \u2014 nothing on an existing job changes.',
+      undoNote: 'It moves to the Removed list at the foot of this group. Restore it there in one tap \u2014 nothing is deleted.',
+      confirmText: 'Remove' });
+    if (!ok) return;
+  }
+  try { await sb.update('sg_standard', `id=eq.${s.id}`, { active: !s.active, updated_at: new Date().toISOString() });
+    await loadAll(); render(); msg(s.active ? 'Removed \u2014 it is in the Removed list.' : 'Restored.'); } catch (e) { fail(e); }
+}
 
 async function editStd(s, defaults) {
   if (!isPrincipal()) { msg('Principals only.', true); return; }
@@ -264,9 +295,9 @@ async function editStd(s, defaults) {
         options: [{ value: 'firm', label: 'Firm standard — every job with this system' },
                   { value: 'code', label: 'Code — depends on the province' },
                   { value: 'insurer', label: 'Insurer — depends on the insurer' }] },
-      { key: 'province', label: 'Province (code only)', type: 'select', value: s.province || '',
+      { key: 'province', label: 'Province — set this when it applies because of the code', type: 'select', value: s.province || '',
         options: [{ value: '', label: '—' }, ...Object.entries(PROVN).map(([v, l]) => ({ value: v, label: l }))] },
-      { key: 'insurer', label: 'Insurer (insurer only)', type: 'select', value: s.insurer || '',
+      { key: 'insurer', label: 'Insurer — set this when it applies because of the insurer', type: 'select', value: s.insurer || '',
         options: [{ value: '', label: '—' }, ...Object.entries(INSN).map(([v, l]) => ({ value: v, label: l }))] },
       { key: 'active', label: 'In use', type: 'select', value: s.active ? 'y' : 'n',
         options: [{ value: 'y', label: 'Yes' }, { value: 'n', label: 'No — kept for the record, not cited' }] },
@@ -417,17 +448,23 @@ function packageEditor(m) {
 function jobstds() {
   const m = $('#main'); const list = state.stds.filter(s => !s.package_id);
   const grp = k => list.filter(s => s.source === k);
-  const block = (title, items, note) => `<div class="head"><h2>${title}</h2></div>${items.length ? items.map(stdCard).join('') : '<div class="empty">None.</div>'}${note ? `<div class="mini">${note}</div>` : ''}`;
+  const P = isPrincipal();
+  const block = (title, items, note, kind, addLabel) => {
+    const live = items.filter(s => s.active), gone = items.filter(s => !s.active);
+    return `<div class="head"><h2>${title}</h2>${P ? `<button class="add" data-addk="${kind}">+ ${addLabel}</button>` : ''}</div>
+      ${live.length ? live.map(stdCard).join('') : '<div class="empty">None.</div>'}
+      ${gone.length ? `<details class="stdfold"><summary>Removed (${gone.length})</summary>${gone.map(stdCard).join('')}</details>` : ''}
+      ${note ? `<div class="mini">${note}</div>` : ''}`;
+  };
   m.innerHTML = `<div class="wrap"><h1>Whole-job standards</h1>
     <p class="sub">Cited on every job regardless of which systems it has: the building and fire codes by province, the insurer's requirements, and the firm's own standing references.</p>
     ${readOnlyNote()}
-    ${isPrincipal() ? `<div class="acts"><button class="add" id="addstd">+ Standard</button></div>` : ''}
-    ${block('By province', grp('code'), 'A job picks its province once and gets that province\u2019s set. Add a province by adding its codes here with that province selected.')}
-    ${block('By insurer', grp('insurer'), '')}
-    ${block('Firm — every job', grp('firm'), '')}
+    ${block('By province', grp('code'), 'A job picks its province once and gets that province\u2019s set. Add a province by adding its codes here with that province selected.', 'code', 'Code')}
+    ${block('By insurer', grp('insurer'), 'Only cited on a job whose insurer matches.', 'insurer', 'Insurer requirement')}
+    ${block('Firm — every job', grp('firm'), 'These are cited on every job, whatever systems it has. Anything that depends on the scope belongs on a system package instead.', 'firm', 'Firm standard')}
   </div>`;
   wireStds(m);
-  const a = $('#addstd', m); if (a) a.onclick = () => editStd(null, { package_id: null });
+  $$('[data-addk]', m).forEach(b => b.onclick = () => editStd(null, { package_id: null, source: b.dataset.addk }));
 }
 
 /* ── blanks ───────────────────────────────────────────────────────────── */
