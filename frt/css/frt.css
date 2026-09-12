@@ -11833,6 +11833,17 @@ body.frt-issued-ro [data-action="show-add-activity"],
 body.frt-issued-ro [data-action="crx-add-ctr"],
 body.frt-issued-ro [data-action="crx-add-new-trade"],
 body.frt-issued-ro [data-action="crx-add-prebuilt"],
+/* S728 — contractor-thread controls that act on an EXISTING entry. On an issued
+   report they can only refuse (there is nothing to carry to another report), so
+   they are hidden rather than left to argue with the tap. Respond / Add comment
+   deliberately STAY: a new comment is routed to the current report instead of
+   being lost, which is the whole point of the S728 ruling. */
+body.frt-issued-ro [data-action="crbt-remove"],
+body.frt-issued-ro [data-action="crbt-unlock"],
+body.frt-issued-ro [data-action="crbt-revert"],
+body.frt-issued-ro [data-action="crbt-restore"],
+body.frt-issued-ro [data-action="crbt-noreply"],
+body.frt-issued-ro [data-action="crbt-edit"],
 body.frt-issued-ro #defic-control-bar,
 body.frt-issued-ro #site-photo-upload,
 /* The markup rail: pen, shapes, text, dimension, select and pin placement all

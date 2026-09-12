@@ -13,7 +13,7 @@
 import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../data/model.js';
 import { Auth } from '../shared/auth.js'; // S728: nine call sites below asked Auth.getInitials() with no import — author was always null (confirmed in DB)
 import { toast } from '../shared/toast.js';
-import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
+import { showConfirm, showPrompt, showDialog, showAlert } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selection picker (B + C)
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark)
 import { R2 } from '../data/r2.js';
@@ -1417,6 +1417,139 @@ function _refreshPhotosTab() {
     }).catch(function () {});
   } catch (_) {}
 }
+
+/* ═══ S728 — CONTRACTOR THREAD ON AN ISSUED REPORT (Owner ruling: Option 4) ═══
+
+   THE BUG THIS CLOSES. An issued report is finished, and the cloud refuses to
+   accept any further change to it. But the contractor-thread controls stayed
+   live on screen — seven write actions with no issued check. An inspector could
+   type a contractor's answer, see "Comment added", and have it saved only to
+   that one tablet. The cloud push then stopped with "Issued — closed to edits"
+   in the header, nowhere near the comment they just typed. Next time that
+   device pulled a fresh copy, the comment was gone. Confirmed unexercised in
+   the database as of S728 — a trap, not yet a loss.
+
+   WHY ROUTING, NOT BLOCKING. The inspector is standing on site with something
+   the contractor actually said. Blocking throws that away and teaches people
+   the tool is in the way. The answer belongs on the CURRENT report, so the tool
+   takes them there.
+
+   WHY IT DOES NOT WRITE SIDEWAYS. The obvious build — quietly write into the
+   next report's record — is unsafe here. Starting a report makes a full COPY;
+   each report is its own row. With shared tablets and twenty staff, that row
+   may be open on another device which autosaves the whole record on a timer.
+   A blind write into a record someone else has loaded is how one of the two
+   copies disappears, with nobody seeing it happen. So: no cross-row writes.
+   The inspector is moved to the report, and the comment is saved by the normal
+   path, in the normal record, by the tool that has it loaded.
+
+   WHY ONLY NEW COMMENTS ROUTE. Remove, unlock, revert, restore and edit all act
+   on an entry that already exists in THIS report's history. Carrying those to a
+   different report is meaningless — there is nothing there to act on. Those
+   refuse and say why.
+
+   The pending comment rides across the page load in sessionStorage: it is one
+   line of text, it must not outlive the tab, and it must never reach the cloud.
+   Deficiency ids are identical across reports (the next report is a copy), so
+   the composer can be reopened on exactly the same item. */
+var _S728_PENDING = '_frtPendingThreadComment';
+
+// True when this report is issued. Reuses the single proven predicate
+// (app.js _s700IsIssued), never a second reading of the revision letter.
+function _s728Issued() {
+  try { return !!(window.FRT_ISSUED_LOCKED && window.FRT_ISSUED_LOCKED()); }
+  catch (_e) { return false; }
+}
+
+/* Called by every crbt-* write handler BEFORE it touches the model.
+   Returns true when the caller must stop. */
+function _s728BlockIfIssued(what) {
+  if (!_s728Issued()) return false;
+  showAlert('This report has been issued',
+    'FRT #' + ((Model.getProject() || {}).currentFrtInstance || '') + ' is closed, so ' +
+    what + ' cannot be changed here. The issued report is the record of what was ' +
+    'sent \u2014 to correct it, use Issue \u203a Revise.');
+  return true;
+}
+
+/* New-comment path. Stashes the typed text, then hands off to the SAME flow the
+   "Start FRT #n" button uses. That flow already opens an existing newer report
+   if a colleague made one, creates it if not, reports offline properly, and
+   navigates. Nothing here duplicates it. */
+function _s728RouteNewComment(deficId, obsIdx, replyTo, voice, text) {
+  var proj = Model.getProject() || {};
+  var cur = Number(proj.currentFrtInstance || 1) || 1;
+  showConfirm('This report has been issued',
+    'FRT #' + cur + ' is closed, so this comment cannot be saved to it.\n\n' +
+    'It belongs on the current report. Open it and continue typing there? ' +
+    'Your comment is kept.')
+    .then(function (yes) {
+      if (!yes) return;
+      try {
+        sessionStorage.setItem(_S728_PENDING, JSON.stringify({
+          deficId: deficId, obsIdx: obsIdx, replyTo: replyTo,
+          voice: voice, text: text, fromInstance: cur
+        }));
+      } catch (_s) {}   // a full sessionStorage must not block the move
+      try {
+        if (window._s700StartNextReport) { window._s700StartNextReport(); return; }
+      } catch (_e) {}
+      try { sessionStorage.removeItem(_S728_PENDING); } catch (_r) {}
+      showAlert('Cannot open the current report',
+        'The report builder did not load on this device. Reopen the report from ' +
+        'the Hub and add the comment there.');
+    });
+}
+
+/* After the move: reopen the composer on the same deficiency with the text back
+   in it. Runs once — the stash is cleared before the composer opens, so a
+   reload never re-fires it. Silent when there is nothing pending. */
+function _s728RestorePendingComment() {
+  var raw = null;
+  try { raw = sessionStorage.getItem(_S728_PENDING); } catch (_g) { return; }
+  if (!raw) return;
+  try { sessionStorage.removeItem(_S728_PENDING); } catch (_r) {}
+  var p = null;
+  try { p = JSON.parse(raw); } catch (_p) { return; }
+  if (!p || !p.text) return;
+  var proj = Model.getProject();
+  if (!proj) return;
+  // Only restore if we actually landed somewhere else.
+  if (Number(proj.currentFrtInstance || 1) === Number(p.fromInstance || 0)) return;
+  // The deficiency must exist here (it will — the report is a copy of the one
+  // the comment was typed on). If it does not, say so rather than lose the text.
+  if (!Model.findDeficiency(p.deficId)) {
+    showAlert('Comment could not be placed',
+      'The item this comment belongs to is not on this report. Your text:\n\n' + p.text);
+    return;
+  }
+  /* Reopen the composer by driving the SAME button an inspector would tap —
+     the composer is built relative to that element, so synthesising a click is
+     the only way to reuse the real path instead of copying it. */
+  var sel = '[data-action="crbt-addcomment"][data-defic-id="' + (window.CSS && CSS.escape ? CSS.escape(p.deficId) : p.deficId) + '"]';
+  var btn = null;
+  try { btn = document.querySelector(sel); } catch (_q) {}
+  if (!btn) {
+    showAlert('Comment carried over',
+      'Open the matching item\u2019s thread and paste this in:\n\n' + p.text);
+    return;
+  }
+  btn.click();
+  var ta = document.querySelector('.crbt-composer .crbt-ta');
+  if (!ta) {
+    showAlert('Comment carried over',
+      'Open the matching item\u2019s thread and paste this in:\n\n' + p.text);
+    return;
+  }
+  ta.value = p.text;
+  if (p.voice === 'c') {
+    var opt = document.querySelector('.crbt-composer .crbt-vopt[data-v="c"]');
+    if (opt) opt.click();
+  }
+  try { ta.focus(); } catch (_f) {}
+  toast('Comment carried over \u2014 review and post it');
+}
+window._frtRestorePendingComment = _s728RestorePendingComment;
 
 function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   _closePinPhotoPicker();
@@ -6203,6 +6336,9 @@ document.addEventListener('click', function(e) {
     var _sRound = parseInt(_sc.getAttribute('data-round') || '1', 10) || 1;
     var _sVoiceEl = _sc.querySelector('.crbt-vopt.crbt-von');
     var _sVoice = (_sVoiceEl && _sVoiceEl.getAttribute('data-v')) === 'c' ? 'c' : 'a';
+    // S728: an issued report cannot take a new comment. Carry it forward rather
+    // than lose it — see the router's note above.
+    if (_s728Issued()) { _s728RouteNewComment(_sDefic, _sObs, _sReply, _sVoice, _sTxt); return; }
     var _who = (typeof Auth !== 'undefined' && Auth.getInitials && Auth.getInitials()) || null;
     var _curInst = (Model.getProject() || {}).currentFrtInstance || 1;
     var _entry = null;
@@ -6239,6 +6375,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-remove') {
+    if (_s728BlockIfIssued('removing a comment')) return;   // S728
     // S476 (Mark, universal rule): every destructive action confirms first —
     // one modal tap, even though removal is soft and undoable.
     //
@@ -6279,6 +6416,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-unlock') {
+    if (_s728BlockIfIssued('unlocking a printed comment')) return;   // S728
     // S500: unlock a printed (frozen) comment so the record can be amended.
     // Deliberate, warned, and logged — never a silent edit of issued text.
     var _ulDefic = el.getAttribute('data-defic-id');
@@ -6304,6 +6442,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-revert') {
+    if (_s728BlockIfIssued('reverting a comment')) return;   // S728
     var _rvDefic = el.getAttribute('data-defic-id');
     var _rvObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
     var _rvId = el.getAttribute('data-entry-id');
@@ -6374,6 +6513,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-restore') {
+    if (_s728BlockIfIssued('restoring a comment')) return;   // S728
     var _rsE = Model.restoreThreadEntry(
       el.getAttribute('data-defic-id'),
       parseInt(el.getAttribute('data-obs-idx') || '0', 10),
@@ -6383,6 +6523,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-noreply') {
+    if (_s728BlockIfIssued('marking a round as no reply')) return;   // S728
     var _nrDefic = el.getAttribute('data-defic-id');
     var _nrObs = parseInt(el.getAttribute('data-obs-idx') || '0', 10);
     var _nrRound = parseInt(el.getAttribute('data-round') || '1', 10) || 1;
@@ -6446,6 +6587,7 @@ document.addEventListener('click', function(e) {
     return;
   }
   if (action === 'crbt-editsave') {
+    if (_s728BlockIfIssued('editing a comment')) return;   // S728
     var _esB = el.closest('.crbt-editbox'); if (!_esB) return;
     var _esTxt = (_esB.querySelector('.crbt-ta').value || '').trim();
     if (!_esTxt) { toast('Enter a comment'); return; }

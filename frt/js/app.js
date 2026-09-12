@@ -1195,6 +1195,17 @@ function _updateHeaderForProject() {
      Revert to Draft resolve, so it is the one place the review banner and the
      read-only state need to be recomputed. */
   try { _s700Refresh(); } catch (_e700) {}
+
+  /* S728 — if the inspector was carried here from an issued report because they
+     were part-way through a contractor comment, put the composer back with their
+     text in it. Deferred a tick so the deficiency list exists to hang it on.
+     Silent when nothing is pending, which is almost always. */
+  try {
+    setTimeout(function () {
+      try { if (window._frtRestorePendingComment) window._frtRestorePendingComment(); }
+      catch (_r728) {}
+    }, 400);
+  } catch (_t728) {}
 }
 
 // ── Cloud Sync (Hub Mode) ────────────────────────────────
@@ -1566,6 +1577,10 @@ function _s700Mount(mode) {
     '</div>';
   var b1 = document.getElementById('s700-start-next');
   if (b1) b1.addEventListener('click', _s700StartNextReport);
+  // S728: the contractor-thread router (deficiencies.js) reuses THIS flow rather
+  // than reimplementing it — it already handles the existing-newer-draft race,
+  // credentials, offline, and navigation. One implementation, not a copy.
+  window._s700StartNextReport = _s700StartNextReport;
   var b2 = document.getElementById('s700-issue-menu');
   if (b2) b2.addEventListener('click', function () { try { _issueReport(); } catch (_e) {} });
 }
