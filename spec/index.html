@@ -1382,6 +1382,7 @@ async function mountHeader() {
     onBack: goBack,
     onImport: importScreen,
     onWord: exportWord,
+    onMaster: () => { location.href = './master/'; },
     onPublish: () => msg('Publishing arrives with the version navigator.'),
     onHelp: openHelp,
     /* Flip the HOST, then mirror — setTheme() already does both. */
