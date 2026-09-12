@@ -1513,7 +1513,10 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       // blob first, then R2.upload under a fresh filename and repoint the copy's
       // r2Key/r2Url to its own object. On failure the copy keeps the source's
       // render URL (still visible) and retries on next sync.
-      if (res && res._needsOwnR2 && window.R2 && R2.upload) {
+      // S728: was `window.R2 && R2.upload` — R2 is a module import and has never
+      // lived on window, so this block never ran and every forced copy kept a
+      // borrowed reference to the source's bytes (one affected: 1490.04 d1, Jun 28).
+      if (res && res._needsOwnR2 && R2 && R2.upload) {
         var _pidCp = new URLSearchParams(window.location.search).get('project');
         if (_pidCp) {
           var _srcBytes = res.dataUrl
@@ -1522,7 +1525,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
           _srcBytes.then(function(blob){
             if (!blob) { console.warn('[Copy site->pin] no source bytes to copy — copy keeps source render URL'); return; }
             var _fn = 'defic_' + (res.id || Date.now()) + '.jpg';
-            try { if (window.IDB) IDB.put('photoBlobs', { id: res.id, dataBlob: blob }).catch(function(){}); } catch(_){}
+            try { if (IDB) IDB.put('photoBlobs', { id: res.id, dataBlob: blob }).catch(function(){}); } catch(_){} // S728: was window.IDB — never set
             return R2.upload(_pidCp, 'original', blob, _fn).then(function(up){
               if (up && up.r2Key) {
                 res.r2Key = up.r2Key; res.r2Url = up.r2Url;
