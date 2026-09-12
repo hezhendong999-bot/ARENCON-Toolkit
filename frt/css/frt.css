@@ -1220,28 +1220,9 @@ body.dark-mode .filter-chip{background:#2a2e38;border-color:#3a4050;color:#8a90a
 body.dark-mode .filter-chip.active{background:var(--red);color:white;border-color:var(--red);}
 body.dark-mode .filter-search{background:#1e2028;border-color:#33373f;color:#d4d4d4;}
 body.dark-mode .defic-fold-btn{background:rgba(255,255,255,.06);color:#a0b0c8;border-color:rgba(255,255,255,.2);}body.dark-mode .defic-fold-btn:hover{background:rgba(255,255,255,.12);border-color:#9C2742;color:#f4a1b5;}
-/* Dark mode — kanban */
-/* Deficiency kanban view */
-.kanban-wrap{display:flex;gap:12px;min-height:300px;}
-.kanban-col{flex:1;min-width:0;background:var(--smoke);border:1.5px solid var(--border);border-radius:10px;display:flex;flex-direction:column;overflow:hidden;}
-.kanban-col-header{padding:10px 14px;font-weight:700;font-size:calc(13px + var(--ts));font-family:Calibri,sans-serif;display:flex;align-items:center;justify-content:space-between;border-bottom:2px solid transparent;}
-.kanban-col-header .count{background:rgba(0,0,0,.08);border-radius:10px;padding:1px 8px;font-size:calc(11px + var(--ts));font-weight:600;}
-.kanban-col-body{flex:1;padding:8px;overflow-y:auto;min-height:60px;transition:background .15s;}
-.kanban-col.drag-over .kanban-col-body{background:rgba(156,39,66,.06);outline:2px dashed var(--arencon);outline-offset:-4px;border-radius:0 0 8px 8px;}
-.kanban-card{background:white;border:1.5px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;cursor:grab;transition:box-shadow .15s,transform .1s;user-select:none;}
-.kanban-card:hover{box-shadow:0 2px 8px rgba(0,0,0,.1);}
-.kanban-card:active{cursor:grabbing;transform:scale(0.98);}
-.kc-num{font-weight:800;font-size:calc(13px + var(--ts));color:var(--slate);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
-.kc-badge{font-size:calc(10px + var(--ts));font-weight:700;padding:2px 7px;border-radius:4px;display:inline-block;}
-.kc-desc{font-size:calc(12px + var(--ts));color:var(--steel);line-height:1.4;margin-bottom:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.kc-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
-@media(max-width:700px){.kanban-wrap{flex-direction:column;}.kanban-col{min-height:80px;}}
-body.dark-mode .kanban-col{background:#1e2028;border-color:#33373f;}
-body.dark-mode .kanban-card{background:#22252d;border-color:#33373f;color:#d4d8e8;}
-body.dark-mode .kc-num{color:#c0c8e0;}
-body.dark-mode .kc-desc{color:#8a92a8;}
-body.dark-mode .kc-badge{background:#2a2e3a!important;color:#c0c8e0!important;}
-body.dark-mode .kanban-col-header .count{background:rgba(255,255,255,.1);color:#c0c8e0;}
+/* S728: Deficiency kanban view CSS (.kanban-*, .kc-*, 23 rules) removed here.
+   The view was retired at S311 (see deficiencies.js "S311 dead-code" note);
+   no JS or HTML references any of its classes. */
 /* Dark mode — context menus */
 body.dark-mode .card-context-menu{background:var(--b-chrome-bg)!important;border-color:#4a5570!important;}
 body.dark-mode .card-context-menu button{background:var(--b-chrome-bg)!important;color:#d0d8f0!important;}
@@ -1799,9 +1780,6 @@ body.dark-mode .proj-status-dd button.active{background:#2a2e38;}
   .card-body{padding:12px 10px!important;}
   /* Upload box */
   .upload-box{padding:16px 10px!important;}
-  /* Kanban columns */
-  .kanban-wrap{flex-direction:column!important;}
-  .kanban-col{min-height:60px!important;}
 }
 
 /* Tablet (700px) additional fixes */
