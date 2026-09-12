@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ARENCON · Specification Master File</title>
+<script src="../../shared/auth-gate.js"></script>
+<style>
+/* ══════════════════════════════════════════════════════════════════════════
+   ARENCON Specification Generator — MASTER FILE · S13
+   ──────────────────────────────────────────────────────────────────────────
+   Where the firm's side of the specification lives: system packages, the
+   standards each one cites, its closeout list, the blank vocabulary, the
+   proposal inbox and the change log. Separate from any job on purpose —
+   staff never land here by accident, and principals never have to open a
+   project to work on the firm.
+
+   Reads: everyone signed in. Writes: principals (admin / super_admin) only —
+   enforced by row-level security, not by hiding buttons. The clause wording
+   itself is edited in the clause library (../index.html), which this page
+   links to; the two are one product with two doors.
+   ══════════════════════════════════════════════════════════════════════════ */
+:root, [data-theme="dark"]{
+  --b-chrome-bg:#1d1b24; --b-chrome-rule:rgba(244,243,246,.14); --b-chrome-hover:rgba(255,255,255,.07);
+  --b-chrome-fg:#f4f3f6; --brand:#C9476A; --ok:#3FD08A; --fail:#E26076; --warn:#E0A36A; --info:#46C5E8;
+  --ink:#f4f3f6; --ink2:#a09aa8; --ink3:#6b6674;
+  --bg:#0b0a0d; --line:rgba(255,255,255,.10); --sw-off:#2a2731;
+  --surface:#16141c; --surface2:#1d1b24; --surface3:#262330;
+  --shadow:0 8px 28px rgba(0,0,0,.45);
+}
+[data-theme="light"]{
+  --b-chrome-bg:#E6E3E9; --b-chrome-rule:#D2CEDB; --b-chrome-hover:rgba(0,0,0,.05);
+  --b-chrome-fg:#1B1A22; --brand:#9C2742; --ok:#2E9E72; --fail:#C0445F; --warn:#C98A4A; --info:#2C7FB8;
+  --ink:#1B1A22; --ink2:#5E5B68; --ink3:#928E9C;
+  --bg:#EFEDF0; --line:rgba(27,26,34,.12); --sw-off:#cfcbd6;
+  --surface:#F4F2F6; --surface2:#E6E3E9; --surface3:#DAD6DF;
+  --shadow:0 8px 28px rgba(27,26,34,.10);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden}
+body{font:11pt/1.5 Calibri,Carlito,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);display:flex;flex-direction:column}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--info);outline-offset:2px;border-radius:5px}
+a{color:var(--info)}
+
+header{flex:none;display:flex;align-items:center;gap:12px;height:52px;padding:0 14px;
+  background:var(--b-chrome-bg);border-bottom:1px solid var(--b-chrome-rule);color:var(--b-chrome-fg)}
+.mark{font-weight:700;font-size:11pt;white-space:nowrap}.mark span{font-size:8pt;letter-spacing:.08em}
+.where{color:var(--ink2);font-size:10.5pt}
+.grow{flex:1}
+.hb{height:32px;padding:0 12px;border:1px solid var(--b-chrome-rule);border-radius:8px;background:transparent;cursor:pointer;white-space:nowrap}
+.hb:hover{background:var(--b-chrome-hover)}
+.hb.icon{width:32px;padding:0}
+.me{font-size:9.5pt;color:var(--ink2);white-space:nowrap}
+
+#app{flex:1;min-height:0;display:grid;grid-template-columns:240px minmax(0,1fr);overflow:hidden}
+nav{overflow-y:auto;background:var(--surface);border-right:1px solid var(--line);padding:12px}
+nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:10px 12px;border:0;
+  border-radius:10px;background:transparent;color:var(--ink2);cursor:pointer}
+nav button:hover{background:var(--b-chrome-hover);color:var(--ink)}
+nav button.on{background:color-mix(in srgb,var(--brand) 14%,transparent);color:var(--ink)}
+nav button .ct{margin-left:auto;min-width:20px;padding:0 6px;border-radius:20px;background:var(--warn);color:#0b0a0d;
+  font-size:8.5pt;font-weight:700;line-height:20px;text-align:center}
+nav .grp{font-size:9pt;color:var(--ink3);font-weight:600;margin:14px 12px 6px;letter-spacing:.02em}
+main{overflow-y:auto;padding:22px 26px 80px}
+.wrap{max-width:900px}
+h1{font-size:18pt;font-weight:600;margin:0 0 4px}
+h2{font-size:12pt;font-weight:600;margin:24px 0 10px}
+.sub{color:var(--ink2);margin:0 0 20px;max-width:70ch}
+.mini{font-size:9.5pt;color:var(--ink3);line-height:1.45}
+
+.card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:12px 14px;margin-bottom:8px}
+.row{display:flex;align-items:center;gap:12px}
+.row .t{font-weight:600}
+.row .s{font-size:9.5pt;color:var(--ink3)}
+.pkg{cursor:pointer}
+.pkg:hover{border-color:var(--ink3)}
+.pkg.off{opacity:.55}
+.chip{font-size:9pt;padding:1px 8px;border-radius:20px;border:1px solid;white-space:nowrap}
+.chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent);background:color-mix(in srgb,var(--ok) 12%,transparent)}
+.chip.warn{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+.chip.fail{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 45%,transparent);background:color-mix(in srgb,var(--fail) 12%,transparent)}
+.chip.info{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.chip.mute{color:var(--ink3);border-color:var(--line)}
+.btn{height:34px;padding:0 13px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer;white-space:nowrap}
+.btn:hover{color:var(--ink);border-color:var(--ink3)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600}
+.btn.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 45%,transparent)}
+.btn.cut{color:var(--fail);border-color:color-mix(in srgb,var(--fail) 40%,transparent)}
+.btn.sm{height:29px;padding:0 10px;font-size:10pt}
+.btn:disabled{opacity:.4;cursor:default}
+.acts{display:flex;flex-wrap:wrap;gap:7px}
+.add{border:1px dashed var(--line);background:transparent;color:var(--ink3);border-radius:8px;padding:5px 11px;font-size:10pt;cursor:pointer}
+.add:hover{color:var(--ink);border-color:var(--brand);border-style:solid}
+.head{display:flex;align-items:center;gap:10px;margin:22px 0 10px}
+.head h2{margin:0;flex:1}
+
+/* standards: designation · edition chip · title */
+.std{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;padding:10px 12px;border:1px solid var(--line);
+  border-radius:11px;margin-bottom:6px;background:var(--surface);cursor:pointer;text-align:left;width:100%}
+.std:hover{border-color:var(--ink3)}
+.std.off{opacity:.5}
+.std .l1{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.std .desig{font-weight:600}
+.std .ed{font-size:9.5pt;padding:1px 8px;border-radius:6px;border:1px solid var(--line);color:var(--ink2);background:var(--surface2)}
+.std .ed.none{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 10%,transparent)}
+.std .ti{grid-column:1/-1;font-size:9.5pt;color:var(--ink3);line-height:1.35}
+.src{font-size:8.5pt;padding:1px 8px;border-radius:20px;border:1px solid;white-space:nowrap;align-self:start}
+.src.firm{color:var(--ink3);border-color:var(--line)}
+.src.code{color:var(--info);border-color:color-mix(in srgb,var(--info) 45%,transparent);background:color-mix(in srgb,var(--info) 12%,transparent)}
+.src.insurer{color:var(--warn);border-color:color-mix(in srgb,var(--warn) 45%,transparent);background:color-mix(in srgb,var(--warn) 12%,transparent)}
+
+.co{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;
+  border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--surface)}
+.co.off{opacity:.5}
+.co .t{cursor:pointer}
+.prop{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;background:var(--surface)}
+.prop .who{font-size:9.5pt;color:var(--ink3);margin-bottom:8px}
+.diff{line-height:1.5;margin-bottom:8px}
+.diff .was{color:var(--ink3);text-decoration:line-through}
+.diff .now{color:var(--ok);font-weight:600}
+.note{font-size:10.5pt;color:var(--ink2);border-left:2px solid var(--line);padding-left:10px;margin-bottom:10px}
+.empty{color:var(--ink3);padding:30px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+.rcpt{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;font-size:10.5pt;margin-top:8px}
+.msg{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--line);
+  border-radius:20px;padding:8px 16px;font-size:10.5pt;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:opacity .18s;z-index:95;max-width:90vw;text-align:center}
+.msg.on{opacity:1}
+.msg.err{border-color:var(--fail);color:var(--fail)}
+@media (max-width:820px){
+  #app{grid-template-columns:1fr}
+  nav{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid var(--line);padding:8px}
+  nav button{width:auto;white-space:nowrap}
+  nav .grp{display:none}
+  main{padding:16px 14px 60px}
+  .where,.me{display:none}
+}
+</style>
+</head>
+<body>
+<header>
+  <span class="mark">ARENCON <span>INC.</span></span>
+  <span class="where">Specification Master File</span>
+  <span class="grow"></span>
+  <span class="me" id="me"></span>
+  <a class="hb" href="../index.html" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center">Clause library</a>
+  <button class="hb icon" id="theme" title="Day / night">☀</button>
+</header>
+<div id="app">
+  <nav id="nav">
+    <button data-v="packages" class="on">System packages</button>
+    <button data-v="jobstds">Whole-job standards</button>
+    <button data-v="blanks">Blank vocabulary</button>
+    <div class="grp">GOVERNANCE</div>
+    <button data-v="proposals">Proposals <span class="ct" id="ct-prop" hidden></span></button>
+    <button data-v="changes">Changes &amp; replies <span class="ct" id="ct-rep" hidden></span></button>
+  </nav>
+  <main id="main"></main>
+</div>
+<div class="msg" id="msg"></div>
+
+<script type="module">
+/* ── Supabase, the same way the clause library does it ───────────────── */
+const SUPA_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
+const SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhzZW12aW54c3lwaGppYXFneXd2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMyNzkxNzMsImV4cCI6MjA4ODg1NTE3M30.1WhVv3kPeO0igzcZswbNT-u1tUvEKNP6lk1DivKoDHU';
+const TOK_KEY = 'sb-access-token';
+const sb = (() => {
+  const token = () => { try { return localStorage.getItem(TOK_KEY); } catch { return null; } };
+  const head = extra => Object.assign({ apikey: SUPA_KEY, Authorization: 'Bearer ' + (token() || SUPA_KEY),
+    'Content-Type': 'application/json' }, extra || {});
+  async function rest(path, opts = {}) {
+    const res = await fetch(`${SUPA_URL}/rest/v1/${path}`, { ...opts, headers: head(opts.headers) });
+    const text = await res.text(); let body = null;
+    try { body = text ? JSON.parse(text) : null; } catch { body = text; }
+    if (!res.ok) throw new Error((body && body.message) || res.statusText || 'request failed');
+    return body;
+  }
+  return {
+    get token() { return token(); },
+    async me() { const r = await fetch(`${SUPA_URL}/auth/v1/user`, { headers: { apikey: SUPA_KEY, Authorization: 'Bearer ' + token() } });
+      return r.ok ? r.json() : null; },
+    select: (t, q = '') => rest(`${t}?${q}`),
+    insert: (t, rows) => rest(t, { method: 'POST', headers: { Prefer: 'return=representation' }, body: JSON.stringify(rows) }),
+    update: (t, match, patch) => rest(`${t}?${match}`, { method: 'PATCH', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(patch) }),
+    del: (t, match) => rest(`${t}?${match}`, { method: 'DELETE', headers: { Prefer: 'return=minimal' } }),
+    rpc: (fn, args) => rest(`rpc/${fn}`, { method: 'POST', body: JSON.stringify(args || {}) }),
+  };
+})();
+const $ = (s, r) => (r || document).querySelector(s);
+const $$ = (s, r) => [...(r || document).querySelectorAll(s)];
+const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const Dlg = () => import('../../lib/ui/dialogEngine.js').then(m => m.Dlg);
+
+const state = { me: null, role: 'inspector', view: 'packages', pkg: null,
+  packages: [], sections: [], pkgSections: [], stds: [], closeouts: [], blanks: [],
+  proposals: [], changes: [], receipts: [], profiles: {} };
+const isPrincipal = () => ['admin', 'super_admin'].includes(state.role);
+const PROVN = { ON:'Ontario', AB:'Alberta', BC:'British Columbia', QC:'Quebec', XX:'National (fallback)' };
+const INSN = { FM:'FM Global', VS:'Verisk / IBC', OT:'Other insurer' };
+const tor = iso => iso ? new Date(iso).toLocaleString('en-CA', { timeZone: 'America/Toronto',
+  month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '';
+const who = id => state.profiles[id] || (id ? id.slice(0, 8) : '—');
+
+let t; function msg(s, err) { const m = $('#msg'); m.textContent = s; m.className = 'msg on' + (err ? ' err' : '');
+  clearTimeout(t); t = setTimeout(() => m.classList.remove('on'), err ? 4200 : 2600); }
+const fail = e => msg(e.message || String(e), true);
+
+/* ── load ─────────────────────────────────────────────────────────────── */
+async function loadAll() {
+  const [packages, sections, pkgSections, stds, closeouts, blanks, proposals, changes, receipts, profiles] = await Promise.all([
+    sb.select('sg_package', 'select=*&order=sort_order'),
+    sb.select('sg_section', 'select=id,code,title&order=sort_order'),
+    sb.select('sg_package_section', 'select=*'),
+    sb.select('sg_standard', 'select=*&order=sort_order,designation'),
+    sb.select('sg_closeout', 'select=*&order=sort_order'),
+    sb.select('sg_blank', 'select=*&order=package_id,key'),
+    sb.select('sg_proposal', 'select=*&order=proposed_at.desc&limit=200'),
+    sb.select('sg_change', 'select=*&order=created_at.desc&limit=100'),
+    sb.select('sg_change_receipt', 'select=*&state=in.(declined,flagged)&order=acted_at.desc&limit=200'),
+    sb.select('profiles', 'select=id,full_name'),
+  ]);
+  Object.assign(state, { packages, sections, pkgSections, stds, closeouts, blanks, proposals, changes, receipts });
+  state.profiles = Object.fromEntries(profiles.map(p => [p.id, p.full_name || p.id.slice(0, 8)]));
+  counts();
+}
+function counts() {
+  const p = state.proposals.filter(x => x.state === 'open').length;
+  const r = state.receipts.length;
+  $('#ct-prop').hidden = !p; $('#ct-prop').textContent = p;
+  $('#ct-rep').hidden = !r;  $('#ct-rep').textContent = r;
+}
+
+/* ── views ────────────────────────────────────────────────────────────── */
+const VIEWS = { packages, jobstds, blanks, proposals, changes };
+function render() { $$('#nav button').forEach(b => b.classList.toggle('on', b.dataset.v === state.view));
+  $('#main').innerHTML = ''; VIEWS[state.view](); }
+
+const readOnlyNote = () => isPrincipal() ? '' :
+  `<div class="mini" style="margin-bottom:14px">You can read everything here. Changes to the firm are made by the principals — propose one from inside a job and it will appear in their inbox.</div>`;
+
+function stdCard(s) {
+  return `<button class="std ${s.active ? '' : 'off'}" data-std="${s.id}">
+    <span class="l1"><span class="desig">${esc(s.designation)}</span>
+      <span class="ed ${s.edition ? '' : 'none'}">${s.edition ? esc(s.edition) : 'edition not set'}</span>
+      ${s.province ? `<span class="chip mute">${esc(PROVN[s.province] || s.province)}</span>` : ''}
+      ${s.insurer ? `<span class="chip mute">${esc(INSN[s.insurer] || s.insurer)}</span>` : ''}</span>
+    <span class="src ${s.source}">${s.source}</span>
+    ${s.title ? `<span class="ti">${esc(s.title)}</span>` : ''}
+  </button>`;
+}
+function wireStds(root) { $$('[data-std]', root).forEach(b => b.onclick = () => editStd(state.stds.find(s => s.id === b.dataset.std))); }
+
+async function editStd(s, defaults) {
+  if (!isPrincipal()) { msg('Principals only.', true); return; }
+  const D = await Dlg();
+  const fresh = !s; s = s || Object.assign({ designation: '', edition: '', title: '', source: 'firm', province: '', insurer: '', active: true }, defaults || {});
+  const out = await D.form({
+    title: fresh ? 'Add a standard' : 'Edit standard', icon: '§', accent: 'slate', width: 560,
+    message: 'What gets cited, in the edition the firm works to. Everything here prints in the codes and standards register.',
+    fields: [
+      { key: 'designation', label: 'Designation', type: 'text', value: s.designation, placeholder: 'NFPA 20', required: true },
+      { key: 'edition', label: 'Edition or date', type: 'text', value: s.edition, placeholder: '2025' },
+      { key: 'title', label: 'Title', type: 'text', value: s.title, placeholder: 'Installation of Stationary Pumps for Fire Protection' },
+      { key: 'source', label: 'Applies because of', type: 'select', value: s.source,
+        options: [{ value: 'firm', label: 'Firm standard — every job with this system' },
+                  { value: 'code', label: 'Code — depends on the province' },
+                  { value: 'insurer', label: 'Insurer — depends on the insurer' }] },
+      { key: 'province', label: 'Province (code only)', type: 'select', value: s.province || '',
+        options: [{ value: '', label: '—' }, ...Object.entries(PROVN).map(([v, l]) => ({ value: v, label: l }))] },
+      { key: 'insurer', label: 'Insurer (insurer only)', type: 'select', value: s.insurer || '',
+        options: [{ value: '', label: '—' }, ...Object.entries(INSN).map(([v, l]) => ({ value: v, label: l }))] },
+      { key: 'active', label: 'In use', type: 'select', value: s.active ? 'y' : 'n',
+        options: [{ value: 'y', label: 'Yes' }, { value: 'n', label: 'No — kept for the record, not cited' }] },
+    ],
+    submitText: fresh ? 'Add' : 'Save',
+  });
+  if (!out) return;
+  const row = { designation: out.designation.trim(), edition: (out.edition || '').trim(), title: (out.title || '').trim(),
+    source: out.source, province: out.source === 'code' ? (out.province || null) : null,
+    insurer: out.source === 'insurer' ? (out.insurer || null) : null, active: out.active === 'y', updated_at: new Date().toISOString() };
+  try {
+    if (fresh) { row.package_id = s.package_id || null; await sb.insert('sg_standard', row); }
+    else await sb.update('sg_standard', `id=eq.${s.id}`, row);
+    await loadAll(); render(); msg(fresh ? 'Standard added.' : 'Standard saved.');
+  } catch (e) { fail(e); }
+}
+
+async function editCloseout(c, pkgId) {
+  if (!isPrincipal()) { msg('Principals only.', true); return; }
+  const D = await Dlg(); const fresh = !c;
+  const out = await D.form({ title: fresh ? 'Add a closeout item' : 'Edit closeout item', icon: '✓', accent: 'slate', width: 560,
+    fields: [{ key: 'body', label: 'What the contractor must hand over', type: 'textarea', value: c ? c.body : '', required: true },
+             { key: 'on', label: 'On by default for new jobs', type: 'select', value: c && !c.default_on ? 'n' : 'y',
+               options: [{ value: 'y', label: 'Yes' }, { value: 'n', label: 'No — offered, unticked' }] }],
+    submitText: fresh ? 'Add' : 'Save' });
+  if (!out) return;
+  try {
+    const row = { body: out.body.trim(), default_on: out.on === 'y', updated_at: new Date().toISOString() };
+    if (fresh) { row.package_id = pkgId; row.sort_order = (state.closeouts.filter(x => x.package_id === pkgId).length + 1) * 10; await sb.insert('sg_closeout', row); }
+    else await sb.update('sg_closeout', `id=eq.${c.id}`, row);
+    await loadAll(); render(); msg('Saved.');
+  } catch (e) { fail(e); }
+}
+
+async function toggleCloseout(c) {
+  if (!isPrincipal()) return;
+  try { await sb.update('sg_closeout', `id=eq.${c.id}`, { active: !c.active }); await loadAll(); render(); } catch (e) { fail(e); }
+}
+
+/* ── packages ─────────────────────────────────────────────────────────── */
+function packages() {
+  const m = $('#main');
+  if (state.pkg) return packageEditor(m);
+  m.innerHTML = `<div class="wrap"><h1>System packages</h1>
+    <p class="sub">A package is everything one system brings to a job: its sections, the standards it cites, its closeout list and the blanks in its wording. Tick a system on a job and all of this arrives together.</p>
+    ${readOnlyNote()}
+    ${state.packages.map(p => {
+      const ns = state.pkgSections.filter(x => x.package_id === p.id).length;
+      const nst = state.stds.filter(x => x.package_id === p.id && x.active).length;
+      const nc = state.closeouts.filter(x => x.package_id === p.id && x.active).length;
+      const nb = state.blanks.filter(x => x.package_id === p.id).length;
+      return `<div class="card pkg ${p.active ? '' : 'off'}" data-pkg="${p.id}"><div class="row">
+        <div style="flex:1;min-width:0"><div class="t">${esc(p.name)}</div>
+          <div class="s">${ns} section${ns === 1 ? '' : 's'} · ${nst} standard${nst === 1 ? '' : 's'} · ${nc} closeout item${nc === 1 ? '' : 's'} · ${nb} blank${nb === 1 ? '' : 's'}${p.blurb ? ' · ' + esc(p.blurb) : ''}</div></div>
+        ${p.active ? '' : '<span class="chip mute">retired</span>'}<span style="color:var(--ink3)">›</span></div></div>`; }).join('')}
+    ${isPrincipal() ? `<button class="add" id="addpkg">+ New system package</button>` : ''}
+  </div>`;
+  $$('[data-pkg]', m).forEach(el => el.onclick = () => { state.pkg = el.dataset.pkg; render(); });
+  const a = $('#addpkg', m); if (a) a.onclick = async () => {
+    const D = await Dlg();
+    const out = await D.form({ title: 'New system package', icon: '＋', accent: 'slate', width: 520,
+      fields: [{ key: 'name', label: 'Name, as staff will see it', type: 'text', placeholder: 'Foam-water sprinklers', required: true },
+               { key: 'key', label: 'Short key (letters only)', type: 'text', placeholder: 'foam', required: true },
+               { key: 'blurb', label: 'One-line description', type: 'text', placeholder: 'Where it is used' }],
+      submitText: 'Create' });
+    if (!out) return;
+    try { const r = await sb.insert('sg_package', { name: out.name.trim(), key: out.key.trim().toLowerCase().replace(/[^a-z0-9]/g, ''),
+        blurb: (out.blurb || '').trim(), sort_order: (state.packages.length + 1) * 10 });
+      await loadAll(); state.pkg = r[0].id; render(); msg('Package created — now give it sections, standards and closeouts.'); }
+    catch (e) { fail(e); }
+  };
+}
+
+function packageEditor(m) {
+  const p = state.packages.find(x => x.id === state.pkg); if (!p) { state.pkg = null; return render(); }
+  const secs = state.pkgSections.filter(x => x.package_id === p.id).map(x => state.sections.find(s => s.id === x.section_id)).filter(Boolean);
+  const stds = state.stds.filter(x => x.package_id === p.id);
+  const cos = state.closeouts.filter(x => x.package_id === p.id);
+  const bl = state.blanks.filter(x => x.package_id === p.id);
+  const P = isPrincipal();
+  m.innerHTML = `<div class="wrap">
+    <div class="mini" style="margin-bottom:8px"><a href="#" id="back">‹ All packages</a></div>
+    <div class="row" style="align-items:flex-start"><div style="flex:1"><h1>${esc(p.name)}</h1>
+      <p class="sub" style="margin-bottom:6px">${esc(p.blurb || '')}</p></div>
+      ${P ? `<div class="acts"><button class="btn sm" id="rename">Rename…</button>
+        <button class="btn sm ${p.active ? 'cut' : 'ok'}" id="retire">${p.active ? 'Retire' : 'Reinstate'}</button></div>` : ''}</div>
+    ${readOnlyNote()}
+
+    <div class="head"><h2>Sections it brings in</h2>${P ? `<button class="add" id="addsec">+ Section</button>` : ''}</div>
+    ${secs.length ? secs.map(s => `<div class="co"><span><b>${esc(s.code)}</b> &nbsp;${esc(s.title)}</span>
+      ${P ? `<button class="btn sm cut" data-rmsec="${s.id}">Remove</button>` : ''}</div>`).join('')
+      : '<div class="empty">No sections yet. Without at least one, ticking this system on a job brings in nothing to read.</div>'}
+
+    <div class="head"><h2>Codes and standards it cites</h2>${P ? `<button class="add" id="addstd">+ Standard</button>` : ''}</div>
+    ${stds.length ? stds.map(stdCard).join('') : '<div class="empty">None yet.</div>'}
+    <div class="mini">Code and insurer entries only appear on a job whose province or insurer matches. Firm entries appear on every job with this system.</div>
+
+    <div class="head"><h2>Closeout requirements</h2>${P ? `<button class="add" id="addco">+ Item</button>` : ''}</div>
+    ${cos.length ? cos.map(c => `<div class="co ${c.active ? '' : 'off'}">
+        <span class="t" data-co="${c.id}">${esc(c.body)}${c.default_on ? '' : ' <span class="chip mute">off by default</span>'}</span>
+        ${P ? `<button class="btn sm ${c.active ? 'cut' : 'ok'}" data-tco="${c.id}">${c.active ? 'Retire' : 'Reinstate'}</button>` : ''}</div>`).join('')
+      : '<div class="empty">None yet.</div>'}
+
+    <div class="head"><h2>Blanks in its wording</h2></div>
+    ${bl.length ? `<div class="card">${bl.map(b => `<div class="row" style="padding:4px 0"><code style="font-size:9.5pt;color:var(--ink3);min-width:120px">⟦${esc(b.key)}⟧</code>
+        <span style="flex:1">${esc(b.label)}</span><span class="chip mute">${esc(b.kind)}</span>${b.optional ? '<span class="chip mute">optional</span>' : ''}</div>`).join('')}</div>`
+      : '<div class="empty">No blanks defined for this system yet.</div>'}
+    <div class="mini">A clause in the library uses a blank by writing its key in ⟦brackets⟧. The vocabulary is managed under Blank vocabulary.</div>
+  </div>`;
+  $('#back', m).onclick = e => { e.preventDefault(); state.pkg = null; render(); };
+  wireStds(m);
+  $$('[data-co]', m).forEach(el => el.onclick = () => editCloseout(state.closeouts.find(c => c.id === el.dataset.co)));
+  $$('[data-tco]', m).forEach(b => b.onclick = () => toggleCloseout(state.closeouts.find(c => c.id === b.dataset.tco)));
+  if (!P) return;
+  $('#addstd', m).onclick = () => editStd(null, { package_id: p.id });
+  $('#addco', m).onclick = () => editCloseout(null, p.id);
+  $('#rename', m).onclick = async () => {
+    const D = await Dlg();
+    const out = await D.form({ title: 'Rename package', icon: '✎', accent: 'slate', width: 500,
+      fields: [{ key: 'name', label: 'Name', type: 'text', value: p.name, required: true },
+               { key: 'blurb', label: 'One-line description', type: 'text', value: p.blurb || '' }], submitText: 'Save' });
+    if (!out) return;
+    try { await sb.update('sg_package', `id=eq.${p.id}`, { name: out.name.trim(), blurb: (out.blurb || '').trim(), updated_at: new Date().toISOString() });
+      await loadAll(); render(); msg('Saved.'); } catch (e) { fail(e); }
+  };
+  $('#retire', m).onclick = async () => {
+    if (p.active) { const D = await Dlg();
+      const ok = await D.confirmDanger({ title: 'Retire this package', message: `Retire “${p.name}”?`,
+        detail: 'It disappears from the list staff tick on new jobs. Jobs that already have it keep it.',
+        undoNote: 'Reinstate it from this same screen at any time — nothing is deleted.', confirmText: 'Retire' });
+      if (!ok) return; }
+    try { await sb.update('sg_package', `id=eq.${p.id}`, { active: !p.active }); await loadAll(); render(); } catch (e) { fail(e); }
+  };
+  $('#addsec', m).onclick = async () => {
+    const D = await Dlg(); const have = new Set(secs.map(s => s.id));
+    const out = await D.form({ title: 'Add a section to this package', icon: '¶', accent: 'slate', width: 560,
+      fields: [{ key: 'sid', label: 'Section', type: 'select', value: '',
+        options: state.sections.filter(s => !have.has(s.id)).map(s => ({ value: s.id, label: `${s.code}  ${s.title}` })) }], submitText: 'Add' });
+    if (!out || !out.sid) return;
+    try { await sb.insert('sg_package_section', { package_id: p.id, section_id: out.sid, sort_order: secs.length }); await loadAll(); render(); } catch (e) { fail(e); }
+  };
+  $$('[data-rmsec]', m).forEach(b => b.onclick = async () => {
+    try { await sb.del('sg_package_section', `package_id=eq.${p.id}&section_id=eq.${b.dataset.rmsec}`); await loadAll(); render(); } catch (e) { fail(e); }
+  });
+}
+
+/* ── whole-job standards ──────────────────────────────────────────────── */
+function jobstds() {
+  const m = $('#main'); const list = state.stds.filter(s => !s.package_id);
+  const grp = k => list.filter(s => s.source === k);
+  const block = (title, items, note) => `<div class="head"><h2>${title}</h2></div>${items.length ? items.map(stdCard).join('') : '<div class="empty">None.</div>'}${note ? `<div class="mini">${note}</div>` : ''}`;
+  m.innerHTML = `<div class="wrap"><h1>Whole-job standards</h1>
+    <p class="sub">Cited on every job regardless of which systems it has: the building and fire codes by province, the insurer's requirements, and the firm's own standing references.</p>
+    ${readOnlyNote()}
+    ${isPrincipal() ? `<div class="acts"><button class="add" id="addstd">+ Standard</button></div>` : ''}
+    ${block('By province', grp('code'), 'A job picks its province once and gets that province\u2019s set. Add a province by adding its codes here with that province selected.')}
+    ${block('By insurer', grp('insurer'), '')}
+    ${block('Firm — every job', grp('firm'), '')}
+  </div>`;
+  wireStds(m);
+  const a = $('#addstd', m); if (a) a.onclick = () => editStd(null, { package_id: null });
+}
+
+/* ── blanks ───────────────────────────────────────────────────────────── */
+function blanks() {
+  const m = $('#main'); const P = isPrincipal();
+  const byPkg = {}; state.blanks.forEach(b => (byPkg[b.package_id || '_'] = byPkg[b.package_id || '_'] || []).push(b));
+  const pname = id => id === '_' ? 'Not tied to a system' : (state.packages.find(p => p.id === id) || {}).name || id;
+  m.innerHTML = `<div class="wrap"><h1>Blank vocabulary</h1>
+    <p class="sub">Every number, location or direction the wording leaves for the job to fill. A clause uses one by writing its key in ⟦brackets⟧; the job tool shows it as a dashed gap until someone answers it, and offers the values used on earlier jobs.</p>
+    ${readOnlyNote()}
+    ${P ? `<div class="acts" style="margin-bottom:6px"><button class="add" id="addbl">+ Blank</button></div>` : ''}
+    ${Object.entries(byPkg).map(([k, items]) => `<div class="head"><h2>${esc(pname(k))}</h2></div>
+      <div class="card">${items.map(b => `<div class="row" style="padding:5px 0;${P ? 'cursor:pointer' : ''}" data-bl="${esc(b.key)}">
+        <code style="font-size:9.5pt;color:var(--ink3);min-width:130px">⟦${esc(b.key)}⟧</code>
+        <span style="flex:1">${esc(b.label)}<span class="mini"> · shows as “${esc(b.prompt || b.label)}”</span></span>
+        <span class="chip mute">${esc(b.kind)}</span>${b.optional ? '<span class="chip mute">optional</span>' : ''}</div>`).join('')}</div>`).join('')}
+    <div class="mini" style="margin-top:14px">${state.blanks.length} blanks. The clause library does not yet mark them in the wording — that pass is the next step and is reviewed section by section.</div>
+  </div>`;
+  if (!P) return;
+  const edit = async (b) => {
+    const D = await Dlg(); const fresh = !b;
+    const out = await D.form({ title: fresh ? 'New blank' : 'Edit blank', icon: '⟦', accent: 'slate', width: 560,
+      fields: [{ key: 'key', label: 'Key (letters, digits, hyphens)', type: 'text', value: b ? b.key : '', placeholder: 'tank-size', required: true },
+               { key: 'label', label: 'Label', type: 'text', value: b ? b.label : '', placeholder: 'Fuel tank capacity', required: true },
+               { key: 'prompt', label: 'Shown in the gap until answered', type: 'text', value: b ? b.prompt : '', placeholder: 'capacity' },
+               { key: 'kind', label: 'Kind', type: 'select', value: b ? b.kind : 'text',
+                 options: ['text', 'number', 'location', 'direction', 'choice'].map(v => ({ value: v, label: v })) },
+               { key: 'optional', label: 'Optional', type: 'select', value: b && b.optional ? 'y' : 'n', options: [{ value: 'n', label: 'No' }, { value: 'y', label: 'Yes — may be left out' }] },
+               { key: 'pkg', label: 'System', type: 'select', value: b ? (b.package_id || '') : '',
+                 options: [{ value: '', label: 'Not tied to a system' }, ...state.packages.map(p => ({ value: p.id, label: p.name }))] }],
+      submitText: fresh ? 'Add' : 'Save' });
+    if (!out) return;
+    const row = { key: out.key.trim().toLowerCase().replace(/[^a-z0-9-]/g, ''), label: out.label.trim(), prompt: (out.prompt || '').trim(),
+      kind: out.kind, optional: out.optional === 'y', package_id: out.pkg || null, updated_at: new Date().toISOString() };
+    try { if (fresh) await sb.insert('sg_blank', row); else await sb.update('sg_blank', `key=eq.${encodeURIComponent(b.key)}`, row);
+      await loadAll(); render(); msg('Saved.'); } catch (e) { fail(e); }
+  };
+  $('#addbl', m).onclick = () => edit(null);
+  $$('[data-bl]', m).forEach(el => el.onclick = () => edit(state.blanks.find(b => b.key === el.dataset.bl)));
+}
+
+/* ── proposals ────────────────────────────────────────────────────────── */
+function proposals() {
+  const m = $('#main'); const P = isPrincipal();
+  const open = state.proposals.filter(p => p.state === 'open'), done = state.proposals.filter(p => p.state !== 'open');
+  const pkgName = id => (state.packages.find(p => p.id === id) || {}).name || 'Whole job';
+  const card = p => `<div class="prop">
+    <div class="who">${esc(who(p.proposed_by))} · ${tor(p.proposed_at)} · ${esc(p.kind)} · ${esc(pkgName(p.package_id))}
+      ${p.state !== 'open' ? `· <span class="chip ${p.state === 'accepted' ? 'ok' : 'warn'}">${p.state}</span> by ${esc(who(p.decided_by))} ${tor(p.decided_at)}` : ''}</div>
+    <div class="diff">${p.before_text ? `<span class="was">${esc(p.before_text)}</span><br>` : ''}<span class="now">${esc(p.after_text)}</span></div>
+    ${p.note ? `<div class="note">${esc(p.note)}</div>` : ''}
+    ${p.decision_note ? `<div class="note" style="border-color:var(--ok)">${esc(p.decision_note)}</div>` : ''}
+    ${p.state === 'open' && P ? `<div class="acts"><button class="btn sm ok" data-yes="${p.id}">Accept into the firm…</button>
+      <button class="btn sm cut" data-no="${p.id}">Decline…</button></div>` : ''}
+  </div>`;
+  m.innerHTML = `<div class="wrap"><h1>Proposals</h1>
+    <p class="sub">Changes staff have asked the firm to make. Nobody can push a change into the firm — including principals. Every decision needs a reason, and the proposer sees it.</p>
+    ${P ? '' : '<div class="mini" style="margin-bottom:14px">Only principals decide. You can see what is waiting and what was decided.</div>'}
+    <h2>Waiting${open.length ? ' · ' + open.length : ''}</h2>
+    ${open.length ? open.map(card).join('') : '<div class="empty">Nothing waiting.</div>'}
+    <h2>Decided</h2>
+    ${done.length ? done.slice(0, 40).map(card).join('') : '<div class="empty">Nothing decided yet.</div>'}
+  </div>`;
+  if (!P) return;
+  const decide = async (id, accept) => {
+    const D = await Dlg(); const p = state.proposals.find(x => x.id === id);
+    const out = await D.form({ title: accept ? 'Accept into the firm package' : 'Decline this proposal', icon: accept ? '✓' : '✕', accent: accept ? 'ok' : 'slate', width: 560,
+      message: accept
+        ? (p.kind === 'standard' ? 'Accepting records the decision and tells every open job. The designation and edition themselves are edited in the master — do that next.'
+                                 : 'The firm wording changes now. Every open job is told, and applies it when they have read it.')
+        : 'The proposer sees your reason. A decline without one teaches nobody.',
+      fields: [{ key: 'note', label: accept ? 'Why this is right for the firm' : 'Why not', type: 'textarea', required: true },
+        ...(accept ? [{ key: 'mand', label: 'Apply to open jobs', type: 'select', value: 'n',
+          options: [{ value: 'n', label: 'Offer it — a job may decline with a reason' }, { value: 'y', label: 'Mandatory — applied; a job may only flag it' }] }] : [])],
+      submitText: accept ? 'Accept' : 'Decline' });
+    if (!out) return;
+    try { await sb.rpc('sg_proposal_decide', { p_id: id, p_accept: accept, p_note: out.note.trim(), p_mandatory: accept && out.mand === 'y' });
+      await loadAll(); render(); msg(accept ? 'Accepted. Open jobs have been told.' : 'Declined, with your reason.'); } catch (e) { fail(e); }
+  };
+  $$('[data-yes]', m).forEach(b => b.onclick = () => decide(b.dataset.yes, true));
+  $$('[data-no]', m).forEach(b => b.onclick = () => decide(b.dataset.no, false));
+}
+
+/* ── changes & replies ────────────────────────────────────────────────── */
+function changes() {
+  const m = $('#main'); const P = isPrincipal();
+  const pkgName = id => (state.packages.find(p => p.id === id) || {}).name || 'Whole job';
+  const byChange = {}; state.receipts.forEach(r => (byChange[r.change_id] = byChange[r.change_id] || []).push(r));
+  m.innerHTML = `<div class="wrap"><h1>Changes &amp; replies</h1>
+    <p class="sub">Every change the firm has made, and what open jobs did about it. A decline or a flag always carries the reason, so you can tell a one-off from a pattern.</p>
+    ${P ? `<div class="acts" style="margin-bottom:16px"><button class="btn pri" id="push">Push a change to open jobs…</button></div>` : ''}
+    ${state.receipts.length ? `<h2>Replies needing your eye · ${state.receipts.length}</h2>
+      ${state.receipts.map(r => { const c = state.changes.find(x => x.id === r.change_id) || {};
+        return `<div class="prop"><div class="who"><span class="chip ${r.state === 'declined' ? 'fail' : 'warn'}">${r.state}</span>
+          &nbsp;${esc(who(r.acted_by))} · ${tor(r.acted_at)} · job ${esc(r.job_id.slice(0, 8))}</div>
+          <div class="diff">${esc(c.summary || '')}${c.mandatory ? ' <span class="chip warn">mandatory</span>' : ''}</div>
+          <div class="note">${esc(r.reason)}</div></div>`; }).join('')}` : ''}
+    <h2>Change log</h2>
+    ${state.changes.length ? state.changes.map(c => `<div class="prop">
+      <div class="who">${esc(who(c.created_by))} · ${tor(c.created_at)} · ${esc(c.kind)} · ${esc(pkgName(c.package_id))}
+        ${c.mandatory ? '<span class="chip warn">mandatory</span>' : '<span class="chip info">offered</span>'}${c.proposal_id ? ' · from a proposal' : ' · pushed directly'}</div>
+      <div class="diff">${esc(c.summary)}</div>
+      ${c.before_text || c.after_text ? `<div class="diff">${c.before_text ? `<span class="was">${esc(c.before_text)}</span><br>` : ''}<span class="now">${esc(c.after_text)}</span></div>` : ''}
+      ${(byChange[c.id] || []).length ? `<div class="mini">${byChange[c.id].length} job${byChange[c.id].length === 1 ? '' : 's'} pushed back — see above.</div>` : ''}
+    </div>`).join('') : '<div class="empty">No changes yet.</div>'}
+  </div>`;
+  if (!P) return;
+  $('#push', m).onclick = async () => {
+    const D = await Dlg();
+    const out = await D.form({ title: 'Push a change to open jobs', icon: '⇪', accent: 'slate', width: 600,
+      message: 'For a change nobody proposed — a new code edition, a rule the firm now insists on. Say what changed in plain words; that is what every open job will read.',
+      fields: [{ key: 'kind', label: 'What kind of change', type: 'select', value: 'standard',
+                 options: ['standard', 'closeout', 'clause', 'package'].map(v => ({ value: v, label: v })) },
+               { key: 'pkg', label: 'System', type: 'select', value: '', options: [{ value: '', label: 'Whole job' }, ...state.packages.map(p => ({ value: p.id, label: p.name }))] },
+               { key: 'summary', label: 'What changed, in one sentence', type: 'text', required: true, placeholder: 'NFPA 20 edition moves from 2022 to 2025' },
+               { key: 'before', label: 'Before (optional)', type: 'text' },
+               { key: 'after', label: 'After (optional)', type: 'text' },
+               { key: 'mand', label: 'Apply to open jobs', type: 'select', value: 'n',
+                 options: [{ value: 'n', label: 'Offer it — a job may decline with a reason' }, { value: 'y', label: 'Mandatory — applied; a job may only flag it' }] }],
+      submitText: 'Push' });
+    if (!out) return;
+    try { const r = await sb.rpc('sg_change_push', { p_kind: out.kind, p_target: null, p_package: out.pkg || null,
+        p_summary: out.summary.trim(), p_before: out.before || '', p_after: out.after || '', p_mandatory: out.mand === 'y' });
+      await loadAll(); render(); msg(`Pushed. ${out.mand === 'y' ? 'Open jobs will apply it and may flag it.' : 'Open jobs will be offered it.'}`); }
+    catch (e) { fail(e); }
+  };
+}
+
+/* ── boot ─────────────────────────────────────────────────────────────── */
+function setTheme(t) { document.documentElement.setAttribute('data-theme', t); try { localStorage.setItem('arencon-theme', t); } catch {}
+  $('#theme').textContent = t === 'dark' ? '☀' : '☾'; }
+$('#theme').onclick = () => setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+$$('#nav button').forEach(b => b.onclick = () => { state.view = b.dataset.v; state.pkg = null; render(); });
+
+(async function boot() {
+  try { setTheme(localStorage.getItem('arencon-theme') || 'dark'); } catch { setTheme('dark'); }
+  if (!sb.token) { msg('Not signed in.', true); return; }
+  state.me = await sb.me();
+  if (!state.me) { msg('Session expired — reload to sign in again.', true); return; }
+  try { const rows = await sb.select('profiles', `select=role,full_name&id=eq.${state.me.id}`);
+    state.role = rows[0]?.role || 'inspector';
+    $('#me').textContent = `${rows[0]?.full_name || ''} · ${isPrincipal() ? 'principal' : 'read only'}`; }
+  catch (e) { fail(e); }
+  try { await loadAll(); } catch (e) { fail(e); }
+  render();
+})();
+</script>
+</body>
+</html>
