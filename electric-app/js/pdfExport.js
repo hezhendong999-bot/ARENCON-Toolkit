@@ -507,10 +507,16 @@ function _realExportPDF() {
     const pillTxt = sc==='yes'?'Yes':sc==='no'?'No':sc==='na'?'N/A':'—';
     const pill = pillCls ? `<span class="pill ${pillCls}">${pillTxt}</span>` : `<span style="color:#B08948;font-weight:700;">—</span>`;
     const rowCls = sc==='no'?' class="nd-flag"':'';
+    // S729: scope word beside the number. VISIT and ROOM tell a reviewer the
+    // answer is installation-wide rather than about this machine — which is
+    // why the same answer appears on the sister report of a two-pump job.
+    // The on-screen hint is staff guidance and is deliberately NOT printed.
+    const scopeTag = (item && (item.scope==='visit'||item.scope==='room'))
+      ? `<div style="font-size:6.5pt;font-weight:700;letter-spacing:.5px;color:#8A8F98;margin-top:2px;">${item.scope.toUpperCase()}</div>` : '';
     const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
     const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`${_lnk(p, `<img src="${_phSrc(p)}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`)}`).join('')}</div></td></tr>` : '';
     return `<tr${rowCls}>
-      <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}</td>
+      <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}${scopeTag}</td>
       <td>${txt}${cmHtml}</td>
       <td class="ctr" style="white-space:nowrap;width:90px;">${pill}</td>
     </tr>${photosRow}`;

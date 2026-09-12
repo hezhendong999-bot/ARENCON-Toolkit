@@ -1850,3 +1850,24 @@ body.dark-mode .obs-drop-btn.is-upload{background:var(--b-pb-u-bg,#5A76A0);color
   background:var(--unset-bg);color:var(--unset);font-weight:700;font-size:calc(13.5px + var(--ts));margin:0 0 14px;}
 .tt-gate small{display:block;font-weight:400;color:var(--silver);font-size:calc(11.5px + var(--ts));margin-top:5px;}
 .tt-gated{opacity:.42;filter:grayscale(.55);pointer-events:none;user-select:none;}
+
+/* ── S729 · CHECKLIST SCOPE CHIP ─────────────────────────────────────
+   Marks the rows whose answer is not about this machine: VISIT (this
+   commissioning day) and ROOM (the shared installation). On a two-pump
+   job those are the answers that are the same on the sister report, so
+   the chip is what stops the same walk of the room being done twice.
+   Machine rows carry no chip — they are the ordinary case, and marking
+   the ordinary case marks nothing.
+   Sizes ride var(--ts) like every other chrome size; no hover states,
+   because nothing here may depend on a pointer.                        */
+.cl-scope{display:inline-block;margin-left:7px;padding:1px 5px;border-radius:4px;
+  font-family:Calibri,sans-serif;font-weight:700;font-size:calc(9.5px + var(--ts));
+  letter-spacing:.6px;line-height:1.5;vertical-align:middle;
+  border:1px solid color-mix(in srgb,var(--arencon) 45%,transparent);
+  color:var(--arencon);background:color-mix(in srgb,var(--arencon) 7%,transparent);}
+.cl-scope-room{border-color:color-mix(in srgb,var(--steel) 45%,transparent);
+  color:var(--steel);background:color-mix(in srgb,var(--steel) 8%,transparent);}
+.cl-hint{margin-top:4px;font-family:Calibri,sans-serif;font-weight:400;
+  font-size:calc(12px + var(--ts));line-height:1.38;color:var(--silver);}
+body.dark-mode .cl-scope{color:var(--arencon-mid,#C9476A);}
+body.dark-mode .cl-scope-room{color:var(--silver);}

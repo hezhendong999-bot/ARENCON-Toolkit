@@ -3,30 +3,30 @@
 // CHECKLIST DATA
 // ══════════════════════════════════════════════════
 const S1 = [
-  { num:"1.1", text:"Coordinate with Building owner/authorized personnel, AHJ, contractor for test date and time." },
-  { num:"1.2", text:"Contractor to flush the suction pipe prior to hydrostatic test." },
-  { num:"1.3", text:"Confirm hydrostatic test and underground flushing test are completed. Hydrostatic testing at 200 psi, or 50 psi in excess of max pressure, whichever is greater." },
-  { num:"1.4", text:"Confirm electrical wiring to all associated components and fire alarm system installed properly and checked by electrician." },
-  { num:"1.5", text:"Confirm fire pump components installed properly as per design drawings and are secure." },
-  { num:"1.6", text:"(If applicable) Confirm piping, valves, fittings and couplings between discharge side of pump to discharge control valve rated for min. 300 psi." },
-  { num:"1.7", text:"Confirm fire pump and controller commissioning agent has commissioned and passed the start-up test." },
-  { num:"1.8", text:"Confirm all valves and labels (Butterfly & OS&Y) within fire pump room." },
-  { num:"1.9", text:"Confirm two check valves on sensing lines allow water flowing towards pumps from controllers, spaced min. 5 ft apart." },
-  { num:"1.10", text:"Confirm pump packing drain pipe and circulation relief valve drain pipe installed and piped to an open drain." },
-  { num:"1.11", text:"Open controller door, check wiring and cross reference with wiring diagram for signal monitoring. Uncheck fire pump automatic shut-off." },
-  { num:"1.12", text:"Confirm suction, discharge, and pitot gauges calibrated to NIST standard within 12 months with label. Calibration certificate available on site." },
+  { num:"1.1", scope:"visit", hint:"Same answer on the sister report.", text:"Coordinate with Building owner/authorized personnel, AHJ, contractor for test date and time." },
+  { num:"1.2", scope:"machine", hint:"Shared suction header: flush the header once; this tick is “this pump connected after that flush.”", text:"Contractor to flush the suction pipe prior to hydrostatic test." },
+  { num:"1.3", scope:"room", hint:"One tick if the whole installation was one pressurized envelope. If an isolation valve split the test, say so in the note.", text:"Confirm hydrostatic test and underground flushing test are completed. Hydrostatic testing at 200 psi, or 50 psi in excess of max pressure, whichever is greater." },
+  { num:"1.4", scope:"machine", hint:"The ESA certificate covers the room electrical work — note it rather than treating it as per controller. Wiring and fire alarm points on this controller are this tick.", text:"Confirm electrical wiring to all associated components and fire alarm system installed properly and checked by electrician." },
+  { num:"1.5", scope:"machine", hint:"This pump.", text:"Confirm fire pump components installed properly as per design drawings and are secure." },
+  { num:"1.6", scope:"machine", hint:"This pump’s discharge outlet to this pump’s discharge control valve.", text:"(If applicable) Confirm piping, valves, fittings and couplings between discharge side of pump to discharge control valve rated for min. 300 psi." },
+  { num:"1.7", scope:"machine", hint:"This pump / this controller start-up.", text:"Confirm fire pump and controller commissioning agent has commissioned and passed the start-up test." },
+  { num:"1.8", scope:"room", hint:"One walk of the room. Same answer on the sister report.", text:"Confirm all valves and labels (Butterfly & OS&Y) within fire pump room." },
+  { num:"1.9", scope:"machine", hint:"This pump and its jockey.", text:"Confirm two check valves on sensing lines allow water flowing towards pumps from controllers, spaced min. 5 ft apart." },
+  { num:"1.10", scope:"machine", hint:"This pump.", text:"Confirm pump packing drain pipe and circulation relief valve drain pipe installed and piped to an open drain." },
+  { num:"1.11", scope:"machine", hint:"This controller.", text:"Open controller door, check wiring and cross reference with wiring diagram for signal monitoring. Uncheck fire pump automatic shut-off." },
+  { num:"1.12", scope:"visit", hint:"Contractor test kit and NIST cert for the gauges used today. Installed pump gauges are 2.4.", text:"Confirm suction, discharge, and pitot gauges calibrated to NIST standard within 12 months with label. Calibration certificate available on site." },
 ];
 
 const S2 = [
-  { num:"2.1", text:"Confirm fire pump components have been installed properly as per design drawings and are secure." },
-  { num:"2.2", text:"Confirm the installation of concentric and eccentric increaser/reducer (eccentric — flat side up on suction)." },
-  { num:"2.3", text:"If the fire pump is equipped with a 170 psi VFD: Confirm if any fittings/couplings/valves between the fire pump discharge outlet to the discharge control valve, including the test header, are rated for 300 psi or more." },
-  { num:"2.4", text:"Confirm the calibrated gauges have been installed on the suction and discharge side of the fire pump. Check the calibration date tag on the back of the gauge is not older than 12 months." },
-  { num:"2.5", text:"Confirm all valve tags have been provided within the fire pump room." },
-  { num:"2.6", text:"Confirm firestopping provided at each pump room penetration, except exterior wall. Any exposed pump room structural steel (not full height wall pump rooms) shall be treated with min. 1-hr F.R.R. fire spray. Interior door and frames shall be equipped with automatic door closure and rated for min. 45 minutes." },
-  { num:"2.7", text:"Confirm no shut-off valves installed on the fire pump & jockey ½\" pressure sensing lines. The pressure sensing line shall be installed between the fire pump/jockey discharge check valve and control valve. It is not acceptable to install the pressure sensing lines on the upstream side of the discharge check valve." },
-  { num:"2.8", text:"If any inverted U shape overhead piping is installed on the upstream side of the fire pump suction outlet, a ½\" automatic air relief valve shall be provided at the top of the suction pipe." },
-  { num:"2.9", text:"Confirm min. 10× pipe diameter is provided on the suction side of the fire pump, if the suction pipe is running perpendicular to the fire pump." },
+  { num:"2.1", scope:"machine", hint:"This pump.", text:"Confirm fire pump components have been installed properly as per design drawings and are secure." },
+  { num:"2.2", scope:"machine", hint:"This pump’s suction takeoff. A shared header does not make this a room item.", text:"Confirm the installation of concentric and eccentric increaser/reducer (eccentric — flat side up on suction)." },
+  { num:"2.3", scope:"machine", hint:"This pump’s discharge outlet to this pump’s discharge control valve.", text:"If the fire pump is equipped with a 170 psi VFD: Confirm if any fittings/couplings/valves between the fire pump discharge outlet to the discharge control valve, including the test header, are rated for 300 psi or more." },
+  { num:"2.4", scope:"machine", hint:"This pump’s installed suction and discharge gauges.", text:"Confirm the calibrated gauges have been installed on the suction and discharge side of the fire pump. Check the calibration date tag on the back of the gauge is not older than 12 months." },
+  { num:"2.5", scope:"room", hint:"One walk of the room. Same answer on the sister report.", text:"Confirm all valve tags have been provided within the fire pump room." },
+  { num:"2.6", scope:"room", hint:"OBC room construction. Same answer on the sister report.", text:"Confirm firestopping provided at each pump room penetration, except exterior wall. Any exposed pump room structural steel (not full height wall pump rooms) shall be treated with min. 1-hr F.R.R. fire spray. Interior door and frames shall be equipped with automatic door closure and rated for min. 45 minutes." },
+  { num:"2.7", scope:"machine", hint:"This pump and its jockey.", text:"Confirm no shut-off valves installed on the fire pump & jockey ½\" pressure sensing lines. The pressure sensing line shall be installed between the fire pump/jockey discharge check valve and control valve. It is not acceptable to install the pressure sensing lines on the upstream side of the discharge check valve." },
+  { num:"2.8", scope:"machine", hint:"This pump’s suction.", text:"If any inverted U shape overhead piping is installed on the upstream side of the fire pump suction outlet, a ½\" automatic air relief valve shall be provided at the top of the suction pipe." },
+  { num:"2.9", scope:"machine", hint:"Last length into this casing.", text:"Confirm min. 10× pipe diameter is provided on the suction side of the fire pump, if the suction pipe is running perpendicular to the fire pump." },
 ];
 
 const S3_gen = [
