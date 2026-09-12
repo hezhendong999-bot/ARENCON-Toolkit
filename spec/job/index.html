@@ -371,6 +371,29 @@ function outstanding() {
 }
 
 const isStruck = id => !!(state.jobClauses.find(c => c.clause_id === id) || {}).struck;
+
+/* FAIL OPEN. A clause with no system tag prints wherever its section prints —
+   that is today's behaviour and it is the safe direction to fail in: an extra
+   paragraph gets struck by a person who can see it, a missing one is never
+   noticed. Only a clause that names its systems is filtered, and then only when
+   none of them is on this job. */
+function clauseOnThisJob(c) {
+  const tags = c.system_tags || [];
+  if (!tags.length) return true;
+  const on = jobSystemKeys();
+  return tags.some(t => on.has(t));
+}
+
+/* The system keys this job has ticked, read from the packages themselves so
+   there is no second list to keep in step. */
+function jobSystemKeys() {
+  const on = new Set();
+  state.jobPkgs.filter(p => p.included).forEach(p => {
+    const pkg = state.packages.find(x => x.id === p.package_id);
+    if (pkg && pkg.key) on.add(pkg.key);
+  });
+  return on;
+}
 const isSecStruck = id => !!(state.jobSecs.find(s => s.section_id === id) || {}).struck;
 
 /* ══ data ═════════════════════════════════════════════════════════════════ */
@@ -649,7 +672,7 @@ function docConfig() {
   const j = state.job;
   return {
     sections: secs,
-    rowsFor: id => state.clauses.filter(c => c.section_id === id),
+    rowsFor: id => state.clauses.filter(c => c.section_id === id && clauseOnThisJob(c)),
     header: {
       client: j.client, doc_title: j.doc_title, site: j.site, city: j.city,
       project_no: j.project_no, revision: j.revision, issue_date: j.issue_date,

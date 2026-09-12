@@ -79,6 +79,20 @@ body[data-rail="fold"] .rail .railhead{display:none}
   border:1px solid var(--line);border-radius:9px;background:var(--surface2);
   color:var(--ink);font:600 10.5pt Calibri,sans-serif;cursor:pointer}
 .dochdr-btn:hover{border-color:var(--brand)}
+.revfilter{display:block;width:100%;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);
+  border-radius:9px;background:var(--surface);color:var(--ink);font-size:10pt}
+/* A clause that still names one job gets an amber stripe on the page, the same
+   way unreviewed provenance does. It is a content fault, so it is shown where
+   the content is read, not buried in a list. */
+.ln.jobspec{position:relative}
+.ln.jobspec::after{content:'';position:absolute;left:.62in;top:0;width:3px;height:13.4pt;
+  border-radius:2px;background:var(--warn)}
+.tagrow{display:flex;flex-wrap:wrap;gap:5px;margin-top:2px}
+.tagrow button{font-size:9.5pt;padding:3px 10px;border:1px solid var(--line);border-radius:20px;
+  background:var(--surface2);color:var(--ink3);cursor:pointer}
+.tagrow button.on{background:color-mix(in srgb,var(--brand) 16%,transparent);
+  border-color:color-mix(in srgb,var(--brand) 55%,transparent);color:var(--ink)}
+.tagrow button:hover{border-color:var(--brand)}
 .dochdr-btn .miss{display:block;font-weight:400;font-size:9.5pt;color:var(--warn);margin-top:3px}
 .dochdr-btn .set{display:block;font-weight:400;font-size:9.5pt;color:var(--ink3);margin-top:3px}
 /* Document details form CSS: DELETED (S11). The form is the dialog engine's
@@ -171,6 +185,15 @@ body[data-rail="fold"] .rail .railhead{display:none}
            that place: it sits above the sections because it applies to all of
            them, and it shows what is still blank rather than hiding it. -->
       <button class="dochdr-btn" id="btnDocHdr">Document details&hellip;</button>
+      <!-- The review filter. Two jobs have to be finished by hand before the
+           master can be trusted on a new job: every clause tagged with the
+           system it belongs to, and every sentence still naming one project
+           rewritten. This is where that work is found. -->
+      <select id="revFilter" class="revfilter" title="Show only clauses needing attention">
+        <option value="">Whole master</option>
+        <option value="flagged">Names one job &mdash; needs rewording</option>
+        <option value="untagged">No system tag yet</option>
+      </select>
       <div class="stat" id="railStat">Loading&hellip;</div>
     </div>
     <div class="body" id="railBody"></div>
@@ -262,7 +285,7 @@ const PROJECT = new URLSearchParams(location.search).get('project');
 
 const state = {
   me: null, role: null, sections: [], sectionId: null,
-  clauses: [], sel: null, editing: null, systems: {},
+  clauses: [], sel: null, editing: null, systems: {}, revFilter: '',
   header: { client: 'ARENCON INC. — Master Content' },
 };
 
@@ -398,13 +421,35 @@ async function docHeaderScreen() {
    down the left of anything not yet approved, and a highlight on the selected
    clause. The engine owns everything else. */
 function docConfig() {
+  const f = state.revFilter;
+  const keep = r => {
+    if (!f) return true;
+    if (f === 'flagged') return r.basis === 'job-specific?';
+    if (f === 'untagged') return !(r.system_tags && r.system_tags.length);
+    return true;
+  };
   return {
     sections: activeSections(),
-    rowsFor: id => state.clauses.filter(c => c.section_id === id),
+    rowsFor: id => {
+      const rows = state.clauses.filter(c => c.section_id === id);
+      if (!f) return rows;
+      /* Keep the parents of a matching clause so it still prints under its own
+         article rather than floating loose with no heading. */
+      const hit = new Set(rows.filter(keep).map(r => r.id));
+      let grew = true;
+      while (grew) {
+        grew = false;
+        rows.forEach(r => {
+          if (hit.has(r.id) && r.parent_id && !hit.has(r.parent_id)) { hit.add(r.parent_id); grew = true; }
+        });
+      }
+      return rows.filter(r => hit.has(r.id));
+    },
     header: state.header,
     logo: LOGO_SRC,
     bodyHtml: r => escapeHtml(r.body),
     rowClass: r => [r.provenance === 'approved' ? '' : r.provenance,
+                    r.basis === 'job-specific?' ? 'jobspec' : '',
                     state.sel === r.id ? 'sel' : ''].filter(Boolean).join(' '),
   };
 }
@@ -415,7 +460,6 @@ function renderPage() {
 }
 
 /* escapeHtml comes from the document engine — see the import at the top. */
-
 function renderInspector() {
   const el = $('#inspBody');
   const r = state.clauses.find(c => c.id === state.sel);
@@ -465,9 +509,60 @@ function renderInspector() {
     <div style="font-size:10pt;color:var(--ink2)">${r.lock_level === 'master'
       ? 'Firm master — principals only' : 'Project scope — editable on a job'}</div>
     ${r.spec_note ? `<div class="insp-h">Guidance</div><div class="note">${escapeHtml(r.spec_note)}</div>` : ''}
+    <div class="insp-h">Systems</div>
+    <div style="font-size:9.5pt;color:var(--ink3);margin-bottom:5px">Untagged rides with whatever section it sits in. Tagged prints only when one of these systems is on the job.</div>
+    <div class="tagrow" id="tagrow">${SYS_KEYS.map(k =>
+      `<button data-tag="${k}" class="${(r.system_tags || []).includes(k) ? 'on' : ''}"
+        ${canEdit() ? '' : 'disabled'}>${SYS_LABEL[k]}</button>`).join('')}</div>
+    <div class="insp-h">Wording</div>
+    <div class="acts">${r.basis === 'job-specific?'
+      ? `<span class="pill draft" style="margin-right:6px">Names one job</span>
+         ${canEdit() ? '<button class="act ok" data-flag="clear">Reads as firm standard</button>' : ''}`
+      : (canEdit() ? '<button class="act" data-flag="set">Flag: names one job</button>' : '<span style="font-size:10pt;color:var(--ink3)">Reads as firm standard.</span>')}</div>
     <div class="insp-h">History</div><div id="hist" class="hist">Loading…</div>`;
   loadHistory(r.id);
-  $$('.act', el).forEach(b => (b.onclick = () => clauseAction(b.dataset.act, r.id)));
+  $$('.act[data-act]', el).forEach(b => (b.onclick = () => clauseAction(b.dataset.act, r.id)));
+  $$('#tagrow button', el).forEach(b => (b.onclick = () => toggleTag(r.id, b.dataset.tag)));
+  $$('[data-flag]', el).forEach(b => (b.onclick = () => setJobFlag(r.id, b.dataset.flag === 'set')));
+}
+
+/* The system keys a clause may carry. These are the PACKAGE keys the job tool
+   already ticks — not a parallel vocabulary. A clause tagged 'diesel' prints on
+   a job that has ticked the diesel fire pump package. If these two lists ever
+   drift apart, tagged clauses vanish from jobs silently. */
+const SYS_KEYS = ['wet', 'dry', 'preaction', 'standpipe', 'electric', 'diesel', 'alarm',
+                  'lhd', 'aspirating', 'firestop', 'extinguish', 'emerglight', 'gypsum'];
+const SYS_LABEL = { wet: 'Wet', dry: 'Dry', preaction: 'Preaction', standpipe: 'Standpipe',
+  electric: 'Electric pump', diesel: 'Diesel pump', alarm: 'Fire alarm', lhd: 'Linear heat',
+  aspirating: 'Aspirating', firestop: 'Fire stopping', extinguish: 'Extinguishers',
+  emerglight: 'Emerg. lighting', gypsum: 'Gypsum' };
+
+async function toggleTag(id, key) {
+  if (!canEdit()) return;
+  const r = state.clauses.find(c => c.id === id);
+  if (!r) return;
+  const cur = r.system_tags || [];
+  const next = cur.includes(key) ? cur.filter(k => k !== key) : [...cur, key];
+  try {
+    await sb.update('sg_clause', `id=eq.${id}`, { system_tags: next, updated_at: new Date().toISOString() });
+    r.system_tags = next;
+    renderInspector(); renderPage();
+  } catch (e) { msg(e.message || 'Could not save the tag.', true); }
+}
+
+/* Flagging is a note to a principal, not an edit. It never changes the wording —
+   somebody still has to rewrite the sentence. */
+async function setJobFlag(id, on) {
+  if (!canEdit()) return;
+  const r = state.clauses.find(c => c.id === id);
+  if (!r) return;
+  try {
+    await sb.update('sg_clause', `id=eq.${id}`, { basis: on ? 'job-specific?' : null,
+      updated_at: new Date().toISOString() });
+    r.basis = on ? 'job-specific?' : null;
+    renderInspector(); renderPage();
+    msg(on ? 'Flagged — it will show under the review filter.' : 'Cleared.');
+  } catch (e) { msg(e.message || 'Could not save.', true); }
 }
 
 async function loadHistory(id) {
@@ -974,6 +1069,11 @@ function goBack() {
   location.href = PROJECT ? `../index.html?project=${PROJECT}` : '../index.html';
 }
 $('#btnDocHdr').onclick = docHeaderScreen;
+$('#revFilter').onchange = e => {
+  state.revFilter = e.target.value;
+  state.sel = null;
+  renderPage(); renderInspector();
+};
 addEventListener('resize', fitWindow);
 
 /* ── shared header engine ────────────────────────────────────────────────
