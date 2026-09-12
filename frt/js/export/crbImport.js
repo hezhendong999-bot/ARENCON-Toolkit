@@ -210,7 +210,14 @@ function _noticeUndo(msg, importId) {
     try { if (Model.saveNow) Model.saveNow(); } catch (e) {}
     ov.remove();
     // Repaint the deficiencies view so the removed rows disappear immediately.
-    try { if (typeof window !== 'undefined' && window.Deficiencies && window.Deficiencies.render) window.Deficiencies.render(); } catch (e) {}
+    // S728: was `window.Deficiencies.render()` — never assigned anywhere, so the
+    // repaint never fired. Dynamic import matches the pattern deficiencies.js
+    // itself uses to reach neighbours without a static cycle.
+    try {
+      import('../ui/deficiencies.js').then(function (m) {
+        if (m && m.initDeficiencies && m.initDeficiencies.render) m.initDeficiencies.render();
+      }).catch(function () {});
+    } catch (e) {}
     var m = 'Import undone.';
     if (r) {
       m = 'Import undone \u2014 ' + r.total + ' response(s) removed';

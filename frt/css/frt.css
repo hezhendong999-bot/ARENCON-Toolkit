@@ -63,24 +63,10 @@ body.dark-mode #tasks-search,body.dark-mode #tasks-filter-status,body.dark-mode 
 .btn-publish:hover{background:#B71C1C!important;}
 .btn-unlock{background:rgba(255,255,255,.15);border:1.5px solid rgba(255,255,255,.4);color:white;padding:5px 14px;border-radius:6px;font-size:calc(12px + var(--ts));font-weight:700;cursor:pointer;font-family:Calibri,sans-serif;}
 .btn-unlock:hover{background:rgba(255,255,255,.25);}
-/* Lock overlay — dims editable elements */
-body.project-locked .field-group input,
-body.project-locked .field-group textarea,
-body.project-locked .field-group select,
-body.project-locked .defic-item textarea,
-body.project-locked .defic-item input,
-body.project-locked .defic-item select,
-body.project-locked .resp-contractor textarea,
-body.project-locked .resp-consultant textarea{pointer-events:none!important;opacity:.65!important;background:var(--smoke)!important;}
-body.project-locked .add-btn,
-body.project-locked .remove-defic-btn,
-body.project-locked .dup-defic-btn,
-body.project-locked #bulk-select-toggle,
-body.project-locked #btn-save-as,
-body.project-locked #btn-more-wrap,
-body.project-locked .resp-add-ctr,
-body.project-locked .resp-add-con{display:none!important;}
-body.project-locked .dv-canvas-area{cursor:default!important;}
+/* S728: the body.project-locked block (18 rules) that stood here was removed.
+   No JS has ever applied that class; the live issued-report lock is
+   body.frt-issued-ro (see its own section). Leaving it read as if the
+   contractor response boxes were already locked on issued reports. */
 /* Save to File button */
 
 /* ═══ LIGHTWEIGHT REVIEW MODE ═══ */

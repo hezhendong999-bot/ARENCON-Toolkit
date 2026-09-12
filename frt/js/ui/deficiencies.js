@@ -1404,6 +1404,19 @@ function _closeCtrPicker() {
 // for each). Move shifts the reference off the source onto the chosen pin.
 // Binary is never re-uploaded or deleted. Touch-first: a tap-list, no
 // hover-reveal, default mode = Copy (non-destructive).
+// S728: re-render the Photos tab after a pin-photo change. Reached via dynamic
+// import (same pattern as compositeMarkupThumbs) because photos.js and this
+// module would otherwise form a static import cycle. Replaces five
+// `if (window.initPhotos ...)` guards that were never true — initPhotos is a
+// module export and has never lived on window, so those redraws never fired.
+function _refreshPhotosTab() {
+  try {
+    import('./photos.js').then(function (m) {
+      if (m && m.initPhotos && m.initPhotos.render) m.initPhotos.render();
+    }).catch(function () {});
+  } catch (_) {}
+}
+
 function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
   _closePinPhotoPicker();
   var proj = Model.getProject();
@@ -1517,8 +1530,8 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
               }
               // null up = offline; UploadQueue retries the IDB blob. Copy still
               // renders via the source URL meanwhile.
-              if (window.initPhotos && initPhotos.render) initPhotos.render();
-              if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render();
+              _refreshPhotosTab();
+              initDeficiencies.render();
             });
           }).catch(function(err){ console.warn('[Copy site->pin] R2 copy upload error:', err && err.message); });
         }
@@ -1556,7 +1569,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
       // S360: Copy that hit dedup (binary already on the target pin) created
       // nothing — say so plainly instead of a misleading "Copied".
       if (mode === 'copy' && res._dedupExisting) {
-        if (window.initPhotos && initPhotos.render) initPhotos.render();
+        _refreshPhotosTab();
         initDeficiencies.render();
         var whereDup = attachedToObs
           ? ('Obs ' + String.fromCharCode(65 + toObsIdx) + ' on Pin ' + destNum)
@@ -1565,7 +1578,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
         return;
       }
       if (desc) Model.registerMove(desc);
-      if (window.initPhotos && initPhotos.render) initPhotos.render();
+      _refreshPhotosTab();
       initDeficiencies.render();
       var landed = attachedToObs
         ? ('Obs ' + String.fromCharCode(65 + toObsIdx) + ' on Pin ' + destNum)
@@ -1666,7 +1679,7 @@ function _openPinPhotoPicker(srcDeficId, srcObsIdx, photoId, opts) {
     if (udesc) Model.registerMove(udesc);
     Model.saveNow();
     _closePinPhotoPicker();
-    if (window.initPhotos && initPhotos.render) initPhotos.render();
+    _refreshPhotosTab();
     initDeficiencies.render();
     toast((mode === 'move' ? 'Moved to Photo Gallery \u2014 the original is faded with Undo'
                            : 'Copied to Photo Gallery \u2014 tap Undo on the copy to reverse'));
@@ -8298,7 +8311,7 @@ window._frtOpenPinPhotoPicker = function(deficId, obsIdx, photoId) { _openPinPho
 // S224: open the picker for a SITE (gallery) photo source → choose a pin.
 window._frtOpenSitePhotoPicker = function(siteIdx) { _openPinPhotoPicker(null, null, null, { siteIdx: siteIdx }); };
 // S224: undo a faded move/copy by token, then repaint the gallery.
-window._frtUndoPhotoMove = function(token) { if (Model.undoPhotoMove(token)) { if (window.initPhotos && initPhotos.render) initPhotos.render(); if (window.initDeficiencies && initDeficiencies.render) initDeficiencies.render(); toast('Move undone'); } };
+window._frtUndoPhotoMove = function(token) { if (Model.undoPhotoMove(token)) { _refreshPhotosTab(); initDeficiencies.render(); toast('Move undone'); } };
 
 // S210 (Mark): exact-row return for the drawing viewer's "← Back to pin #N"
 // chip when the jump began on the Detailed list. Lands the user back on the

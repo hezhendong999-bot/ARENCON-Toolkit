@@ -16,6 +16,7 @@
  */
 
 import { Model } from '../data/model.js';
+import { SyncEngine } from '../data/sync.js'; // S728: was reached via bare `typeof SyncEngine` with no import — always undefined
 import { toast } from '../shared/toast.js';
 import { showDialog } from '../shared/dialogs.js';
 import { buildAndDownload } from '../../../lib/export/projectDocs.js';
@@ -128,7 +129,7 @@ function _nameParts(baseRef, obs, defic) {
 
 function _instance(proj) {
   try {
-    if (typeof SyncEngine !== 'undefined' && SyncEngine.instanceNumber) return SyncEngine.instanceNumber;
+    if (SyncEngine && SyncEngine.instanceNumber) return SyncEngine.instanceNumber;
   } catch (e) {}
   return (proj && proj.currentFrtInstance) || 1;
 }
