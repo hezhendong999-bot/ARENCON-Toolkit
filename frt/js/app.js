@@ -1123,6 +1123,7 @@ function showProjectView() {
 }
 
 // ── Update Header When Project Loads ─────────────────────
+var _s728RestoreDone = false;   // S728 — pending-comment restore runs once per page load
 function _updateHeaderForProject() {
   var proj = Model.getProject();
   if (!proj) return;
@@ -1198,14 +1199,18 @@ function _updateHeaderForProject() {
 
   /* S728 — if the inspector was carried here from an issued report because they
      were part-way through a contractor comment, put the composer back with their
-     text in it. Deferred a tick so the deficiency list exists to hang it on.
-     Silent when nothing is pending, which is almost always. */
-  try {
-    setTimeout(function () {
-      try { if (window._frtRestorePendingComment) window._frtRestorePendingComment(); }
-      catch (_r728) {}
-    }, 400);
-  } catch (_t728) {}
+     text in it. ONE-SHOT: _updateHeaderForProject also runs after Issue, Revise
+     and Revert, and an unguarded timer here would re-fire on each of those.
+     Deferred a tick so the deficiency list exists to hang the composer on. */
+  if (!_s728RestoreDone) {
+    _s728RestoreDone = true;
+    try {
+      setTimeout(function () {
+        try { if (window._frtRestorePendingComment) window._frtRestorePendingComment(); }
+        catch (_r728) {}
+      }, 400);
+    } catch (_t728) {}
+  }
 }
 
 // ── Cloud Sync (Hub Mode) ────────────────────────────────
