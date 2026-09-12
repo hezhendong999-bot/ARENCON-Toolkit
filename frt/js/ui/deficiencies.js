@@ -11,6 +11,7 @@
  */
 
 import { Model, TRADE_LIST, SITE_RECORDS_LABEL, isSiteRecordsName } from '../data/model.js';
+import { Auth } from '../shared/auth.js'; // S728: nine call sites below asked Auth.getInitials() with no import — author was always null (confirmed in DB)
 import { toast } from '../shared/toast.js';
 import { showConfirm, showPrompt, showDialog } from '../shared/dialogs.js';
 import { FrtPhotoPicker } from './photoPicker.js'; // S215: shared photo-selection picker (B + C)

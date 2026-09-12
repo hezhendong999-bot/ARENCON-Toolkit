@@ -3308,7 +3308,7 @@ function _frtRecordExportSnapshot(){
     var proj=Model.getProject(); if(!proj) return;
     var ver=(proj.info&&proj.info.revision)||''; if(!ver) return;
     var id='exp_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,10);
-    var rec=makeRecord(proj,ver,new Date().toISOString(),(window._frtCurrentUserId||null),id);
+    var rec=makeRecord(proj,ver,new Date().toISOString(),(Model.getCurrentUser()||null),id); // S728: was window._frtCurrentUserId — never assigned, always null
     if(!rec) return;
     proj.exportRecords=appendRecord(proj.exportRecords,rec);
     try{ Model.saveNow(); }catch(_s){}

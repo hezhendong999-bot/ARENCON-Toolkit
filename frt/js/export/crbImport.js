@@ -18,6 +18,7 @@
 // to re-export the report and have the contractor fill the new copy.
 // ─────────────────────────────────────────────────────────────────────────
 import { Model } from '../data/model.js';
+import { Auth } from '../shared/auth.js'; // S728: line ~543 asked Auth.getInitials() with no import — 'who' was always null
 
 var _PDFLIB_CDN = 'https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js';
 

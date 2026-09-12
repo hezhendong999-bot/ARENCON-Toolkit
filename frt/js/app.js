@@ -4187,7 +4187,7 @@ function _recordVersionMove(proj, newRev, issued) {
   try {
     if (!proj || !newRev) return;
     _frtLedger(proj);
-    var meta = { id: _frtVersionEntryId(), at: new Date().toISOString(), by: (window._frtCurrentUserId || null) };
+    var meta = { id: _frtVersionEntryId(), at: new Date().toISOString(), by: (Model.getCurrentUser() || null) }; // S728: was window._frtCurrentUserId — never assigned anywhere, always null
     /* Only an issued copy carries a fingerprint of its words — a working copy
        and the on-screen preview record nothing (§4). */
     if (issued) { try { meta.digest = wordsDigest(proj); } catch (_) { meta.digest = ''; } }

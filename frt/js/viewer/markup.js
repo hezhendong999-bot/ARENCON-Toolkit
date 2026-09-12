@@ -4073,8 +4073,10 @@ function _saveMarkup() {
             delete live.drawings[i].markupObjects;
             // Write the new reference. inspectorId optional; merge engine
             // handles markupR2 as a field-by-field object.
-            var user = (typeof window !== 'undefined' && window.Auth && window.Auth.getUser)
-              ? window.Auth.getUser() : null;
+            // S728: was window.Auth.getUser() — Auth is a module export and has
+            // never lived on window, so inspectorId was always null. Model holds
+            // the signed-in id (set by app.js on boot via setCurrentUser).
+            var user = { id: Model.getCurrentUser() || null };
             live.drawings[i].markupR2 = {
               r2Key: result.r2Key,
               r2Url: result.r2Url,
@@ -4643,8 +4645,7 @@ function _loadMarkupFromIDB(drawingId, drawing, projectId) {
               for (var i = 0; i < live.drawings.length; i++) {
                 if (live.drawings[i].id === drawingId) {
                   delete live.drawings[i].markupObjects;
-                  var user = (typeof window !== 'undefined' && window.Auth && window.Auth.getUser)
-                    ? window.Auth.getUser() : null;
+                  var user = { id: Model.getCurrentUser() || null }; // S728: see note at first site
                   live.drawings[i].markupR2 = {
                     r2Key: result.r2Key,
                     r2Url: result.r2Url,
