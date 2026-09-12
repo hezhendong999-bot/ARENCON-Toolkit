@@ -76,7 +76,7 @@ function _ctrSide(e, company, ids){
   var who = 'Contractor'+(company?(' \u00b7 '+_esc(company)):'')
           + (src?(' <span class="crbt-src">'+src+'</span>'):'')
           + '<span class="crbt-when">'+_esc(e.date||'')
-          + (e.source==='manual'&&e.author?(' \u00b7 by '+_esc(e.author)):'')+'</span>';
+          + '</span>';   // S728: no ' · by XX' — recorded silently, see _arcSide note
   var body = e.noResponse
     ? '<span class="crbt-noresp">No response received from contractor \u2014 reviewed on site by ARENCON.</span>'
     : ((e.statusReported?('<b>'+_esc(e.statusReported)+'</b>'+((e.text)?' \u2014 ':'')):'')+_esc(e.text||''));
@@ -95,7 +95,10 @@ function _ctrSide(e, company, ids){
 // One ARENCON comment (burgundy-edged side). The only authoritative voice —
 // it carries the status pill it set. Sitelog rows are handled separately.
 function _arcSide(e, ids){
-  var who='ARENCON review'+(e.author?(' \u00b7 '+_esc(e.author)):'')
+  // S728: recorder's initials are NOT shown. Authorship is recorded on the entry
+  // for the internal authorship report only (Owner ruling) — the thread shows the
+  // voice, not the person.
+  var who='ARENCON review'
         +'<span class="crbt-when">'+_esc(e.date||'')+'</span>';
   var pill='';
   if(e.status==='closed')      pill=' <span class="crbt-pill crbt-pill-c">Closed</span>';

@@ -534,6 +534,13 @@ function wireLoadExport() {
     } catch (e) { done(); }
   });
 
+  // S728: internal authorship report. Read-only; never printed on a report.
+  var mobileAuthorship = document.getElementById('mobile-authorship-btn');
+  if (mobileAuthorship) mobileAuthorship.addEventListener('click', function() {
+    closeMobileMenu();
+    try { if (window._frtAuthorshipPanel) window._frtAuthorshipPanel(); } catch (e) {}
+  });
+
   // Mobile Reset Project
   var mobileReset = document.getElementById('mobile-reset-btn');
   if (mobileReset) mobileReset.addEventListener('click', function() {
