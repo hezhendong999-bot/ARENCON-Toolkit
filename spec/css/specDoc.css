@@ -1,0 +1,106 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   ARENCON Specification Generator — THE PRINTED PAGE
+   Shared by the clause library (spec/index.html) and the job tool
+   (spec/job/index.html). ONE implementation, not a matching copy: if a rule
+   here changes, both surfaces change together, which is the whole point.
+   Every measurement is read from the firm's Word template, not inferred.
+   Moved out of spec/index.html unchanged in S12. Do not fork it.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* Top padding is 1.62in, MEASURED from 7310.17 — not the 1in a default Word
+   page uses. The old 1in left only a 0.28in band above the body, which fits
+   ONE header line. Three lines overran it and printed on top of the section
+   heading. The firm's real page reserves this room; so does this one. */
+.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 1in 0.4in;background:#fff;color:#1B1A22;
+      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/13.4pt Calibri,Carlito,sans-serif;  /* Word single spacing, measured */
+      position:relative;overflow:hidden}
+/* ── Running header — read from the Word file, not inferred ──────────────
+   document.xml sectPr:  pgMar left/right 1440 (1in), header 1440 (1in from
+   the top edge), top 2332 (1.62in), bottom 576 (0.4in).
+   header1.xml: THREE paragraphs, ALL Calibri 11pt, spacing-after 0, same
+   colour. Tab stops set the columns against a 6.5in text width:
+     para 1  tabs center@4680 right@9360  → left text · CENTRED title · right code
+     para 2  tabs right@9360              → left text · right "Page N"
+     para 3  tabs right@9360 + pBdr bottom single 0.75pt black, space 2pt
+             → left text · right "Project #: …", and the rule sits under THIS
+               row only.
+   What I had wrong before this: sides at 0.75in, header at 0.72in, rows 2–3
+   smaller and grey, the title right-grouped instead of centred, the rule on
+   the whole block, and a date that does not exist in the file. */
+.pg-head{position:absolute;left:1in;right:1in;top:1in;font-size:11pt;line-height:13.4pt;color:#1B1A22}
+/* minmax(0,1fr), not 1fr. A bare 1fr will not shrink below its content's
+   minimum width, so a long client name or address pushed the centre and right
+   columns outward and the right-hand value stopped short of the margin
+   instead of sitting hard against it. Word's tab stops are absolute — centre
+   at the midpoint, right at the text edge — and these columns now behave the
+   same way regardless of what the left cell holds. */
+.pg-head .r{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
+            align-items:baseline;white-space:nowrap}
+.pg-head .r > span:first-child{overflow:hidden;text-overflow:ellipsis}
+.pg-head .r .c{text-align:center}
+.pg-head .r .e{text-align:right}
+.pg-head .r.rule{border-bottom:.75pt solid #000;padding-bottom:2pt}
+/* Placeholders occupy the same space at the same size as a real value — only
+   the colour differs — so filling a field never reflows the header. Grey and
+   italic reads as "not yet entered" at a glance and cannot be mistaken for a
+   real project number on a printed page. */
+.pg-head .ph{color:#928E9C;font-style:italic}
+/* ── front matter — the approved demo's cover, rule for rule ─────────────
+   I had rebuilt this from the A03 draft's plain text and got a centred stack
+   of same-size lines. The approved cover is a different object: letterhead
+   logo and address across the top, the title block in BlairMdITC TT at 15pt
+   with "for" and "at" as 12pt connectors, then the prepared-for block and the
+   project number. These values are copied from the demo, not re-derived. */
+.page.front{padding:1in}
+.page.front .pg-head{display:none}
+.cover-top{display:flex;justify-content:space-between;align-items:flex-start}
+.cover-logo{height:40px}
+.cover-addr{font:6.5pt/1.35 Calibri,sans-serif;border-left:1.5px solid #9C2742;padding-left:8px}
+.cover-title{text-align:center;margin-top:2.2in}
+.cover-title .t{font-family:'BlairMdITC TT',Calibri,serif;font-size:15pt;
+                letter-spacing:0;line-height:1.15;margin:0 0 16px}
+.cover-title .t.sm{font-size:12pt}
+.cover-title .t.tight{margin-bottom:0}
+.cover-prep{text-align:center;margin-top:1.1in;line-height:1.35}
+.cover-no{text-align:center;margin-top:1in}
+.cover-no small{font-size:8pt}
+.page.pg-blank{display:flex;align-items:center;justify-content:center}
+.blank-note{color:#000}
+.toc-title{text-align:center;font-weight:700;font-size:12pt;margin:.3in 0 .35in}
+.toc-sec{display:flex;align-items:baseline;gap:4px;padding-left:.5in}
+.toc-sec .n{width:1in;flex:none;white-space:nowrap}
+.dots{flex:1;border-bottom:1px dotted #000;transform:translateY(-3px);margin:0 4px}
+.pg{color:#777}
+.sec-title{font-weight:700;margin:0 0 0 0}
+.eos{font-weight:700;text-align:center;margin:0}
+/* ladder: each level's NUMBER starts where its parent's TEXT starts */
+.ln{display:grid;align-items:start;column-gap:0;padding:0}
+.ln .num{font-variant-numeric:tabular-nums}
+.ln .tx{min-width:0;min-height:13.4pt}   /* an empty row (just inserted) keeps one line so it can be reached */
+.ln[data-lvl="1"]{grid-template-columns:.5in minmax(0,1fr);margin-left:0}
+.ln[data-lvl="2"]{grid-template-columns:.5in minmax(0,1fr);margin-left:.5in}
+.ln[data-lvl="3"]{grid-template-columns:.5in minmax(0,1fr);margin-left:1in}
+.ln[data-lvl="4"]{grid-template-columns:.75in minmax(0,1fr);margin-left:1.5in}
+.ln[data-lvl="5"]{grid-template-columns:.9in minmax(0,1fr);margin-left:2.25in}
+.ln[data-lvl="1"] .tx,.ln[data-lvl="2"] .tx{font-weight:700}
+.ln.sel{background:color-mix(in srgb,var(--brand) 12%,transparent);
+        outline:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
+/* Provenance is REVIEW chrome, not document formatting. It used to be an inset
+   bar plus 6px of padding INSIDE the text column, which pushed every clause
+   6px off the position Word prints it at and drew a coloured rule down the
+   whole page. The marker now lives in the left page margin: absolutely
+   positioned against the page, so it never moves the text and prints
+   nowhere near it. */
+.ln.draft::before,.ln.carried::before,.ln.empty::before{content:'';position:absolute;left:.62in;width:3px;height:13.4pt;border-radius:2px}
+.ln.draft::before{background:var(--warn)}
+.ln.carried::before{background:var(--info)}
+.ln.empty::before{background:var(--fail)}
+.ln.empty .tx{color:#7a7684}
+.ln.free{display:grid;grid-template-columns:minmax(0,1fr)}
+.ln.free.bul{grid-template-columns:.25in minmax(0,1fr)}
+.ln.free .dot{text-align:left}
+.spec-tbl{border-collapse:collapse;margin:0 auto;width:5.8in}
+.spec-tbl td{border:.5pt solid #000;padding:2px 6px;font-size:11pt;text-align:center}
+.spec-tbl td.h{font-weight:700;text-decoration:underline}
+.spec-tbl td.l{text-align:left}
+.blank{height:13.4pt}   /* one empty Word paragraph = one line */
+.tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff;min-height:13.4pt}

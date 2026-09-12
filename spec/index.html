@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARENCON · Specification Generator</title>
 <script src="../shared/auth-gate.js"></script>
+<!-- The printed page. Shared with the job tool — one implementation, not a
+     matching copy. Do not restate any of these rules below. -->
+<link rel="stylesheet" href="css/specDoc.css">
 <style>
 /* The ARENCON wordmark face, embedded so the cover renders identically on a
    machine that has never had the font installed. Cover title block only —
@@ -109,104 +112,6 @@ body[data-rail="fold"] .rail .railhead{display:none}
 /* paper — matches the generated Word file: Letter, 1in sides, running header */
 .paper-col{overflow-y:auto;overflow-x:hidden;background:var(--deck);padding:22px 0 90px}
 .stage{transform-origin:top center}
-/* Top padding is 1.62in, MEASURED from 7310.17 — not the 1in a default Word
-   page uses. The old 1in left only a 0.28in band above the body, which fits
-   ONE header line. Three lines overran it and printed on top of the section
-   heading. The firm's real page reserves this room; so does this one. */
-.page{width:8.5in;height:11in;margin:0 auto 22px;padding:1.62in 1in 0.4in;background:#fff;color:#1B1A22;
-      box-shadow:0 6px 26px rgba(0,0,0,.35);font:11pt/13.4pt Calibri,Carlito,sans-serif;  /* Word single spacing, measured */
-      position:relative;overflow:hidden}
-/* ── Running header — read from the Word file, not inferred ──────────────
-   document.xml sectPr:  pgMar left/right 1440 (1in), header 1440 (1in from
-   the top edge), top 2332 (1.62in), bottom 576 (0.4in).
-   header1.xml: THREE paragraphs, ALL Calibri 11pt, spacing-after 0, same
-   colour. Tab stops set the columns against a 6.5in text width:
-     para 1  tabs center@4680 right@9360  → left text · CENTRED title · right code
-     para 2  tabs right@9360              → left text · right "Page N"
-     para 3  tabs right@9360 + pBdr bottom single 0.75pt black, space 2pt
-             → left text · right "Project #: …", and the rule sits under THIS
-               row only.
-   What I had wrong before this: sides at 0.75in, header at 0.72in, rows 2–3
-   smaller and grey, the title right-grouped instead of centred, the rule on
-   the whole block, and a date that does not exist in the file. */
-.pg-head{position:absolute;left:1in;right:1in;top:1in;font-size:11pt;line-height:13.4pt;color:#1B1A22}
-/* minmax(0,1fr), not 1fr. A bare 1fr will not shrink below its content's
-   minimum width, so a long client name or address pushed the centre and right
-   columns outward and the right-hand value stopped short of the margin
-   instead of sitting hard against it. Word's tab stops are absolute — centre
-   at the midpoint, right at the text edge — and these columns now behave the
-   same way regardless of what the left cell holds. */
-.pg-head .r{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);
-            align-items:baseline;white-space:nowrap}
-.pg-head .r > span:first-child{overflow:hidden;text-overflow:ellipsis}
-.pg-head .r .c{text-align:center}
-.pg-head .r .e{text-align:right}
-.pg-head .r.rule{border-bottom:.75pt solid #000;padding-bottom:2pt}
-/* Placeholders occupy the same space at the same size as a real value — only
-   the colour differs — so filling a field never reflows the header. Grey and
-   italic reads as "not yet entered" at a glance and cannot be mistaken for a
-   real project number on a printed page. */
-.pg-head .ph{color:#928E9C;font-style:italic}
-/* ── front matter — the approved demo's cover, rule for rule ─────────────
-   I had rebuilt this from the A03 draft's plain text and got a centred stack
-   of same-size lines. The approved cover is a different object: letterhead
-   logo and address across the top, the title block in BlairMdITC TT at 15pt
-   with "for" and "at" as 12pt connectors, then the prepared-for block and the
-   project number. These values are copied from the demo, not re-derived. */
-.page.front{padding:1in}
-.page.front .pg-head{display:none}
-.cover-top{display:flex;justify-content:space-between;align-items:flex-start}
-.cover-logo{height:40px}
-.cover-addr{font:6.5pt/1.35 Calibri,sans-serif;border-left:1.5px solid #9C2742;padding-left:8px}
-.cover-title{text-align:center;margin-top:2.2in}
-.cover-title .t{font-family:'BlairMdITC TT',Calibri,serif;font-size:15pt;
-                letter-spacing:0;line-height:1.15;margin:0 0 16px}
-.cover-title .t.sm{font-size:12pt}
-.cover-title .t.tight{margin-bottom:0}
-.cover-prep{text-align:center;margin-top:1.1in;line-height:1.35}
-.cover-no{text-align:center;margin-top:1in}
-.cover-no small{font-size:8pt}
-.page.pg-blank{display:flex;align-items:center;justify-content:center}
-.blank-note{color:#000}
-.toc-title{text-align:center;font-weight:700;font-size:12pt;margin:.3in 0 .35in}
-.toc-sec{display:flex;align-items:baseline;gap:4px;padding-left:.5in}
-.toc-sec .n{width:1in;flex:none;white-space:nowrap}
-.dots{flex:1;border-bottom:1px dotted #000;transform:translateY(-3px);margin:0 4px}
-.pg{color:#777}
-.sec-title{font-weight:700;margin:0 0 0 0}
-.eos{font-weight:700;text-align:center;margin:0}
-/* ladder: each level's NUMBER starts where its parent's TEXT starts */
-.ln{display:grid;align-items:start;column-gap:0;padding:0}
-.ln .num{font-variant-numeric:tabular-nums}
-.ln .tx{min-width:0;min-height:13.4pt}   /* an empty row (just inserted) keeps one line so it can be reached */
-.ln[data-lvl="1"]{grid-template-columns:.5in minmax(0,1fr);margin-left:0}
-.ln[data-lvl="2"]{grid-template-columns:.5in minmax(0,1fr);margin-left:.5in}
-.ln[data-lvl="3"]{grid-template-columns:.5in minmax(0,1fr);margin-left:1in}
-.ln[data-lvl="4"]{grid-template-columns:.75in minmax(0,1fr);margin-left:1.5in}
-.ln[data-lvl="5"]{grid-template-columns:.9in minmax(0,1fr);margin-left:2.25in}
-.ln[data-lvl="1"] .tx,.ln[data-lvl="2"] .tx{font-weight:700}
-.ln.sel{background:color-mix(in srgb,var(--brand) 12%,transparent);
-        outline:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
-/* Provenance is REVIEW chrome, not document formatting. It used to be an inset
-   bar plus 6px of padding INSIDE the text column, which pushed every clause
-   6px off the position Word prints it at and drew a coloured rule down the
-   whole page. The marker now lives in the left page margin: absolutely
-   positioned against the page, so it never moves the text and prints
-   nowhere near it. */
-.ln.draft::before,.ln.carried::before,.ln.empty::before{content:'';position:absolute;left:.62in;width:3px;height:13.4pt;border-radius:2px}
-.ln.draft::before{background:var(--warn)}
-.ln.carried::before{background:var(--info)}
-.ln.empty::before{background:var(--fail)}
-.ln.empty .tx{color:#7a7684}
-.ln.free{display:grid;grid-template-columns:minmax(0,1fr)}
-.ln.free.bul{grid-template-columns:.25in minmax(0,1fr)}
-.ln.free .dot{text-align:left}
-.spec-tbl{border-collapse:collapse;margin:0 auto;width:5.8in}
-.spec-tbl td{border:.5pt solid #000;padding:2px 6px;font-size:11pt;text-align:center}
-.spec-tbl td.h{font-weight:700;text-decoration:underline}
-.spec-tbl td.l{text-align:left}
-.blank{height:13.4pt}   /* one empty Word paragraph = one line */
-.tx[contenteditable="true"]{outline:2px solid var(--info);outline-offset:3px;border-radius:3px;background:#fff;min-height:13.4pt}
 .edhint{font-size:9pt;color:#6b6674;padding:3px 0 2px .5in}
 .edhint kbd{font:9pt ui-monospace,Consolas,monospace;background:#eceaf0;border:1px solid #d6d2dc;border-radius:4px;padding:0 4px}
 .empty-state{color:var(--ink3);text-align:center;padding:60px 20px}
@@ -285,6 +190,13 @@ body[data-rail="fold"] .rail .railhead{display:none}
 <div class="msg" id="msg"></div>
 
 <script type="module">
+/* THE PRINTED PAGE IS NOT DRAWN HERE. Numbering, pagination, the running
+   header, the cover and the table of contents all live in the document engine,
+   which the job tool calls too. This host supplies rows and two hooks — how a
+   row's text is painted and what classes it carries — and nothing else. If you
+   find yourself about to write page markup in this file, you are forking the
+   engine; put it in the engine instead. */
+import { numbered, paginate, escapeHtml, MAIL } from './js/specDoc.js';
 /* Supabase reached over plain fetch — no CDN module, nothing to load at
    runtime, and the tool keeps working if a third-party host is down. */
 const SUPA_URL = 'https://xsemvinxsyphjiaqgywv.supabase.co';
@@ -363,53 +275,6 @@ function msg(t, bad) {
 const nowTor = () => new Date().toLocaleString('en-CA',
   { timeZone: 'America/Toronto', hour: '2-digit', minute: '2-digit' });
 
-/* ── numbering follows the source document ───────────────────────────────
-   Numbers are still never STORED — they are computed here every render, so
-   moving or deleting a clause renumbers everything below it. What changed is
-   HOW they are computed.
-
-   Counting tree position cannot reproduce Word. Where a source document jumps
-   from Part straight to a clause with no article between, the tree has no rung
-   at the middle level to count, so counting produced 1.1 where the Word file
-   prints 1.1.1. Word does not count position: it keeps a counter per outline
-   level and prints every rung, substituting 1 for any rung that has no item of
-   its own. A clause carries its own level from the document it came from
-   (source_level), so that is what drives the number.
-
-   Clauses authored inside the tool have no source level. For those, depth in
-   the tree is the level — which is the same answer, because nothing the tool
-   creates can skip a rung. */
-function numbered(rows) {
-  const kids = new Map();
-  rows.forEach(r => {
-    const k = r.parent_id || '_root';
-    if (!kids.has(k)) kids.set(k, []);
-    kids.get(k).push(r);
-  });
-  kids.forEach(a => a.sort((x, y) => x.sort_order - y.sort_order));
-  const out = [];
-  const count = [];          // count[i] = current number at outline level i+1
-  (function walk(parent, depth) {
-    const list = kids.get(parent) || [];
-    for (const r of list) {
-      const isNum = ['part', 'article', 'clause'].includes(r.kind);
-      let num = '', lvl = depth;
-      if (isNum) {
-        lvl = r.source_level || depth;
-        count[lvl - 1] = (count[lvl - 1] || 0) + 1;
-        count.length = lvl;                       // a number resets all deeper levels
-        /* Fill any rung with no item of its own with 1 — this is the step that
-           reproduces the source, and the reason a clause can read 1.1.1 in a
-           section that has no 1.1 heading. */
-        num = Array.from({ length: lvl }, (_, i) => count[i] || 1).join('.');
-      }
-      out.push({ ...r, num, lvl });
-      walk(r.id, isNum ? lvl + 1 : depth);
-    }
-  })('_root', 1);
-  return out;
-}
-
 /* ── render ──────────────────────────────────────────────────────────── */
 function renderRail() {
   const byDiv = {};
@@ -442,63 +307,6 @@ function renderRail() {
 function activeSections() {
   return state.sections.filter(s => !s.system_tag || state.systems[s.system_tag] !== false);
 }
-
-/* ── running page header ─────────────────────────────────────────────────
-   Three rows, laid out to match the header block in the firm's Word template:
-
-     row 1   ARENCON INC. — <client>        <section title>  Section <code>
-     row 2   <doc title>                                     Page <n>
-     row 3   <site>, <city>                 Project #: <no> <rev>   <date>
-
-   Every left-hand value is job data the user enters once in Document details;
-   every right-hand value is document position and fills itself. A field left
-   blank collapses rather than printing a stray separator, so a half-filled
-   header still reads as a header instead of as a fault. */
-const secTitle = code => (state.sections.find(s => s.code === code) || {}).title || '';
-
-/* Toronto local, long form — matches the date written on the firm's covers.
-   Parsed as a plain calendar date, NOT as an instant: 'YYYY-MM-DD' through
-   the Date constructor is read as UTC midnight, which prints as the PREVIOUS
-   day for everyone in Eastern Time. */
-function issueDateLong(iso) {
-  if (!iso) return '';
-  const [y, m, d] = String(iso).split('-').map(Number);
-  if (!y || !m || !d) return '';
-  return new Date(y, m - 1, d).toLocaleDateString('en-CA',
-    { year: 'numeric', month: 'long', day: 'numeric' });
-}
-
-const HEAD_HTML = (sec, page) => {
-  const h = state.header || {};
-  /* Mirrors header1.xml paragraph for paragraph. Every row is a 3-column grid
-     so the centre tab (para 1) and the right tabs (all three) land where
-     Word's tab stops put them. Rows 2 and 3 leave the centre cell empty,
-     exactly as those paragraphs have no centre tab. The rule is on row 3
-     only. No date anywhere — the file has none.
-
-     UNFILLED FIELDS SHOW THE TEMPLATE, NOT NOTHING. Collapsing a blank field
-     hid two of the three rows, so the header looked like a different header
-     rather than an empty one — you could not see the format you were filling
-     in. Placeholders are drawn in the same position and size as real values
-     but greyed, so the shape is honest AND nobody mistakes 0000.00 A01 for a
-     real project number on an issued document. */
-  const ph = (v, tpl) => v
-    ? escapeHtml(v)
-    : `<span class="ph">${escapeHtml(tpl)}</span>`;
-  const where = [h.site, h.city].filter(Boolean).join(', ');
-  const proj = [h.project_no, h.revision].filter(Boolean).join(' ');
-  return `<div class="pg-head">
-    <div class="r"><span>${ph(h.client, 'Client Name')}</span>
-      <span class="c">${escapeHtml(secTitle(sec))}</span>
-      <span class="e">Section ${sec}</span></div>
-    <div class="r"><span>${ph(h.doc_title, 'Project Specification Title')}</span>
-      <span class="c"></span>
-      <span class="e">Page ${page}</span></div>
-    <div class="r rule"><span>${ph(where, 'Site Address, City, Province')}</span>
-      <span class="c"></span>
-      <span class="e">Project #: ${ph(proj, '0000.00 A01')}</span></div>
-  </div>`;
-};
 
 /* ── document details ────────────────────────────────────────────────────
    The job data behind every page header, and later the cover and the TOC.
@@ -586,199 +394,27 @@ async function docHeaderScreen() {
   } catch (e) { msg('Could not save — you may not have permission.', true); }
 }
 
-function tableHtml(r) {
-  let t; try { t = JSON.parse(r.body); } catch { return ''; }
-  const cell = (v, head, left) =>
-    `<td class="${head ? 'h' : ''} ${left ? 'l' : ''}">${escapeHtml(v)}</td>`;
-  return `<table class="spec-tbl" data-id="${r.id}">
-    <tr>${(t.head || []).map(h => cell(h, true)).join('')}</tr>
-    ${(t.rows || []).map(row => `<tr>${row.map((c, i) =>
-      cell(String(c).replace(/\|\|/g, ' · '), false, i > 0)).join('')}</tr>`).join('')}
-  </table>`;
-}
-
-/* ── front matter ────────────────────────────────────────────────────────
-   Read from document.xml, not invented. The file opens with three pages, each
-   its own section break, none carrying the running header:
-
-     cover   letterhead, then centred 12pt title lines 0.20in apart, then
-             "prepared" / "by" / "ARENCON INC.", then 1.04in of air, then
-             "Prepared for:" and the client at 11pt, then 0.65in more air and
-             "Project No: …" with the date beneath.
-     blank   "This page left blank intentionally", centred, 11pt.
-     toc     "Table of Contents" centred 11pt with 0.25in after it, then the
-             entries — a Word TOC field in the file, generated here.
-
-   The source file said "Project No:" on the cover and "Project #:" in the
-   running header. Mark ruled (S11): "Project #:" everywhere. The cover now
-   follows the header; the Word file was the inconsistency. */
-const PH = (v, tpl) => v ? escapeHtml(v) : `<span class="ph">${escapeHtml(tpl)}</span>`;
-
-/* Split as a template literal so the address is never a harvestable
-   plain-text mailto in the page source. */
-const MAIL = 'mail' + '@' + 'arencon.com';
-
-function coverHtml() {
-  const h = state.header || {};
-  const title = (h.doc_title || '').trim();
-  const lines = title
-    ? title.split('\n').map(l => `<div class="t">${escapeHtml(l.trim())}</div>`).join('')
-    : '<div class="t"><span class="ph">Project Specification Title</span></div>';
-  return `<div class="cover-top">
-      <img class="cover-logo" src="${LOGO_SRC}" alt="ARENCON INC.">
-      <div class="cover-addr">1551 CATERPILLAR ROAD, SUITE 206<br>
-        MISSISSAUGA, ON &nbsp;&nbsp;L4X 2Z6 CANADA<br><br>
-        P: 905 615 1774<br>F: 905 615 9351<br>E: ${escapeHtml(MAIL)}</div>
-    </div>
-    <div class="cover-title">
-      <div class="t">Project Specification</div>
-      ${lines}
-      <div class="t sm">for</div>
-      <div class="t">${PH(h.client, 'Client Name')}</div>
-      <div class="t sm">at</div>
-      <div class="t tight">${PH(h.site, 'Site Address')},</div>
-      <div class="t">${PH(h.city, 'City, Province')}</div>
-    </div>
-    <div class="cover-prep">Prepared for:<br><br>${PH(h.client, 'Client Name')}</div>
-    <div class="cover-no">Project #: ${PH(h.project_no, '0000.00')}
-      <small>${PH(h.revision, 'A01')}</small><br>
-      ${PH(issueDateLong(h.issue_date), 'Date of Issuance')}</div>`;
-}
-
-const BLANK_HTML = '<div class="blank-note">This page left blank intentionally.</div>';
-
-/* Leader dots are their own flex element between title and page number, the
-   way the demo draws them — not a border on the title, which stops short
-   whenever the title is narrower than its column. */
-function tocHtml(entries) {
-  return '<div class="toc-title">Table of Contents</div>' +
-    entries.map(e => `<div class="toc-sec"><span class="n">${escapeHtml(e.code)}</span>` +
-      `<span>${escapeHtml(e.title)}</span><span class="dots"></span>` +
-      `<span class="pg">${e.page}</span></div>`).join('');
-}
-
-function buildBlocks() {
-  const blocks = [];
-  for (const sec of activeSections()) {
-    const rows = numbered(state.clauses.filter(c => c.section_id === sec.id));
-    blocks.push({ section: sec.code, keepNext: true,
-      html: `<div class="sec-title" data-sec="${sec.id}">Section ${sec.code} – ${escapeHtml(sec.title)}</div>` });
-    if (!rows.length) {
-      blocks.push({ section: sec.code, html: '<div class="blank"></div>' });
-      blocks.push({ section: sec.code,
-        html: `<div class="ln empty" data-lvl="3"><div class="num"></div><div class="tx">[-] No wording written for this section yet.</div></div>` });
-    }
-    rows.forEach(r => {
-      for (let i = 0; i < (r.blank_before ?? 1); i++)
-        blocks.push({ section: sec.code, keepNext: true, html: '<div class="blank"></div>' });
-      const prov = r.provenance === 'approved' ? '' : r.provenance;
-      const sel = state.sel === r.id ? 'sel' : '';
-
-      if (r.kind === 'table') { blocks.push({ section: sec.code, id: r.id, html: tableHtml(r) }); return; }
-
-      if (r.kind === 'para' || r.kind === 'bullet') {
-        const ind = r.indent == null ? (r.lvl - 1) * 0.5 : r.indent;
-        const bullet = r.kind === 'bullet';
-        blocks.push({ section: sec.code, id: r.id,
-          html: `<div class="ln free ${bullet ? 'bul' : ''} ${prov} ${sel}" data-id="${r.id}"
-                   style="margin-left:${ind}in">${bullet ? '<div class="dot">\u2022</div>' : ''}<div class="tx">${escapeHtml(r.body)}</div></div>` });
-        return;
-      }
-
-      const title = r.lvl <= 2 || (r.body.length <= 72 && !/[.,;:]$/.test(r.body));
-      blocks.push({ section: sec.code, keepNext: title, id: r.id,
-        html: `<div class="ln ${prov} ${sel}" data-lvl="${r.lvl}" data-id="${r.id}"><div class="num">${r.num}</div><div class="tx">${escapeHtml(r.body)}</div></div>` });
-    });
-    blocks.push({ section: sec.code, html: '<div class="blank"></div>' });
-    blocks.push({ section: sec.code, html: `<div class="eos">END OF SECTION ${sec.code}</div>` });
-    blocks.push({ section: sec.code, pageBreak: true, html: '' });
-  }
-  return blocks;
-}
-
-/* Lay the blocks into Letter pages. A block is never split, so a clause can
-   never break across a page; keepNext travels with the block after it, so a
-   heading is never stranded at a page foot. */
-function paginate() {
-  const host = $('#pages');
-  host.innerHTML = '';
-  const blocks = buildBlocks();
-  if (!blocks.length) {
-    host.innerHTML = '<div class="page"><div class="empty-state">Nothing to show.</div></div>';
-    return;
-  }
-  /* Page budget from the Word file's sectPr: 11in tall, top 1.62in, bottom
-     0.4in. This was hardcoded to a 1in top while the page CSS said 1.62in,
-     so every page was laid out 0.62in taller than it really was and the last
-     lines ran off the bottom edge. */
-  const USABLE = (11 - 1.62 - 0.4) * 96;
-  let page = null, used = 0, pageNo = 0;
-
-  /* FRONT MATTER GOES ON AFTER THE BODY IS LAID OUT, NOT BEFORE. The table of
-     contents has to state the page each section starts on, and that is not
-     known until the body has actually been paginated — writing it first would
-     mean guessing. So the body is laid out, each section's opening page is
-     recorded as it happens, and the three front pages are then inserted ahead
-     of it. They carry no running header and no page number, exactly as the
-     file's own section breaks have them, so the body still starts at Page 1. */
-  const toc = [];
-  const newPage = (sec) => {
-    pageNo++;
-    page = document.createElement('div');
-    page.className = 'page';
-    page.innerHTML = HEAD_HTML(sec, pageNo);
-    host.appendChild(page);
-    used = 0;
-    if (!toc.length || toc[toc.length - 1].code !== sec) {
-      const s = state.sections.find(x => x.code === sec);
-      toc.push({ code: sec, title: (s || {}).title || '', page: pageNo });
-    }
+/* The clause library's personality on the shared page: a provenance stripe
+   down the left of anything not yet approved, and a highlight on the selected
+   clause. The engine owns everything else. */
+function docConfig() {
+  return {
+    sections: activeSections(),
+    rowsFor: id => state.clauses.filter(c => c.section_id === id),
+    header: state.header,
+    logo: LOGO_SRC,
+    bodyHtml: r => escapeHtml(r.body),
+    rowClass: r => [r.provenance === 'approved' ? '' : r.provenance,
+                    state.sel === r.id ? 'sel' : ''].filter(Boolean).join(' '),
   };
-  newPage(blocks[0].section);
-
-  for (let i = 0; i < blocks.length; i++) {
-    const b = blocks[i];
-    if (b.pageBreak) { if (i < blocks.length - 1) newPage(blocks[i + 1].section); continue; }
-    const holder = document.createElement('div');
-    holder.innerHTML = b.html;
-    const node = holder.firstElementChild;
-    if (!node) continue;
-    page.appendChild(node);
-    let h = node.offsetHeight;
-
-    if (b.keepNext && blocks[i + 1] && !blocks[i + 1].pageBreak) {
-      const probe = document.createElement('div');
-      probe.innerHTML = blocks[i + 1].html;
-      const pn = probe.firstElementChild;
-      if (pn) { page.appendChild(pn); h += pn.offsetHeight; page.removeChild(pn); }
-    }
-    if (used + h > USABLE && used > 0) {
-      page.removeChild(node);
-      newPage(b.section);
-      page.appendChild(node);
-      used = node.offsetHeight;
-    } else {
-      used += node.offsetHeight;
-    }
-  }
-
-  /* Now the body is laid out and toc[] holds the real opening page of every
-     section, so the front matter can be built and put in front of it. */
-  const front = document.createDocumentFragment();
-  const pages = [['cover', coverHtml()], ['blank', BLANK_HTML], ['toc', tocHtml(toc)]];
-  for (const [kind, html] of pages) {
-    const p = document.createElement('div');
-    p.className = 'page front pg-' + kind;   /* pg- prefix: 'blank' alone collides with the empty-line rule */
-    p.innerHTML = html;
-    front.appendChild(p);
-  }
-  host.insertBefore(front, host.firstChild);
-  state.toc = toc;   /* the Word export seeds its TOC field from this */
 }
 
-function renderPage() { paginate(); fitPage(); }
+function renderPage() {
+  state.toc = paginate($('#pages'), docConfig());   /* the Word export seeds its TOC field from this */
+  fitPage();
+}
 
-const escapeHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+/* escapeHtml comes from the document engine — see the import at the top. */
 
 function renderInspector() {
   const el = $('#inspBody');
