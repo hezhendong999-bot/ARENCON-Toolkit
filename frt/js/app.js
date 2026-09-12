@@ -1712,8 +1712,18 @@ var _S700_DENY = {
   /* contractors and trades */
   'crx-add-ctr':1, 'crx-add-new-trade':1, 'crx-add-prebuilt':1, 'crx-del-ctr':1,
   'crx-del-trade':1, 'crx-rename':1, 'crx-untag':1, 'picker-add-new-ctr':1,
-  /* contractor thread */
-  'crbt-addcomment':1, 'crbt-editsave':1,
+  /* contractor thread.
+     S728 — 'crbt-addcomment' was REMOVED from this deny-list. It blocked the tap
+     at pointerdown (capture + stopImmediatePropagation), so on an issued report
+     the composer never opened and the inspector could not type at all. That is
+     the behaviour the Option 4 ruling replaced: a new contractor comment is now
+     carried to the current report instead of being refused. The write itself is
+     still refused here — 'crbt-submit' routes via _s728RouteNewComment in
+     deficiencies.js, and the other thread actions refuse there too. Opening a
+     composer creates nothing; only Post does, and Post is guarded.
+     'crbt-editsave' STAYS denied: editing an existing entry cannot be carried
+     anywhere, because the entry belongs to this report's history. */
+  'crbt-editsave':1,
   /* photos that attach or move */
   'photo-assign-pin':1, 'photo-drop':1, 'choose-obs-photos':1,
   'ai-suggest-photo':1, 'ph-undo-move':1, 'bv-swap':1
