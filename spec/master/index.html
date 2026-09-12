@@ -117,6 +117,13 @@ h2{font-size:12pt;font-weight:600;margin:24px 0 10px}
 .stdfold>summary::before{content:'\25B8 ';display:inline-block;transition:transform .15s}
 .stdfold[open]>summary::before{transform:rotate(90deg)}
 .stdfold>summary:hover{color:var(--ink)}
+.typs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 0 9px 130px}
+.typ{display:inline-flex;align-items:center;gap:6px;font-size:10pt;padding:3px 6px 3px 11px;
+  border:1px solid var(--line);border-radius:20px;background:var(--surface2);color:var(--ink2)}
+.typ button{border:0;background:none;color:var(--ink3);cursor:pointer;font-size:13px;line-height:1;
+  padding:0 3px;border-radius:50%}
+.typ button:hover{color:var(--fail)}
+@media (max-width:700px){.typs{padding-left:0}}
 
 .co{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:9px 12px;
   border:1px solid var(--line);border-radius:10px;margin-bottom:6px;background:var(--surface)}
@@ -199,7 +206,7 @@ const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').repl
 const Dlg = () => import('../../lib/ui/dialogEngine.js').then(m => m.Dlg);
 
 const state = { me: null, role: 'inspector', view: 'packages', pkg: null,
-  packages: [], sections: [], pkgSections: [], stds: [], closeouts: [], blanks: [],
+  packages: [], sections: [], pkgSections: [], stds: [], closeouts: [], blanks: [], typicals: [],
   proposals: [], changes: [], receipts: [], profiles: {} };
 const isPrincipal = () => ['admin', 'super_admin'].includes(state.role);
 const PROVN = { ON:'Ontario', AB:'Alberta', BC:'British Columbia', QC:'Quebec', XX:'National (fallback)' };
@@ -214,19 +221,20 @@ const fail = e => msg(e.message || String(e), true);
 
 /* ── load ─────────────────────────────────────────────────────────────── */
 async function loadAll() {
-  const [packages, sections, pkgSections, stds, closeouts, blanks, proposals, changes, receipts, profiles] = await Promise.all([
+  const [packages, sections, pkgSections, stds, closeouts, blanks, typicals, proposals, changes, receipts, profiles] = await Promise.all([
     sb.select('sg_package', 'select=*&order=sort_order'),
     sb.select('sg_section', 'select=id,code,title&order=sort_order'),
     sb.select('sg_package_section', 'select=*'),
     sb.select('sg_standard', 'select=*&order=sort_order,designation'),
     sb.select('sg_closeout', 'select=*&order=sort_order'),
     sb.select('sg_blank', 'select=*&order=package_id,key'),
+    sb.select('sg_blank_typical', 'select=*&active=eq.true&order=blank_key,sort_order'),
     sb.select('sg_proposal', 'select=*&order=proposed_at.desc&limit=200'),
     sb.select('sg_change', 'select=*&order=created_at.desc&limit=100'),
     sb.select('sg_change_receipt', 'select=*&state=in.(declined,flagged)&order=acted_at.desc&limit=200'),
     sb.select('profiles', 'select=id,full_name'),
   ]);
-  Object.assign(state, { packages, sections, pkgSections, stds, closeouts, blanks, proposals, changes, receipts });
+  Object.assign(state, { packages, sections, pkgSections, stds, closeouts, blanks, typicals, proposals, changes, receipts });
   state.profiles = Object.fromEntries(profiles.map(p => [p.id, p.full_name || p.id.slice(0, 8)]));
   counts();
 }
@@ -477,11 +485,18 @@ function blanks() {
     ${readOnlyNote()}
     ${P ? `<div class="acts" style="margin-bottom:6px"><button class="add" id="addbl">+ Blank</button></div>` : ''}
     ${Object.entries(byPkg).map(([k, items]) => `<div class="head"><h2>${esc(pname(k))}</h2></div>
-      <div class="card">${items.map(b => `<div class="row" style="padding:5px 0;${P ? 'cursor:pointer' : ''}" data-bl="${esc(b.key)}">
+      <div class="card">${items.map(b => {
+        const ty = state.typicals.filter(t => t.blank_key === b.key);
+        return `<div class="row" style="padding:5px 0;${P ? 'cursor:pointer' : ''}" data-bl="${esc(b.key)}">
         <code style="font-size:9.5pt;color:var(--ink3);min-width:130px">⟦${esc(b.key)}⟧</code>
         <span style="flex:1">${esc(b.label)}<span class="mini"> · shows as “${esc(b.prompt || b.label)}”</span></span>
-        <span class="chip mute">${esc(b.kind)}</span>${b.optional ? '<span class="chip mute">optional</span>' : ''}</div>`).join('')}</div>`).join('')}
-    <div class="mini" style="margin-top:14px">${state.blanks.length} blanks. The clause library does not yet mark them in the wording — that pass is the next step and is reviewed section by section.</div>
+        <span class="chip mute">${esc(b.kind)}</span>${b.optional ? '<span class="chip mute">optional</span>' : ''}</div>
+        <div class="typs">${ty.map(t => `<span class="typ">${esc(t.body)}${P
+            ? `<button data-rmtyp="${t.id}" title="Remove this wording">×</button>` : ''}</span>`).join('')}
+          ${P ? `<button class="add" data-addtyp="${esc(b.key)}">+ Typical wording</button>` : ''}
+          ${!ty.length && !P ? '<span class="mini">No typical wordings yet.</span>' : ''}</div>`;
+      }).join('')}</div>`).join('')}
+    <div class="mini" style="margin-top:14px">${state.blanks.length} blanks. Typical wordings are offered to whoever is filling the blank and are taken with a tap — they are never filled in for them. An untouched blank stays a visible gap, so a plausible default cannot reach an issued document without somebody having chosen it.</div>
   </div>`;
   if (!P) return;
   const edit = async (b) => {
@@ -504,6 +519,37 @@ function blanks() {
   };
   $('#addbl', m).onclick = () => edit(null);
   $$('[data-bl]', m).forEach(el => el.onclick = () => edit(state.blanks.find(b => b.key === el.dataset.bl)));
+
+  $$('[data-addtyp]', m).forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    const key = b.dataset.addtyp;
+    const D = await Dlg();
+    const out = await D.form({ title: 'Typical wording', icon: '\u201C', accent: 'slate', width: 580,
+      message: 'A phrasing that fits most jobs. Whoever fills this blank sees it as a chip and taps to take it, then edits. It is never entered for them.',
+      fields: [{ key: 'body', label: 'Wording', type: 'textarea', placeholder: 'from the existing riser room', required: true }],
+      submitText: 'Add' });
+    if (!out) return;
+    try {
+      await sb.insert('sg_blank_typical', { blank_key: key, body: out.body.trim(),
+        sort_order: (state.typicals.filter(t => t.blank_key === key).length + 1) * 10 });
+      await loadAll(); render(); msg('Added.');
+    } catch (err) { fail(err); }
+  });
+
+  $$('[data-rmtyp]', m).forEach(b => b.onclick = async e => {
+    e.stopPropagation();
+    const t = state.typicals.find(x => x.id === b.dataset.rmtyp);
+    if (!t) return;
+    const D = await Dlg();
+    const ok = await D.confirmDanger({ title: 'Remove this wording',
+      message: `Remove \u201C${t.body}\u201D from the typical wordings?`,
+      detail: 'It stops being offered. Jobs that already used it keep what they wrote \u2014 the wording was copied into the job when it was tapped.',
+      undoNote: 'Nothing on any job changes. Add it again here if it turns out to be wanted.',
+      confirmText: 'Remove' });
+    if (!ok) return;
+    try { await sb.update('sg_blank_typical', `id=eq.${t.id}`, { active: false, updated_at: new Date().toISOString() });
+      await loadAll(); render(); msg('Removed.'); } catch (err) { fail(err); }
+  });
 }
 
 /* ── proposals ────────────────────────────────────────────────────────── */

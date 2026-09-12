@@ -189,6 +189,12 @@ h3:first-child{margin-top:0}
   background:var(--surface2);color:var(--ink2);cursor:pointer;text-align:left}
 .used button:hover{border-color:var(--brand);color:var(--ink)}
 .used button .k{color:var(--ink3);font-size:9pt;margin-left:6px}
+/* Typical wordings read as firm-offered; used-before reads as history. The two
+   rows must not look alike, or nobody can tell a curated phrasing from
+   whatever somebody typed on one previous job. */
+.used.typical button{border-style:dashed;border-color:color-mix(in srgb,var(--brand) 45%,transparent);
+  color:var(--ink)}
+.used.typical button:hover{border-style:solid}
 .todo-list{display:grid;gap:6px}
 .todo-list button{text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:9px;
   background:var(--surface2);color:var(--ink2);cursor:pointer;font-size:10.5pt}
@@ -298,7 +304,7 @@ const state = {
   view: 'list',            // 'list' | 'job'
   jobs: [], job: null,
   /* firm side */
-  packages: [], sections: [], pkgSections: [], firmStds: [], firmCloseouts: [], blanks: [],
+  packages: [], sections: [], pkgSections: [], firmStds: [], firmCloseouts: [], blanks: [], typicals: [],
   /* job side */
   jobPkgs: [], jobSecs: [], jobClauses: [], jobBlanks: [], jobStds: [], jobCloseouts: [],
   clauses: [],             // master clauses for the sections this job carries
@@ -369,15 +375,16 @@ const isSecStruck = id => !!(state.jobSecs.find(s => s.section_id === id) || {})
 
 /* ══ data ═════════════════════════════════════════════════════════════════ */
 async function loadFirm() {
-  const [packages, sections, pkgSections, firmStds, firmCloseouts, blanks] = await Promise.all([
+  const [packages, sections, pkgSections, firmStds, firmCloseouts, blanks, typicals] = await Promise.all([
     sb.select('sg_package', 'select=*&active=eq.true&order=sort_order,name'),
     sb.select('sg_section', 'select=*&order=sort_order,code'),
     sb.select('sg_package_section', 'select=*&order=sort_order'),
     sb.select('sg_standard', 'select=*&active=eq.true&order=sort_order,designation'),
     sb.select('sg_closeout', 'select=*&active=eq.true&order=sort_order'),
     sb.select('sg_blank', 'select=*&order=key'),
+    sb.select('sg_blank_typical', 'select=*&active=eq.true&order=blank_key,sort_order'),
   ]);
-  Object.assign(state, { packages, sections, pkgSections, firmStds, firmCloseouts, blanks });
+  Object.assign(state, { packages, sections, pkgSections, firmStds, firmCloseouts, blanks, typicals });
 }
 
 async function loadJobs() {
@@ -730,14 +737,20 @@ function renderRight() {
   const focus = state.focusBlank && keys.includes(state.focusBlank) ? state.focusBlank : keys[0];
   const d = focus ? blankDef(focus) : null;
   const used = focus ? (state.usedBefore[focus] || []) : [];
+  const typ = focus ? state.typicals.filter(t => t.blank_key === focus) : [];
   const struck = isStruck(r.id);
 
   el.innerHTML = `
     ${d ? `<h3>${escapeHtml(d.label)}</h3>
-      <div class="mini" style="margin-bottom:9px">Used before on ARENCON jobs. Tap to take one, or type anything you like.</div>
+      ${typ.length ? `<div class="mini" style="margin-bottom:7px">Typical wording. Tap to take one, then change whatever this job needs.</div>
+        <div class="used typical">${typ.map(t =>
+          `<button data-use="${escapeHtml(t.body)}">${escapeHtml(t.body)}</button>`).join('')}</div>` : ''}
+      <div class="mini" style="margin:${typ.length ? '14px' : '0'} 0 7px">Used before on ARENCON jobs.</div>
       ${used.length ? `<div class="used">${used.map(u =>
         `<button data-use="${escapeHtml(u.value)}">${escapeHtml(u.value)}<span class="k">${escapeHtml(u.job)}</span></button>`).join('')}</div>`
-        : '<div class="mini">Nothing recorded yet \u2014 this will be the first.</div>'}` : ''}
+        : '<div class="mini">Nothing recorded yet \u2014 this will be the first.</div>'}
+      <div class="mini" style="margin-top:9px">Or type straight into the gap on the page. Nothing is filled in for you \u2014
+        a blank stays open until you answer it.</div>` : ''}
 
     <h3 style="margin-top:18px">Why this clause says what it says</h3>
     <div class="g"><p>${escapeHtml(r.spec_note || 'Firm standard wording. No guidance note recorded against this clause yet.')}</p></div>
