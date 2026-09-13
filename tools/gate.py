@@ -317,6 +317,29 @@ def main():
     old = open(a.old, encoding='utf-8', errors='replace').read()
     new = open(a.new, encoding='utf-8', errors='replace').read()
 
+    # -- GATE HOLE #5 (found S728) ---------------------------------------------
+    # A `git stash pop` after a HEAD sync left three conflict markers in the
+    # middle of frt/js/app.js. THE GATE PASSED IT: symbols before and after were
+    # identical, so "no silent deletions" was true and reported green. Symbol
+    # counting cannot see <<<<<<< -- the markers add no symbols and remove none.
+    # The corruption was caught by a separate grep, i.e. by luck, one step before
+    # a broken app.js reached a field tablet.
+    #
+    # Absence checks are what this gate is for. This is a presence check on
+    # garbage, which is the cheapest possible guard and the one that was missing.
+    # Anchored at line start, and only the two markers that carry a trailing
+    # label. A bare '=======' line is legal in CSS rulers and markdown, so it is
+    # deliberately not checked -- the other two are enough to catch a real merge.
+    for label, blob in (('--new', new), ('--old', old)):
+        bad = [i + 1 for i, ln in enumerate(blob.split('\n'))
+               if ln.startswith('<<<<<<< ') or ln.startswith('>>>>>>> ')]
+        if bad:
+            print('   \u2717\u2717 BLOCKED -- MERGE CONFLICT MARKERS in %s at line(s): %s'
+                  % (label, ', '.join(map(str, bad[:10]))))
+            print('      Resolve the merge before gating. Do NOT hand-edit the markers out:')
+            print('      reset the file to HEAD and re-apply the edits one at a time.')
+            sys.exit(1)
+
     # ── GATE HOLE #3 (S610 → found S612 → closed S622c) ──────────────────────
     # S610 rebuilt lib/data/sync.js from a copy taken BEFORE the S608 push and
     # gated against that copy. Lane A's work was silently dropped and the gate
