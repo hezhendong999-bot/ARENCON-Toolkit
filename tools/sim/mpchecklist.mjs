@@ -75,6 +75,46 @@ console.log('\n═══ CHECKLIST SCOPE — DOES ONE ANSWER COVER TWO MACHINES?
   }
 }
 
+/* 2a — the scope model reads the SHIPPED rows, not a table of its own */
+{
+  const readSections = (tool) => {
+    const src = fs.readFileSync(path.join(REPO, tool, 'js/part06.js'), 'utf8');
+    const out = {};
+    for (const sec of ['S1', 'S2']) {
+      const blk = src.match(new RegExp('const ' + sec + ' = \\[([\\s\\S]*?)\\n\\];'))[1];
+      out[sec.toLowerCase()] = [...blk.matchAll(/\{ num:"([\d.]+)", scope:"([a-z-]+)"/g)]
+        .map((m) => ({ num: m[1], scope: m[2] }));
+    }
+    return out;
+  };
+  const dsl = readSections('diesel-app');
+  const n = CS.register(dsl);
+  const unscoped = CS.unscopedIn(dsl);
+  if (n !== dsl.s1.length + dsl.s2.length)
+    fail(`registered ${n} of ${dsl.s1.length + dsl.s2.length} shipped diesel rows`);
+  else ok(`all ${n} shipped Diesel S1/S2 rows register their own scope — no second table here`);
+  if (unscoped.length) fail('shipped rows with no scope: ' + unscoped.join(', '));
+  else ok('every shipped row declares a scope; nothing falls back to a guess');
+
+  /* the four shipped labels land on the two sides a report stores */
+  const pairs = [['visit', 'room'], ['room', 'room'], ['machine', 'pump'], ['diesel-only', 'pump']];
+  const bad = pairs.filter(([label, side]) => CS.sideOf(label) !== side);
+  if (bad.length) fail('label mapping wrong for: ' + bad.map((b) => b[0]).join(', '));
+  else ok('visit and room store once; machine and diesel-only store per machine');
+
+  /* a diesel tank item must not become a room answer */
+  const tank = dsl.s2.findIndex((r) => r.num === '2.8');
+  if (CS.scopeOfItem('s2_' + tank) !== 'pump')
+    fail('a diesel-only tank item resolved to the room — it belongs to that engine');
+  else ok('diesel-only items resolve to the machine, not the room');
+
+  /* and a shipped ROOM row stores once */
+  const tags = dsl.s2.findIndex((r) => r.num === '2.10');
+  if (CS.scopeOfItem('s2_' + tags) !== 'room') fail('the valve-tag row did not resolve to the room');
+  else if (CS.labelOfItem('s2_' + tags) !== 'room') fail('the shipped label was lost in translation');
+  else ok('a shipped ROOM row stores once and keeps its label');
+}
+
 /* 2 — every live section is accounted for */
 {
   const secs = [...part06.matchAll(/secs:\s*\[([^\]]+)\]/g)]
@@ -116,25 +156,29 @@ function twoPumps() {
 /* 4 — room answers shared */
 {
   const rep = twoPumps();
-  CS.SECTION_SCOPE.s2 = 'room';                       /* as if Owner ruled section 2 shared */
-  CS.fileInto(rep, 'p1', { s2_1: { status: 'yes', _ts: 222 } });
+  /* s2_9 is Diesel 2.10, valve tags — shipped as ROOM on the live tool */
+  CS.fileInto(rep, 'p1', { s2_9: { status: 'yes', _ts: 222 } });
   const a = CS.flatFor(rep, 'p1'), b = CS.flatFor(rep, 'p2');
-  if (!a.s2_1 || !b.s2_1) fail('a room answer is not visible from both pumps');
-  else ok('a room answer is answered once and seen from both pumps');
+  if (!a.s2_9 || !b.s2_9) fail('a room answer is not visible from both pumps');
+  else ok('the shipped valve-tag answer is given once and seen from both pumps');
   if (Object.keys(rep.pumps[0].data.clState || {}).length) fail('a room answer was also filed onto a pump');
   else ok('a room answer is filed once, on the room');
-  CS.SECTION_SCOPE.s2 = 'unruled';                    /* put it back */
 }
 
-/* 5 — unruled behaves as per-pump and is reported */
+/* 5 — once the tools have ruled a section, it stops being asked about;
+   an unregistered section still defaults to per-pump, the safer error */
 {
   const waiting = CS.needsRuling();
-  if (!waiting.length) fail('nothing is reported as awaiting a ruling — unruled sections must stay visible');
-  else if (CS.scopeOfItem(waiting[0] + '_1') !== 'pump')
-    fail('an unruled item is not defaulting to per-pump, which is the safer error');
-  else if (CS.isRuled(waiting[0] + '_1'))
-    fail('an unruled item is reporting itself as ruled');
-  else ok(`${waiting.length} section(s) awaiting a ruling (${waiting.join(', ')}) — treated as per-pump and listed, not passed as decided`);
+  if (waiting.length)
+    fail('still reporting ' + waiting.join(', ') + ' as awaiting a ruling after the shipped rows were read');
+  else ok('no section is reported as awaiting a ruling — the tools have ruled them row by row');
+  if (!CS.isRuled('s2_9')) fail('a shipped row is reporting itself as unruled');
+  else ok('a shipped row reports itself as ruled');
+  if (CS.scopeOfItem('sX_3') !== 'pump')
+    fail('an unknown section is not defaulting to per-pump, which is the safer error');
+  else if (CS.isRuled('sX_3'))
+    fail('an unknown section is claiming to be ruled');
+  else ok('a section nobody has ruled still defaults to per-pump and admits it is unruled');
 }
 
 /* 6 — edit stamps survive */

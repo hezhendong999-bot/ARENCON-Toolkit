@@ -60,8 +60,53 @@
    warning. */
 var WRITTEN_FOR_SCHEMA = 2;
 
-/* Per section. 'pump' = answered for each machine. 'room' = answered
-   once. 'unruled' = Owner has not said yet, treated as 'pump'. */
+/* ── S729: THE LIVE TOOLS NOW DECLARE THIS THEMSELVES ────────────────
+   Every Section 1 and 2 row in the shipped Diesel and Electric tools
+   carries its own scope — visit, room, machine or diesel-only — ruled by
+   the Owner and live on tablets. So this file no longer holds an opinion
+   about which items are shared. It READS the shipped rows and translates
+   their four labels onto the two sides a report has to store:
+
+       visit       -> room   (one answer for the day)
+       room        -> room   (one answer for the installation)
+       machine     -> pump   (this machine)
+       diesel-only -> pump   (this machine, and only a diesel has it)
+
+   Keeping a second table here would have been a second source of truth
+   that drifts from the tablets the moment a row is re-ruled, and the
+   drift would be invisible: both sides would look internally consistent
+   while disagreeing about which answers are shared.
+
+   register() is how the host hands over its real section arrays. Until
+   it is called, the per-section defaults below apply as a fallback. */
+var REGISTERED = {};
+
+function register(sections) {
+  Object.keys(sections || {}).forEach(function (sec) {
+    (sections[sec] || []).forEach(function (item, idx) {
+      if (item && item.scope) REGISTERED[sec + '_' + idx] = item.scope;
+    });
+  });
+  return Object.keys(REGISTERED).length;
+}
+function registered() { return REGISTERED; }
+function sideOf(label) {
+  return (label === 'visit' || label === 'room') ? 'room' : 'pump';
+}
+/* Rows the host registered with no scope declared — the honest list of
+   what is still unruled, taken from the tools rather than guessed. */
+function unscopedIn(sections) {
+  var out = [];
+  Object.keys(sections || {}).forEach(function (sec) {
+    (sections[sec] || []).forEach(function (item, idx) {
+      if (item && !item.scope) out.push(sec + '_' + idx);
+    });
+  });
+  return out;
+}
+
+/* Fallback for sections the host has not registered (3, 4 and 5 are per
+   machine by their nature and carry no scope field). */
 var SECTION_SCOPE = {
   s1:    'unruled',   /* Pre-commissioning — mixed: supply is the room's, the set is the pump's */
   s2:    'unruled',   /* Visual inspection — mixed: suction piping shared, alignment per machine */
@@ -92,13 +137,21 @@ function parseId(id) {
 
 /* room | pump. Unruled resolves to pump — see the header. */
 function scopeOfItem(id) {
+  /* the shipped row wins over anything declared here */
+  if (REGISTERED[id]) return sideOf(REGISTERED[id]);
   var p = parseId(id);
   var override = ITEM_SCOPE[p.sec + ':' + p.idx];
   if (override) return override;
   var s = scopeOfSection(p.sec);
   return (s === 'room') ? 'room' : 'pump';
 }
+
+/* The shipped label itself, where one exists — 'visit' and 'room' both
+   store on the room side but they do not mean the same thing, and a
+   report that prints them should keep them apart. */
+function labelOfItem(id) { return REGISTERED[id] || ''; }
 function isRuled(id) {
+  if (REGISTERED[id]) return true;
   var p = parseId(id);
   if (ITEM_SCOPE[p.sec + ':' + p.idx]) return true;
   return scopeOfSection(p.sec) !== 'unruled';
@@ -106,8 +159,16 @@ function isRuled(id) {
 
 /* Every section still waiting on a ruling, for the interface to show and
    for a handoff to carry. */
+/* A section is only awaiting a ruling if the tools have not already ruled
+   it row by row. Once the shipped rows are registered, the question is
+   answered and must stop being asked — a stale "awaiting a decision"
+   notice is how a decision gets made twice. */
 function needsRuling() {
-  return Object.keys(SECTION_SCOPE).filter(function (s) { return SECTION_SCOPE[s] === 'unruled'; });
+  var haveRows = {};
+  Object.keys(REGISTERED).forEach(function (id) { haveRows[parseId(id).sec] = true; });
+  return Object.keys(SECTION_SCOPE).filter(function (s) {
+    return SECTION_SCOPE[s] === 'unruled' && !haveRows[s];
+  });
 }
 
 /* The gate. liveVer is the shipped engine's schema version. */
@@ -187,6 +248,8 @@ function customItemsAreShared(rep) {
 var API = {
   WRITTEN_FOR_SCHEMA: WRITTEN_FOR_SCHEMA, SECTION_SCOPE: SECTION_SCOPE, ITEM_SCOPE: ITEM_SCOPE,
   scopeOfSection: scopeOfSection, scopeOfItem: scopeOfItem, isRuled: isRuled,
+  register: register, registered: registered, sideOf: sideOf,
+  labelOfItem: labelOfItem, unscopedIn: unscopedIn,
   needsRuling: needsRuling, check: check, parseId: parseId,
   fileInto: fileInto, flatFor: flatFor, misfiled: misfiled,
   customItemsAreShared: customItemsAreShared
