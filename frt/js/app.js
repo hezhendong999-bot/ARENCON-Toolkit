@@ -2134,6 +2134,33 @@ function _showRemoteUpdateBanner(remoteTs){
   });
 }
 
+/* S728 — THE ISSUE'S OWN SAVE MUST BE ALLOWED THROUGH.
+
+   _doIssue sets proj.status='issued', appends the ledger entry, then saves. But
+   both push doors below refuse to send an issued report — so the guard that
+   protects an issued report from edits was blocking the one save that RECORDS
+   the issue. The report showed ISSUED and locked on the device while the cloud
+   still held the draft. Confirmed on 1490.04 FRT #2 (Round 7): screen said
+   B01/issued, cloud said A02/draft, nothing of the issue reached it. Every
+   "issued lock flaky" symptom traced back here.
+
+   Why a flag and not a reorder: the server also refuses writes to a row already
+   marked issued, and what marks it there is _syncIssueStatus('issued'), which
+   runs AFTER the save. So there is a real window where the content push is
+   still accepted server-side, and the fix is to let exactly one push use it —
+   not to move the status set, which would leave the pushed copy saying 'draft'.
+
+   ONE push, and only for a few seconds. A flag that outlived its save would be
+   a hole in the issued lock, so it carries a deadline and is cleared by the
+   first door that uses it. Anything else still gets the refusal it should. */
+var _s728IssuePushUntil = 0;
+function _s728ClaimIssuePush() {
+  if (!_s728IssuePushUntil) return false;
+  if (Date.now() > _s728IssuePushUntil) { _s728IssuePushUntil = 0; return false; }
+  _s728IssuePushUntil = 0;          // one use only
+  return true;
+}
+
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
   /* S676 — nothing pushes before the report exists on screen. _pushDirty is
@@ -2149,7 +2176,10 @@ function _pushToCloud() {
      legitimately READING, and every refusal sets work aside that was never
      meant to exist. _pushDirty is preserved: if the report is unlocked by
      Revise, the held work goes up on the next cycle. */
-  if (_s700IsIssued()) return;
+  /* S728 — _pushDirty is tested INSIDE the claim: this door checks `issued`
+     before it checks whether anything changed, so claiming first would let an
+     idle 15s tick burn the one-shot and the issue would never leave. */
+  if (_s700IsIssued() && !(_pushDirty && _s728ClaimIssuePush())) return;
   // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
   // nothing has changed since the last successful push, no network round
   // trip happens. The 'saved' Model event sets _pushDirty=true the moment
@@ -2199,7 +2229,7 @@ function _pushToCloudNow() {
   }
   /* S700a — same rule at the door the heartbeat flush and the banner use, so
      it holds on its own rather than relying on the caller above. */
-  if (_s700IsIssued()) {
+  if (_s700IsIssued() && !_s728ClaimIssuePush()) {
     _setCloudStatus('error', 'Issued \u2014 closed to edits');
     return;
   }
@@ -4337,7 +4367,24 @@ function _doIssue(newRev) {
   if (!_reIssue) proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
   proj.status = 'issued';
   _recordVersionMove(proj, newRev, true);   /* S724 — before the save, so the entry rides the same write */
-  Model.saveNow();
+  /* S728 — status is now 'issued', which both push doors refuse. Open them for
+     this one save so the issue actually reaches the cloud. Armed here, directly
+     before saveNow, so the window is as narrow as possible; see the note on
+     _s728IssuePushUntil. 10s covers a slow tablet write without leaving the
+     lock open for anything else. */
+  _s728IssuePushUntil = Date.now() + 20000;
+  /* Push as soon as the local write lands. Waiting for the 15s heartbeat would
+     race the deadline, and _syncIssueStatus below marks the row issued
+     server-side — after which the server refuses the content write too. If the
+     heartbeat happens to win, it claims the one-shot and this call is refused,
+     which is correct: the work is already gone up. */
+  var _issSave = Model.saveNow();
+  try {
+    if (_issSave && typeof _issSave.then === 'function') {
+      _issSave.then(function () { try { _pushToCloudNow(); } catch (_p) {} },
+                    function () { try { _pushToCloudNow(); } catch (_p) {} });
+    } else { _pushToCloudNow(); }
+  } catch (_e728) {}
   _updateHeaderForProject();
   // Update revision field if visible
   var revEl = document.querySelector('[data-field="revision"]');
