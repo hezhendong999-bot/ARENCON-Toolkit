@@ -1140,6 +1140,7 @@ async function finalise() {
     const now = new Date().toISOString();
     await sb.update('sg_job', `id=eq.${state.job.id}`, { status: 'issued', issued_at: now, updated_at: now });
     state.job.status = 'issued'; state.job.issued_at = now;
+    const li = state.jobs.find(j => j.id === state.job.id); if (li) li.status = 'issued';
     render();
     msg('Issued. The job is now locked. Download the Word file from the header.');
   } catch (e) { fail(e); }
@@ -1159,6 +1160,7 @@ async function reopen() {
   try {
     await sb.update('sg_job', `id=eq.${state.job.id}`, { status: 'draft', updated_at: new Date().toISOString() });
     state.job.status = 'draft';
+    const li = state.jobs.find(j => j.id === state.job.id); if (li) li.status = 'draft';
     render();
     msg('Reopened as draft.');
   } catch (e) { fail(e); }
