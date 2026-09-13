@@ -285,7 +285,7 @@ const PROJECT = new URLSearchParams(location.search).get('project');
 
 const state = {
   me: null, role: null, sections: [], sectionId: null,
-  clauses: [], sel: null, editing: null, systems: {}, revFilter: '',
+  clauses: [], sel: null, editing: null, systems: {}, revFilter: '', blankKeys: [],
   header: { client: 'ARENCON INC. — Master Content' },
 };
 
@@ -538,9 +538,9 @@ function renderInspector() {
    already ticks — not a parallel vocabulary. A clause tagged 'diesel' prints on
    a job that has ticked the diesel fire pump package. If these two lists ever
    drift apart, tagged clauses vanish from jobs silently. */
-const SYS_KEYS = ['wet', 'dry', 'preaction', 'standpipe', 'electric', 'diesel', 'alarm',
+const SYS_KEYS = ['wet', 'dry', 'preaction', 'standpipe', 'underground', 'electric', 'diesel', 'alarm',
                   'lhd', 'aspirating', 'firestop', 'extinguish', 'emerglight', 'gypsum'];
-const SYS_LABEL = { wet: 'Wet', dry: 'Dry', preaction: 'Preaction', standpipe: 'Standpipe',
+const SYS_LABEL = { wet: 'Wet', dry: 'Dry', preaction: 'Preaction', standpipe: 'Standpipe', underground: 'Underground',
   electric: 'Electric pump', diesel: 'Diesel pump', alarm: 'Fire alarm', lhd: 'Linear heat',
   aspirating: 'Aspirating', firestop: 'Fire stopping', extinguish: 'Extinguishers',
   emerglight: 'Emerg. lighting', gypsum: 'Gypsum' };
@@ -624,7 +624,8 @@ function startEdit(id, fresh) {
   const hint = document.createElement('div');
   hint.className = 'edhint'; hint.id = 'edhint';
   hint.innerHTML = '<kbd>Enter</kbd> save &amp; new clause below · <kbd>Ctrl</kbd>+<kbd>Enter</kbd> save · ' +
-    '<kbd>Esc</kbd> cancel · <kbd>Tab</kbd>/<kbd>Shift</kbd>+<kbd>Tab</kbd> demote/promote';
+    '<kbd>Esc</kbd> cancel · <kbd>Tab</kbd>/<kbd>Shift</kbd>+<kbd>Tab</kbd> demote/promote · ' +
+    '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> insert blank';
   row.after(hint);
 }
 
@@ -662,6 +663,38 @@ async function commitEdit(save) {
   if (back) back.scrollIntoView({ block: 'center' });
   setFresh(true);
   msg('Saved to the master. Published versions are unaffected.');
+}
+
+/* ── blank insertion while editing ───────────────────────────────────────
+   Ctrl+Shift+B opens a chip row of the firm's blank vocabulary under the
+   clause being edited. Tapping a chip drops ⟦key⟧ at the caret; "New…" drops
+   ⟦⟧ with the caret between the brackets so a new key can be typed. The
+   brackets are not on any keyboard, which is why this exists. */
+function insertAtCaret(text, caretBack) {
+  const tx = $('.tx[contenteditable="true"]'); if (!tx) return;
+  tx.focus();
+  const sel = getSelection();
+  let rg = sel.rangeCount ? sel.getRangeAt(0) : null;
+  if (!rg || !tx.contains(rg.commonAncestorContainer)) {
+    rg = document.createRange(); rg.selectNodeContents(tx); rg.collapse(false);
+  }
+  rg.deleteContents();
+  const node = document.createTextNode(text);
+  rg.insertNode(node);
+  rg.setStart(node, text.length - (caretBack || 0)); rg.collapse(true);
+  sel.removeAllRanges(); sel.addRange(rg);
+}
+function showBlankPicker() {
+  const hint = $('#edhint'); if (!hint) return;
+  const old = $('#blankpick'); if (old) { old.remove(); return; }   /* toggle */
+  const box = document.createElement('div');
+  box.id = 'blankpick'; box.className = 'tagrow'; box.style.margin = '6px 0 4px';
+  const mk = (label, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+    b.onmousedown = ev => ev.preventDefault();   /* keep focus in the editor */
+    b.onclick = () => { fn(); box.remove(); }; return b; };
+  box.appendChild(mk('New\u2026', () => insertAtCaret('\u27e6\u27e7', 1)));
+  state.blankKeys.forEach(k => box.appendChild(mk(k.label || k.key, () => insertAtCaret(`\u27e6${k.key}\u27e7`, 0))));
+  hint.after(box);
 }
 
 const currentCode = () => (state.sections.find(s => s.id === state.sectionId) || {}).code;
@@ -793,6 +826,10 @@ async function loadSections() {
     map[c.section_id][c.provenance] = (map[c.section_id][c.provenance] || 0) + 1;
   });
   state.sections.forEach(s => (s._counts = map[s.id] || {}));
+  /* Blank vocabulary — for the Ctrl+Shift+B picker while editing. Missing
+     vocabulary is not fatal: the picker just offers "New" only. */
+  try { state.blankKeys = (await sb.select('sg_blank', 'select=key,label&order=key')) || []; }
+  catch { state.blankKeys = []; }
 }
 
 async function loadAllClauses() {
@@ -1056,6 +1093,10 @@ document.addEventListener('keydown', e => {
   if (state.editing) {
     const id = state.editing.id;
     if (e.key === 'Escape') { e.preventDefault(); commitEdit(false); return; }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'b') { e.preventDefault(); showBlankPicker(); return; }
+    /* Wording is plain text. Swallow the browser's bold/italic/underline so
+       nothing formats on screen that will not survive the save. */
+    if ((e.ctrlKey || e.metaKey) && ['b', 'i', 'u'].includes(e.key.toLowerCase())) { e.preventDefault(); return; }
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); commitEdit(true); return; }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
