@@ -165,6 +165,33 @@ for (const g of ['const contractors', 'let contractorTrades', 'var clState', 'fu
 if (!/localStorage|indexedDB|CloudSync|R2Photos|_r2Enqueue/.test(host)) ok('deficHost touches no storage — photos say not-yet, nothing saves');
 else fail('deficHost reaches storage');
 
+/* S730c — three more host hooks in the engine, all scoped by presence */
+if (/if\(typeof _checklistFindingsHost==='function'\) return _checklistFindingsHost\(\)\|\|\[\];/.test(eng)) ok('engine lets a host supply the findings rows; reads clState otherwise');
+else fail('findings host hook missing or unscoped');
+if (/if\(typeof _jumpToChecklistItemHost==='function' && _jumpToChecklistItemHost\(id\)\) return;/.test(eng)) ok('engine lets a host take the jump; walks its own panels otherwise');
+else fail('jump host hook missing or unscoped');
+const removeClicks = (eng.match(/onclick="_deficConfirmRemove\(/g) || []).length;
+const bareRemoves = (eng.match(/onclick="remove(General)?DeficItem\(/g) || []).length;
+if (removeClicks === 2 && bareRemoves === 0) ok('both Remove buttons confirm first — no bare removal left');
+else fail(`Remove buttons: ${removeClicks} confirming, ${bareRemoves} bare`);
+if (/if\(typeof _aConfirm==='function'\)\{ _aConfirm\(msg, go, 'Remove'\); return; \}/.test(eng) && /removal blocked/.test(eng)) ok('removal confirms through the host\u2019s _aConfirm and is BLOCKED without one');
+else fail('removal confirm is not fail-safe');
+for (const t of TOOLS) {
+  const p03 = read(`${t}/js/part03.js`);
+  if (/function _aConfirm\(msg,onOk,okText\)/.test(p03)) ok(`${t}: provides _aConfirm — its Remove now confirms like every other destructive action`);
+  else fail(`${t}: has no _aConfirm; its Remove button would be blocked`);
+  const anyHook = fs.readdirSync(path.join(REPO, `${t}/js`)).some((f) => /_checklistFindingsHost|_jumpToChecklistItemHost/.test(read(`${t}/js/` + f)));
+  if (!anyHook) ok(`${t}: defines neither findings nor jump host hook — its roll-up is unchanged`); else fail(`${t}: defines a findings/jump host hook`);
+}
+for (const g of ['function _aConfirm', 'function _checklistFindingsHost', 'function _jumpToChecklistItemHost']) {
+  if (host.includes(g)) ok(`deficHost provides ${g.replace('function ', '')}`); else fail(`deficHost missing ${g}`);
+}
+if (/import Dlg from '\/lib\/ui\/dialogEngine\.js';\s*window\.ArenconDlg = Dlg;/.test(page)) ok('shell loads the sealed dialog engine the confirm needs');
+else fail('shell does not load the dialog engine');
+const scope = read('multipump/js/sectionScope.js');
+if (/key:'batData',\s*scope:'pump',\s*why:/.test(scope) && !/key:'batData'[^\n]*only:/.test(scope)) ok('batData is scoped to the pump for BOTH drive types — Electric carries the key too');
+else fail('batData still marked diesel-only');
+
 const persists = ['localStorage', 'indexedDB', 'CloudSync', 'ADB.', 'R2Photos', 'saveState'];
 /* fetch is allowed for ONE thing: reading the Diesel tool\u2019s own panel markup */
 const fetches = (shell.match(/fetch\(/g) || []).length;

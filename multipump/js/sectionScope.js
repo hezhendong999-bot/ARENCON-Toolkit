@@ -131,7 +131,7 @@ var KEY_SCOPE = [
   { key:'smState',           scope:'pump',  why:'Chart display state, and the charts are per pump.' },
   { key:'smCapVis',          scope:'pump',  why:'Which capacity markers are visible on this pump’s chart.' },
   { key:'annDsForce',        scope:'pump',  why:'Forced data-label state on this pump’s chart.' },
-  { key:'batData',           scope:'pump',  only:'dsl', why:'Battery readings. One engine, one set.' },
+  { key:'batData',           scope:'pump',               why:'Diesel: battery readings. Electric: the twelve controller start-ups. Both tools carry the key; either way it is one machine\u2019s.' },
   { key:'batPower',          scope:'pump',  only:'ele', why:'Electric battery/power readings.' },
   { key:'vaStdData',         scope:'pump',  only:'ele', why:'Voltage and amperage at this controller.' },
   { key:'vaPldData',         scope:'pump',  only:'ele', why:'Voltage and amperage at this controller, pressure-limiting variant.' },

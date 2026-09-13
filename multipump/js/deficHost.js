@@ -106,3 +106,49 @@ function mpSetDeficOwner(scope, key) {
 function mpDeficLists() {
   return { byContractor: deficiencies, general: generalDeficiencies, contractors: contractors, trades: contractorTrades };
 }
+
+/* ── the confirm the engine asks for before a removal ─────────────── */
+/* Same contract the pump tools provide (part03 _aConfirm): the sealed
+   dialog engine draws it; no engine, no removal. */
+function _aConfirm(msg, onOk, okText) {
+  var D = window.ArenconDlg;
+  if (!D) { try { console.error('[mp] dialog engine not loaded \u2014 action blocked for safety:', msg); } catch (_) {} return; }
+  var t = String(okText || '').toLowerCase();
+  var accent = /\b(delete|reset|revert|remove|clear|purge|discard|wipe|erase)\b/.test(t) ? 'fail' : 'info';
+  D.confirm({ title: 'Confirm', icon: '?', accent: accent, message: msg, confirmText: (okText || 'OK'), onConfirm: onOk });
+}
+
+/* ── checklist findings, read from where the answers live ─────────── */
+/* The engine's roll-up of "No" answers asks the host for its rows here.
+   Two sources: the room review on this page, and each machine's frame —
+   where the frame's own engine already knows how to list its findings,
+   so it is asked, not re-read. Each row is stamped with where it came
+   from, and _jumpToChecklistItemHost takes the reader there. */
+function _checklistFindingsHost() {
+  var MP = window.MPShell; if (!MP || typeof MP.roomFindings !== 'function') return [];
+  var rows = MP.roomFindings().map(function (r) {
+    return { id: 'room|' + r.key, num: r.who + ' ' + r.num, text: r.text, photos: 0, comment: '' };
+  });
+  var frames = MP.frames();
+  MP.pumps().forEach(function (p) {
+    var f = frames[p.id]; var w = f && f.contentWindow;
+    if (!w || typeof w._checklistFindings !== 'function') return;
+    var list = [];
+    try { list = w._checklistFindings() || []; } catch (e) { list = []; }
+    list.forEach(function (r) {
+      rows.push({ id: p.id + '|' + r.id, num: p.name + ' ' + r.num, text: r.text, photos: r.photos || 0, comment: r.comment || '' });
+    });
+  });
+  return rows;
+}
+function _jumpToChecklistItemHost(id) {
+  var MP = window.MPShell; if (!MP) return false;
+  var at = String(id).indexOf('|'); if (at < 0) return false;
+  var where = id.slice(0, at), item = id.slice(at + 1);
+  if (where === 'room') { MP.show('room'); MP.scrollToRoomRow(item); return true; }
+  var f = MP.frames()[where]; if (!f) return false;
+  MP.show(where);
+  var w = f.contentWindow;
+  if (w && typeof w._jumpToChecklistItem === 'function') { try { w._jumpToChecklistItem(item); } catch (e) {} }
+  return true;
+}

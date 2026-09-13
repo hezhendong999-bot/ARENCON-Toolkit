@@ -182,7 +182,7 @@ function show(which) {
   doc.getElementById('mp-room').style.display = (view === 'room') ? '' : 'none';
   doc.getElementById('mp-record').style.display = (view === 'record') ? '' : 'none';
   doc.getElementById('mp-defic').style.display = (view === 'defic') ? '' : 'none';
-  if (view === 'defic') openDeficiencies();
+  if (view === 'defic') { openDeficiencies(); if (_deficReady && typeof root.updateDeficSummary === 'function') root.updateDeficSummary(); }
   Object.keys(frames).forEach(function (id) {
     frames[id].parentNode.style.display = (view === id) ? '' : 'none';
   });
@@ -387,6 +387,31 @@ function drawRecord() {
     + '</div><pre class="mp-json">' + esc(json) + '</pre>';
 }
 
+/* The room review's "No" answers, for the deficiencies roll-up. Each row
+   says who it is about — the visit, the room, or the machine — in the
+   words the room uses. */
+function roomFindings() {
+  var out = [], a = answers[setKey];
+  RR.rowsFor(pumps()).forEach(function (row) {
+    var targets = row.scope === 'machine' ? row.targets : [null];
+    targets.forEach(function (t) {
+      var key = RR.answerKey(row, t && t.id);
+      if (!a[key] || a[key].status !== 'no') return;
+      var who = t ? t.name : (row.scope === 'visit' ? 'VISIT' : 'ROOM');
+      out.push({ key: key, rowId: row.id, who: who, num: (row.src || row.id), text: row.text });
+    });
+  });
+  return out;
+}
+function scrollToRoomRow(key) {
+  var rowId = String(key).split('@')[0];
+  var el = doc.querySelector('[data-mp-item="' + rowId + '"]');
+  if (!el) return;
+  if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  el.style.outline = '2px solid #9C2742'; el.style.outlineOffset = '2px';
+  setTimeout(function () { el.style.outline = ''; el.style.outlineOffset = ''; }, 2200);
+}
+
 /* ── one handler for the whole page ──────────────────────────────────── */
 
 doc.addEventListener('click', function (ev) {
@@ -429,7 +454,8 @@ doc.addEventListener('change', function (ev) {
 
 /* The flag the shipped tools look for. Its presence IS the mode. */
 var API = { version: 'S730', collect: collect, frames: function () { return frames; },
-            pumps: pumps, sets: SETS, TOOL_FOR: TOOL_FOR, show: show };
+            pumps: pumps, sets: SETS, TOOL_FOR: TOOL_FOR, show: show,
+            roomFindings: roomFindings, scrollToRoomRow: scrollToRoomRow };
 root.MPShell = API;
 
 drawRoom();

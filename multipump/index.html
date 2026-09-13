@@ -73,6 +73,11 @@
 
 <div id="mp-record" style="display:none"><div id="mp-record-body"></div></div>
 
+<!-- the sealed dialog engine: every removal confirms through it, no engine no removal -->
+<script type="module">
+  import Dlg from '/lib/ui/dialogEngine.js';
+  window.ArenconDlg = Dlg;
+</script>
 <script src="js/roomReview.js"></script>
 <script src="js/reviewSurface.js"></script>
 <script src="js/sectionScope.js"></script>
