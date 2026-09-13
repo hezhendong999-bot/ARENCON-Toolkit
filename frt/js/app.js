@@ -2241,7 +2241,13 @@ function _pushToCloudNow() {
   var wasDirty = _pushDirty;
   _pushDirty = false;
   _setCloudStatus('saving', 'Syncing...');
-  SyncEngine.push(_projectId).then(function(row) {
+  /* S728 — RETURNS the promise. _doIssue must run the status-column write only
+     AFTER this push lands: the push moves the row's updated_at, and the status
+     PATCH sends an If-Match built from the last value seen. Fired in parallel
+     it carries a stale token, the server answers 412, and the handler re-pulls
+     without retrying — which is why every issued report had the right status
+     inside it and 'draft' in the column the Hub counts. */
+  return SyncEngine.push(_projectId).then(function(row) {
     if (row) {
       _setCloudStatus('synced', 'Saved to cloud');
       // S82: update periodic-pull baseline so banner doesn't fire for our own push
@@ -4379,20 +4385,34 @@ function _doIssue(newRev) {
      heartbeat happens to win, it claims the one-shot and this call is refused,
      which is correct: the work is already gone up. */
   var _issSave = Model.saveNow();
+  /* S728 — the status-column write is sequenced BEHIND the content push, not
+     fired alongside it. The push moves updated_at; the status PATCH sends an
+     If-Match from the last value seen, so in parallel it 412s and is dropped.
+     Chained, it carries the token the push just refreshed. */
+  function _issPushThenStatus() {
+    var p;
+    try { p = _pushToCloudNow(); } catch (_p) {}
+    if (p && typeof p.then === 'function') {
+      p.then(function () { _syncIssueStatus('issued'); },
+             function () { _syncIssueStatus('issued'); });
+    } else {
+      _syncIssueStatus('issued');
+    }
+  }
   try {
     if (_issSave && typeof _issSave.then === 'function') {
-      _issSave.then(function () { try { _pushToCloudNow(); } catch (_p) {} },
-                    function () { try { _pushToCloudNow(); } catch (_p) {} });
-    } else { _pushToCloudNow(); }
-  } catch (_e728) {}
+      _issSave.then(_issPushThenStatus, _issPushThenStatus);
+    } else { _issPushThenStatus(); }
+  } catch (_e728) { try { _syncIssueStatus('issued'); } catch (_s) {} }
   _updateHeaderForProject();
   // Update revision field if visible
   var revEl = document.querySelector('[data-field="revision"]');
   if (revEl) revEl.value = newRev;
   var doiEl = document.querySelector('[data-field="dateOfIssue"]');
   if (doiEl) doiEl.value = proj.info.dateOfIssue;
-  // Update Supabase status
-  _syncIssueStatus('issued');
+  // S728: the Supabase status write now runs chained behind the content push
+  // (see _issPushThenStatus above), not here — fired at this point it raced the
+  // push and 412'd on a stale If-Match, leaving the column at 'draft'.
   /* §4 — a re-issue mints nothing and says nothing. */
   if (!_reIssue) toast('Report issued as ' + newRev);
 }
