@@ -129,6 +129,9 @@ window.__buildPhotoHrefs = buildPhotoHrefs;
    part14.js is three lines, so the check costs nothing. */
 import { initLiveUpdate, restoreAfterUpdate } from '../lib/ui/liveUpdate.js';
 window.addEventListener('load', function () {
+  /* S730: inside the multi-pump shell a reload would throw away the unsaved test of a machine
+     — the shell, not this frame, decides when to update. */
+  if (typeof window._mpEmbedded === 'function' && window._mpEmbedded()) return;
   try {
     initLiveUpdate({
       toolName: 'diesel',
@@ -164,7 +167,7 @@ window.addEventListener('load', function () {
 });
 
 </script>
-<link rel="stylesheet" href="css/diesel-01.css?v=202609130115">
+<link rel="stylesheet" href="css/diesel-01.css?v=202609131526">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
 </head>

@@ -1634,7 +1634,21 @@ document.addEventListener('change', function(e){ if (_wdIsFieldEvent(e)) _wdQueu
    repro). 'freeze' covers the bfcache path; a dirty-timer flush covers the rest. */
 window.addEventListener('freeze', _flushAutosave);
 window.addEventListener('beforeunload', function(){ if (_wdTimer) _flushAutosave(); });
+/* ═══ S730 — MULTI-PUMP MODE ═══════════════════════════════════════════
+   This tool can run INSIDE the multi-pump shell (multipump/index.html) as
+   one machine's testing surface. There it must not keep a report of its
+   own: no local drawer, no cloud row, no autosave loop, no leave prompt —
+   the shell owns the job and reads this screen through the manifest.
+   The mode is defined by BEING EMBEDDED in the shell, not by anything a
+   person can type into an address bar: the parent window must be
+   same-origin and carry MPShell. A cross-origin parent throws and reads
+   as not embedded. Opened normally, this is false everywhere it is asked
+   and the tool behaves exactly as it did before. */
+function _mpEmbedded(){
+  try { return window.parent !== window && !!window.parent.MPShell; } catch(e){ return false; }
+}
 function saveState(){
+  if (_mpEmbedded()) return;   /* S730: the shell owns the record */
   try{
     var key=getProjectSaveKey();
     var _st=collectState();

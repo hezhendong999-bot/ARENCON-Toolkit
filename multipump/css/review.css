@@ -61,3 +61,46 @@ body.dark-mode .cl-item,body.dark-mode .mp-decision,body.dark-mode .mp-bar,
 body.dark-mode .cl-tog,body.dark-mode .mp-opt{background:#16151a;border-color:#2a2831;}
 body.dark-mode .cl-text{color:#f4f3f6;}
 body.dark-mode .cl-tog,body.dark-mode .mp-opt{color:#a09aa8;}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PART S730 · THE SHELL CHROME
+   The page now owns a job, not just the room review: a tab strip with the
+   room, one tab per machine, and the job record. A machine's tab opens
+   the shipped tool for its drive type in a frame below the strip, so the
+   shell's own chrome is deliberately thin — one strip, one note, the
+   tool's own header does the rest. Burgundy marks the active tab only.
+   Everything here is tap-first: 48px targets, nothing on hover.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mp-head{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1px solid var(--border,#d8dde5);
+  padding:9px 14px 0;}
+.mp-head h1{margin:0 0 7px;font:700 calc(17px + var(--ts))/1.25 Calibri,sans-serif;color:var(--slate,#1C2333);}
+.mp-head h1 span{font-weight:400;color:var(--silver,#8A8F98);font-size:calc(12px + var(--ts));}
+.mp-tabs{display:flex;gap:4px;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.mp-tab{flex:0 0 auto;min-height:48px;border:1px solid transparent;border-bottom:3px solid transparent;
+  background:transparent;border-radius:8px 8px 0 0;padding:7px 14px 6px;text-align:left;
+  font:700 calc(13px + var(--ts))/1.2 Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;}
+.mp-tab small{display:block;font-weight:400;font-size:calc(11px + var(--ts));color:var(--silver,#8A8F98);margin-top:2px;}
+.mp-tab.on{color:var(--arencon,#9C2742);border-bottom-color:var(--arencon,#9C2742);}
+.mp-tab.dec-go small{color:var(--ok,#2E9E72);}
+.mp-tab.dec-hold small{color:var(--warn,#C98A4A);}
+.mp-tab-rec{margin-left:auto;color:var(--silver,#8A8F98);}
+.mp-pumps{display:flex;gap:6px;margin:12px 13px 0;flex-wrap:wrap;}
+.mp-pump{border:1px solid var(--border,#d8dde5);background:#fff;border-radius:8px;padding:0 13px;min-height:44px;
+  font:700 calc(12.5px + var(--ts))/1 Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;}
+.mp-pump.on{background:var(--arencon,#9C2742);border-color:var(--arencon,#9C2742);color:#fff;}
+.mp-pump.arm{border-color:var(--warn,#C98A4A);color:var(--warn,#C98A4A);background:color-mix(in srgb,var(--warn,#C98A4A) 8%,transparent);}
+.mp-note{margin:13px;padding:10px 12px;background:#fff;border-left:3px solid var(--arencon,#9C2742);
+  border-radius:0 8px 8px 0;font:400 calc(13px + var(--ts))/1.5 Calibri,sans-serif;color:var(--steel,#4A5568);}
+.mp-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:9px 12px;margin:0 13px;}
+.mp-field span{display:block;font:700 calc(11.5px + var(--ts))/1.3 Calibri,sans-serif;color:var(--steel,#4A5568);
+  text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}
+.mp-field input{width:100%;box-sizing:border-box;min-height:44px;border:1px solid var(--border,#d8dde5);border-radius:8px;
+  padding:8px 10px;font:400 calc(14px + var(--ts))/1.3 Calibri,sans-serif;color:var(--slate,#1C2333);background:#fff;}
+.mp-go{display:block;width:100%;min-height:48px;margin-top:6px;border:0;border-radius:9px;background:var(--arencon,#9C2742);
+  color:#fff;font:700 calc(14px + var(--ts))/1.2 Calibri,sans-serif;cursor:pointer;}
+.mp-frame-wrap{display:flex;flex-direction:column;height:calc(100vh - 92px);}
+.mp-frame-note{padding:7px 14px;background:color-mix(in srgb,var(--warn,#C98A4A) 10%,#fff);border-bottom:1px solid var(--border,#d8dde5);
+  font:400 calc(12.5px + var(--ts))/1.4 Calibri,sans-serif;color:var(--steel,#4A5568);}
+.mp-frame{flex:1;width:100%;border:0;background:#fff;}
+.mp-json{margin:0 13px 90px;padding:12px;background:#fff;border:1px solid var(--border,#d8dde5);border-radius:10px;
+  font:400 calc(11.5px + var(--ts))/1.45 Calibri,sans-serif;color:var(--slate,#1C2333);white-space:pre-wrap;word-break:break-word;}

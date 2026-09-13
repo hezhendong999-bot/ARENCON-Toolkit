@@ -1317,3 +1317,8 @@ _TEXT_TAP_SLOP
 _needsDrawingName
 _recordVersionMove
 _frtVersionEntryId
+# ── S730 — Multi-pump mode guard in BOTH pump tools (Owner-approved architecture:
+# the shell hosts the shipped tools in frames; a hosted tool keeps no record of
+# its own). Removing this reopens local-drawer and cloud writes from a frame.
+_mpEmbedded
+MPShell

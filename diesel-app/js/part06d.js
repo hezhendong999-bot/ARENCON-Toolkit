@@ -886,6 +886,7 @@ function showSaveToast(msg, color) {
 }
 
 function loadAutosave() {
+  if (_mpEmbedded()) return;   /* S730: a machine frame starts blank; the shell fills it */
   // Try IDB first, fall back to localStorage (migration path)
   var key = getProjectSaveKey();
   _idbGet(key).then(function(val){
@@ -1324,6 +1325,7 @@ function _wireNavIntercepts() {
 // Fallback: browser beforeunload for accidental tab close (standalone mode only)
 window.addEventListener('beforeunload', function(e) {
   if(new URLSearchParams(window.location.search).get('project')) return;
+  if(_mpEmbedded()) return;   /* S730: the shell decides when a job is left */
   e.preventDefault();
   e.returnValue = '';
 });
@@ -1355,6 +1357,10 @@ window.addEventListener('load', () => {
 
   // ── CloudSync or Standalone Init ──
   function _cloudSyncInit(){
+    /* S730: inside the multi-pump shell this screen is one machine's testing
+       surface. No cloud row, no autosave loop, no local report — the shell
+       owns the job. The frame paints its blank screen and waits to be filled. */
+    if(_mpEmbedded()){ updateProgress(); return; }
     /* S496 Phase 2: also wait for diesel-sync.js. It is a MODULE script, so it
        runs deferred — after this classic inline code. Without this guard the
        first _cloudSyncInit tick would see CloudSync undefined and throw. */
