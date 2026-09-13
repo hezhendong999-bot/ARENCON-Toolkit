@@ -4526,7 +4526,42 @@ function _syncIssueStatus(status) {
       console.warn('[Issue] Status write hit 412 — another device moved the row. Re-pulling.');
       if (SyncEngine.pull) SyncEngine.pull(_projectId, SyncEngine.instanceId);
     }
-  }).catch(function(e) { console.error('[Issue] Status sync failed:', e); });
+  }).catch(function(e) {
+    /* S728 — THE STALE-TOKEN CASE LANDS HERE, not in the .then above.
+       Auth.request throws on any non-OK response, so the `res.status === 412`
+       branch has never once executed: a rejected status write went straight to
+       this handler and was logged and dropped.
+
+       Why it rejects: the content push immediately before this moves the row's
+       updated_at, so the If-Match built from the last seen value is already
+       stale when this lands. The write was lost every time, leaving the row at
+       'draft' while the report inside said 'issued' — and the Hub counts issued
+       reports from that column, so issued reports showed as drafts on the board.
+
+       Re-read the current token and retry ONCE. If it rejects again, another
+       device really is writing, and re-pulling is the right answer. */
+    var msg = (e && e.message) ? String(e.message) : '';
+    if (msg.indexOf('If-Match') === -1 && msg.indexOf('stale') === -1) {
+      console.error('[Issue] Status sync failed:', e);
+      return;
+    }
+    console.warn('[Issue] Status write rejected on a stale token — re-reading and retrying once.');
+    return Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId + '&select=updated_at', {
+      method: 'GET'
+    }).then(function(rows) {
+      var fresh = (rows && rows[0] && rows[0].updated_at) || null;   // request() returns parsed JSON
+      if (!fresh) { if (SyncEngine.pull) SyncEngine.pull(_projectId, SyncEngine.instanceId); return; }
+      return Auth.request('/rest/v1/tool_data?id=eq.' + SyncEngine.instanceId, {
+        method: 'PATCH',
+        body: JSON.stringify({ status: status, updated_by: user ? user.id : null }),
+        headers: { 'Content-Type': 'application/json', 'Prefer': 'return=minimal',
+                   'If-Match': '"' + fresh + '"' }
+      });
+    }).catch(function(e2) {
+      console.error('[Issue] Status retry failed:', e2);
+      if (SyncEngine.pull) SyncEngine.pull(_projectId, SyncEngine.instanceId);
+    });
+  });
 }
 
 // Wire issue button + badge clicks
