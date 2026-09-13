@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Fire Pump Commissioning — room review</title>
+<!--
+  ═══════════════════════════════════════════════════════════════════════
+  MULTI-PUMP COMMISSIONING — SHELL              multipump/index.html
+  ───────────────────────────────────────────────────────────────────────
+  One room, one visit, one report. The room is reviewed ONCE, and only the
+  testing that follows is per machine.
+
+  NOT LIVE, AND DELIBERATELY REACHABLE ONLY BY TYPING THE ADDRESS. Nothing
+  links here — not the Hub, not the portal — and this page is not in the
+  service worker's file list, so no tablet will fetch it. The single-pump
+  Diesel and Electric tools remain the live tools and are untouched.
+
+  NOTHING IS SAVED. Answers live in memory for as long as the page is
+  open and are gone on reload. That is not an omission to be fixed
+  quietly: how an answer is STORED is the part that must not be invented
+  at speed, and the save path ships with the Owner present at a tablet.
+  Until then this page exists to be walked, not to record a job.
+  ═══════════════════════════════════════════════════════════════════════
+-->
+<link rel="stylesheet" href="../diesel-app/css/diesel-01.css">
+<link rel="stylesheet" href="css/review.css">
+<style>
+  :root{--ts:0px;}
+  body{margin:0;background:var(--bg,#EFEDF0);font-family:Calibri,sans-serif;
+       color:var(--slate,#1C2333);padding-bottom:86px;}
+  .mp-head{position:sticky;top:0;z-index:25;background:#fff;border-bottom:1px solid var(--border,#d8dde5);
+       padding:11px 14px;}
+  .mp-head h1{margin:0;font:700 calc(17px + var(--ts))/1.25 Calibri,sans-serif;}
+  .mp-head h1 span{font-weight:400;color:var(--silver,#8A8F98);font-size:calc(12px + var(--ts));}
+  .mp-pumps{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap;}
+  .mp-pump{border:1px solid var(--border,#d8dde5);background:#fff;border-radius:8px;padding:8px 13px;
+       font:700 calc(12.5px + var(--ts))/1 Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;}
+  .mp-pump.on{background:var(--arencon,#9C2742);border-color:var(--arencon,#9C2742);color:#fff;}
+  .mp-note{margin:13px;padding:10px 12px;background:#fff;border-left:3px solid var(--arencon,#9C2742);
+       border-radius:0 8px 8px 0;font:400 calc(13px + var(--ts))/1.5 Calibri,sans-serif;color:var(--steel,#4A5568);}
+</style>
+</head>
+<body>
+
+<div class="mp-head">
+  <h1>Room review <span id="mp-sub"></span></h1>
+  <div class="mp-pumps" id="mp-sets"></div>
+</div>
+
+<div class="mp-note">
+  One walk of the room. <b>VISIT</b> rows are answered once for the day, <b>ROOM</b> once for the
+  installation, and the rest once for each machine. A solid dot marks a check neither of the
+  current tools asks; a hollow one marks a check reworded or split. <b>Nothing is saved on this
+  page</b> — reloading clears it.
+</div>
+
+<div id="mp-body"></div>
+<div id="mp-decision"></div>
+<div class="mp-bar"><span id="mp-progress"></span><span id="mp-set"></span></div>
+
+<script src="js/roomReview.js"></script>
+<script src="js/reviewSurface.js"></script>
+<script>
+(function () {
+  'use strict';
+  var RR = window.MPRoomReview, S = window.MPReviewSurface;
+
+  /* Until a job supplies its own machines, these stand in. The names are
+     what an inspector reads off the placard, never "Pump 1 / Pump 2" —
+     a report that calls a machine something the room does not call it is
+     a report somebody has to translate. */
+  var SETS = {
+    two: { label: 'Electric + diesel', pumps: [
+      { id: 'p1', name: 'FP-1 Electric', type: 'ele' },
+      { id: 'p2', name: 'FP-2 Diesel', type: 'dsl' }] },
+    ele: { label: 'One electric', pumps: [{ id: 'p1', name: 'FP-1 Electric', type: 'ele' }] },
+    dsl: { label: 'One diesel', pumps: [{ id: 'p1', name: 'FP-1 Diesel', type: 'dsl' }] }
+  };
+  var setKey = 'two';
+  /* Answers are keyed per pump set as well as per row: switching the set
+     is switching to a different room, and an answer from the old one must
+     not be sitting there lit when the new one draws. */
+  var answers = { two: {}, ele: {}, dsl: {} };
+  var decisions = { two: {}, ele: {}, dsl: {} };
+
+  function pumps() { return SETS[setKey].pumps; }
+
+  function drawHead() {
+    document.getElementById('mp-sets').innerHTML = Object.keys(SETS).map(function (k) {
+      return '<button type="button" class="mp-pump' + (k === setKey ? ' on' : '') + '" data-set="' + k + '">'
+        + SETS[k].label + '</button>';
+    }).join('');
+    document.getElementById('mp-sub').textContent = 'nothing saves · not live';
+    document.getElementById('mp-set').textContent = pumps().map(function (p) { return p.name; }).join('  ·  ');
+  }
+
+  function drawDecision() {
+    var d = decisions[setKey];
+    var html = '<div class="mp-decision"><h3>Decision to proceed</h3>'
+      + '<p>Recorded before any flow reading is taken, and taken for each machine separately — '
+      + 'one pump can be ready while the other is not, and a report with a blank performance '
+      + 'section and no decision reads as though a pump was forgotten.</p>';
+    pumps().forEach(function (p) {
+      html += '<div class="cl-group">' + p.name + '</div>';
+      RR.OUTCOMES.forEach(function (o) {
+        html += '<button type="button" class="mp-opt' + (d[p.id] === o.key ? ' on' : '') + '"'
+          + ' data-dec="' + p.id + '" data-out="' + o.key + '">' + o.text + '</button>';
+      });
+    });
+    document.getElementById('mp-decision').innerHTML = html + '</div>';
+  }
+
+  function draw() {
+    drawHead();
+    document.getElementById('mp-body').innerHTML = S.render(pumps(), answers[setKey]);
+    drawDecision();
+    var p = S.progress(pumps(), answers[setKey]);
+    var un = RR.undecided(pumps(), decisions[setKey]).length;
+    document.getElementById('mp-progress').innerHTML =
+      '<b>' + p.answered + '</b> of <b>' + p.total + '</b> answered'
+      + (un ? ' · <b>' + un + '</b> machine' + (un > 1 ? 's' : '') + ' undecided' : ' · decided');
+  }
+
+  /* One handler for the whole page. On a two-pump review this screen
+     draws 207 controls, and a listener each is how a tablet starts to
+     feel slow halfway down a section. */
+  document.addEventListener('click', function (ev) {
+    var t = ev.target;
+    if (t && t.getAttribute && t.getAttribute('data-set')) {
+      setKey = t.getAttribute('data-set'); draw(); return;
+    }
+    if (t && t.getAttribute && t.getAttribute('data-dec')) {
+      var who = t.getAttribute('data-dec'), out = t.getAttribute('data-out');
+      decisions[setKey][who] = (decisions[setKey][who] === out) ? '' : out;
+      draw(); return;
+    }
+    var hit = S.handleTap(ev, pumps(), answers[setKey]);
+    if (!hit) return;
+    if (hit.cleared) delete answers[setKey][hit.key];
+    else answers[setKey][hit.key] = { status: hit.status, _ts: Date.now() };
+    draw();
+  }, false);
+
+  draw();
+})();
+</script>
+</body>
+</html>
