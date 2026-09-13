@@ -113,6 +113,7 @@ function drawTabs() {
     html += '<button type="button" class="mp-tab' + (view === p.id ? ' on' : '') + st + '" data-view="' + p.id + '">'
       + esc(p.name) + '<small>' + (p.type === 'dsl' ? 'diesel' : 'electric') + (d ? ' · decided' : ' · undecided') + '</small></button>';
   });
+  html += '<button type="button" class="mp-tab' + (view === 'defic' ? ' on' : '') + '" data-view="defic">Deficiencies<small>one list, filed by contractor</small></button>';
   html += '<button type="button" class="mp-tab mp-tab-rec' + (view === 'record' ? ' on' : '') + '" data-view="record">Job record</button>';
   doc.getElementById('mp-tabs').innerHTML = html;
 }
@@ -180,10 +181,12 @@ function show(which) {
   view = which;
   doc.getElementById('mp-room').style.display = (view === 'room') ? '' : 'none';
   doc.getElementById('mp-record').style.display = (view === 'record') ? '' : 'none';
+  doc.getElementById('mp-defic').style.display = (view === 'defic') ? '' : 'none';
+  if (view === 'defic') openDeficiencies();
   Object.keys(frames).forEach(function (id) {
     frames[id].parentNode.style.display = (view === id) ? '' : 'none';
   });
-  if (view !== 'room' && view !== 'record') {
+  if (view !== 'room' && view !== 'record' && view !== 'defic') {
     var p = pumpById(view);
     if (p) openFrame(p);
   }
@@ -267,6 +270,35 @@ function syncRoomIntoFrame(f) {
   });
 }
 
+/* ── deficiencies ────────────────────────────────────────────────────── */
+
+/* The panel's markup is the Diesel tool's own — read from the live file
+   at first open, never retyped here, so a change to the shipped panel is
+   a change to this one. The engine that draws into it is loaded by the
+   page (lib/ui/deficiencies.js) with deficHost.js as its host. */
+var _deficReady = false, _deficLoading = false;
+function openDeficiencies() {
+  if (_deficReady || _deficLoading) return;
+  _deficLoading = true;
+  var host = doc.getElementById('mp-defic-panel');
+  host.innerHTML = '<div class="mp-note">Loading the deficiencies panel from the Diesel tool…</div>';
+  root.fetch(TOOL_FOR.dsl, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
+    var d = new root.DOMParser().parseFromString(txt, 'text/html');
+    var panel = d.getElementById('panel-defic');
+    var body = panel && panel.querySelector('.card-body');
+    if (!body) throw new Error('panel-defic not found in the Diesel tool');
+    host.innerHTML = '<div class="card"><div class="card-body">' + body.innerHTML + '</div></div>';
+    if (typeof root.renderContractorTags === 'function') root.renderContractorTags();
+    if (typeof root.renderDeficGroups === 'function') root.renderDeficGroups();
+    if (typeof root.renderGeneralDeficGroup === 'function') root.renderGeneralDeficGroup();
+    if (typeof root.updateDeficSummary === 'function') root.updateDeficSummary();
+    _deficReady = true; _deficLoading = false;
+  }).catch(function (e) {
+    _deficLoading = false;
+    host.innerHTML = '<div class="mp-note">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</div>';
+  });
+}
+
 /* ── the job record ──────────────────────────────────────────────────── */
 
 /* What WOULD be saved. Built from the modules, never assembled by hand
@@ -325,6 +357,18 @@ function collect() {
     });
     pump._checklist = CL.fileInto(rep, p.id, cl);
   });
+  /* Deficiencies: the engine's own lists, whole, plus what ownership says
+     about them. An entry with no owner is the report's problem to fix
+     before issue, and it is counted here, never hidden. */
+  var Own = root.MPDeficiencyOwner;
+  if (Own && typeof root.mpDeficLists === 'function') {
+    var lists = root.mpDeficLists(), byC = lists.byContractor, gen = lists.general || [];
+    rep.deficiencies = { contractors: lists.contractors.slice(), trades: lists.trades, byContractor: byC, general: gen };
+    var isDel = function (d) { return !!(d && d.deleted); };
+    var un = Own.unassigned(byC, gen, { isDeleted: isDel });
+    rep.deficiencyOwnership = { unassigned: un.length, readyToIssue: Own.readyToIssue(byC, gen, rep, { isDeleted: isDel }) };
+    if (un.length) notes.push(un.length + ' deficienc' + (un.length > 1 ? 'ies' : 'y') + ' not yet tagged to a machine or the room — cannot issue');
+  }
   rep._notes = notes;
   rep._nothingSaves = true;
   return rep;

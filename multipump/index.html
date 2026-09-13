@@ -61,6 +61,16 @@
 
 <div id="mp-frames"></div>
 
+<div id="mp-defic" style="display:none">
+  <div class="mp-note">The job’s deficiencies — <b>one list, filed by contractor</b>, drawn by the same engine the
+    Diesel and Electric tools use. Each entry says which machine it is about, or the room; one with no answer
+    cannot be issued. <b>Nothing saves.</b> Photographs here are not stored yet.</div>
+  <div id="mp-defic-panel" class="main-wrap"></div>
+  <div id="mp-defic-note" class="mp-note" style="display:none"></div>
+  <!-- the engine's upload path clicks this; the host's handleFiles answers "not yet" -->
+  <input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">
+</div>
+
 <div id="mp-record" style="display:none"><div id="mp-record-body"></div></div>
 
 <script src="js/roomReview.js"></script>
@@ -69,6 +79,11 @@
 <script src="js/reportShape.js"></script>
 <script src="js/pumpContext.js"></script>
 <script src="js/checklistScope.js"></script>
+<script src="js/deficiencyOwner.js"></script>
+<!-- the deficiencies engine the shipped tools run, with this page as its host -->
+<script src="../lib/data/photoMint.js"></script>
+<script src="js/deficHost.js"></script>
+<script src="../lib/ui/deficiencies.js"></script>
 <script src="js/shell.js"></script>
 </body>
 </html>

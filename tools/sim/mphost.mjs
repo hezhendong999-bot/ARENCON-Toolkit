@@ -138,11 +138,37 @@ else {
 }
 
 const shellScripts = [...page.matchAll(/<script[^>]*src="([^"]+)"/g)].map((m) => m[1]);
-const foreignScripts = shellScripts.filter((s) => !/^js\/|auth-gate\.js$/.test(s));
-if (!foreignScripts.length) ok('shell page loads only its own scripts and the sign-in gate — none of the tools\u2019 code');
+const foreignScripts = shellScripts.filter((s) => !/^js\/|^\.\.\/lib\/|auth-gate\.js$/.test(s));
+if (!foreignScripts.length) ok('shell page loads only its own scripts, shared lib engines and the sign-in gate — none of the tools\u2019 code');
 else fail('shell page loads code that is not its own: ' + foreignScripts.join(', '));
 
-const persists = ['localStorage', 'indexedDB', 'CloudSync', 'fetch(', 'ADB.', 'R2Photos', 'saveState'];
+/* deficiencies: the shared engine draws, the shell only hosts */
+const eng = read('lib/ui/deficiencies.js');
+const host = read('multipump/js/deficHost.js');
+if (/function _deficOwnerChip\(d, scope\)\{\s*return \(typeof _deficOwnerHook==='function'\)/.test(eng)) ok('engine asks the host for the owner chip and draws nothing without a host hook');
+else fail('engine owner-chip hook is not scoped by host presence');
+if ((eng.match(/\+_deficOwnerChip\(d, *'/g) || []).length === 2) ok('owner chip drawn at both deficiency builders (contractor and general)');
+else fail('owner chip is not at exactly the two builders');
+const hookInTools = ['diesel-app', 'electric-app', 'frt'].filter((t) => { try { return read(`${t}/index.html`).includes('_deficOwnerHook'); } catch (e) { return false; } });
+const hookInParts = fs.readdirSync(path.join(REPO, 'diesel-app/js')).some((f) => read('diesel-app/js/' + f).includes('_deficOwnerHook'))
+  || fs.readdirSync(path.join(REPO, 'electric-app/js')).some((f) => read('electric-app/js/' + f).includes('_deficOwnerHook'));
+if (!hookInTools.length && !hookInParts) ok('no shipped tool defines _deficOwnerHook — their deficiency rows are unchanged');
+else fail('a shipped tool defines _deficOwnerHook: ' + hookInTools.join(', '));
+if (shellScripts.includes('../lib/ui/deficiencies.js') && shellScripts.indexOf('js/deficHost.js') < shellScripts.indexOf('../lib/ui/deficiencies.js')) ok('shell loads the shared deficiencies engine, host globals first');
+else fail('shell does not load lib/ui/deficiencies.js after deficHost.js');
+const drawn = ['Describe Deficiency', 'defic-group-', 'renderDeficGroup(name) {', 'buildDeficItem'].filter((k) => host.includes(k) && !/mpSetDeficOwner|renderDeficGroup\(ref/.test(k));
+if (!host.includes('Describe Deficiency') && !host.includes('function buildDeficItem') && !host.includes('function renderDeficGroup')) ok('deficHost draws no deficiency markup — the engine owns the list');
+else fail('deficHost redraws deficiency markup: ' + drawn.join(', '));
+for (const g of ['const contractors', 'let contractorTrades', 'var clState', 'function escHtml', 'function debounceAutosave() {}', 'function showToast', 'function _phSrc', 'function _isPhotoDeleted', 'function _deficOwnerHook', 'function mpDeficLists']) {
+  if (host.includes(g)) ok(`deficHost provides ${g.replace(/^(const|let|var|function) /, '')}`); else fail(`deficHost missing ${g}`);
+}
+if (!/localStorage|indexedDB|CloudSync|R2Photos|_r2Enqueue/.test(host)) ok('deficHost touches no storage — photos say not-yet, nothing saves');
+else fail('deficHost reaches storage');
+
+const persists = ['localStorage', 'indexedDB', 'CloudSync', 'ADB.', 'R2Photos', 'saveState'];
+/* fetch is allowed for ONE thing: reading the Diesel tool\u2019s own panel markup */
+const fetches = (shell.match(/fetch\(/g) || []).length;
+if (fetches === 1 && shell.includes("root.fetch(TOOL_FOR.dsl")) ok('shell fetches once — the Diesel tool\u2019s deficiencies panel markup, never retyped'); else fail(`shell fetch count ${fetches}, expected one read of the Diesel panel`);
 const hits = persists.filter((k) => shell.includes(k));
 if (!hits.length) ok('shell.js touches no storage, sync or fetch — nothing saves');
 else fail('shell.js reaches storage or sync: ' + hits.join(', '));

@@ -104,3 +104,15 @@ body.dark-mode .cl-tog,body.dark-mode .mp-opt{color:#a09aa8;}
 .mp-frame{flex:1;width:100%;border:0;background:#fff;}
 .mp-json{margin:0 13px 90px;padding:12px;background:#fff;border:1px solid var(--border,#d8dde5);border-radius:10px;
   font:400 calc(11.5px + var(--ts))/1.45 Calibri,sans-serif;color:var(--slate,#1C2333);white-space:pre-wrap;word-break:break-word;}
+
+/* ── PART S730b · THE OWNER CHIP on a deficiency (drawn by the engine through
+   the host hook). Segmented: Room, then each machine. Untagged is drawn as a
+   warning, because a work order with no address is one. Tap targets 40px;
+   nothing on hover. ─────────────────────────────────────────────────────── */
+.mp-own{display:inline-flex;align-items:center;gap:4px;margin-left:8px;flex-wrap:wrap;}
+.mp-own-lbl{font:700 calc(11px + var(--ts))/1 Calibri,sans-serif;color:var(--steel,#4A5568);text-transform:uppercase;letter-spacing:.5px;margin-right:2px;}
+.mp-own-none .mp-own-lbl{color:var(--warn,#C98A4A);}
+.mp-own-btn{min-height:40px;padding:0 11px;border:1px solid var(--border,#d8dde5);border-radius:7px;background:#fff;
+  font:700 calc(12px + var(--ts))/1 Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;}
+.mp-own-btn.on{background:var(--arencon,#9C2742);border-color:var(--arencon,#9C2742);color:#fff;}
+.mp-own-none .mp-own-btn{border-color:var(--warn,#C98A4A);}
