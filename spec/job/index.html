@@ -235,6 +235,9 @@ h3:first-child{margin-top:0}
   <span class="jobname grow" id="jobname">Specification — Jobs</span>
   <span class="me" id="me"></span>
   <button class="hb" id="backjobs" hidden>All jobs</button>
+  <button class="hb go" id="finalise" hidden>Finalise&hellip;</button>
+  <span class="state issued" id="issuedbadge" hidden style="align-self:center;margin:0 4px">Issued</span>
+  <button class="hb" id="reopen" hidden>Reopen draft</button>
   <button class="hb go" id="word" hidden>Word</button>
   <a class="hb" href="../index.html" style="text-decoration:none;color:inherit;display:inline-flex;align-items:center">Clause library</a>
   <button class="hb icon" id="theme" title="Day / night">☀</button>
@@ -379,9 +382,12 @@ const isStruck = id => !!(state.jobClauses.find(c => c.clause_id === id) || {}).
    none of them is on this job. */
 function clauseOnThisJob(c) {
   const tags = c.system_tags || [];
-  if (!tags.length) return true;
-  const on = jobSystemKeys();
-  return tags.some(t => on.has(t));
+  if (tags.length && !tags.some(t => jobSystemKeys().has(t))) return false;
+  /* Insurer filter. A clause may require a specific insurer (FM / VS). If it
+     does and the job doesn't have that insurer, the clause stays out. A job
+     with insurer 'NO' never sees FM-only or VS-only clauses. */
+  if (c.insurer_req && c.insurer_req !== state.job.insurer) return false;
+  return true;
 }
 
 /* The system keys this job has ticked, read from the packages themselves so
@@ -486,9 +492,16 @@ function render() {
 
 function renderChrome() {
   const j = state.job;
-  $('#jobname').textContent = j ? `${j.project_no}${j.revision ? ' ' + j.revision : ''} · ${j.client || 'No client yet'}` : 'Specification — Jobs';
-  $('#backjobs').hidden = state.view !== 'job';
-  $('#word').hidden = state.view !== 'job';
+  const inJob = state.view === 'job';
+  const issued = inJob && j && j.status === 'issued';
+  $('#jobname').textContent = j
+    ? `${j.project_no}${j.revision ? ' ' + j.revision : ''} · ${j.client || 'No client yet'}`
+    : 'Specification — Jobs';
+  $('#backjobs').hidden = !inJob;
+  $('#word').hidden = !inJob;
+  $('#finalise').hidden = !inJob || issued;
+  $('#issuedbadge').hidden = !issued;
+  $('#reopen').hidden = !issued || !isPrincipal();
   const n = outstanding().length;
   $('#bdg').textContent = n;
 }
@@ -628,32 +641,40 @@ function renderLeft() {
     <div class="mini" style="margin-top:12px">Taking anything out strikes it through and leaves it on the page.
       Nothing actually leaves the document until the job is finalised.</div>`;
 
-  $('#prov').onchange = e => setJobField('province', e.target.value);
-  $('#ins').onchange = e => setJobField('insurer', e.target.value);
-  $('#details').onclick = jobDetails;
-  $('#addjobstd').onclick = () => editJobStd(null, null);
+  if (!isLocked()) {
+    $('#prov').onchange = e => setJobField('province', e.target.value);
+    $('#ins').onchange = e => setJobField('insurer', e.target.value);
+  } else {
+    $('#prov').disabled = true; $('#ins').disabled = true;
+  }
+  $('#details').onclick = isLocked() ? null : jobDetails;
+  if ($('#details')) $('#details').disabled = isLocked();
+  $('#addjobstd').onclick = isLocked() ? null : () => editJobStd(null, null);
+  if ($('#addjobstd')) $('#addjobstd').disabled = isLocked();
   $$('[data-tog]', $('#left')).forEach(el => el.onclick = e => {
+    if (isLocked()) return;
     if (e.target.closest('[data-open]')) return;
     togglePackage(el.dataset.tog);
   });
   $$('[data-open]', $('#left')).forEach(b => b.onclick = e => {
     e.stopPropagation(); state.open[b.dataset.open] = !state.open[b.dataset.open]; renderLeft();
   });
-  $$('[data-cutsec]', $('#left')).forEach(b => b.onclick = () => toggleSection(b.dataset.cutsec));
-  $$('[data-addstd]', $('#left')).forEach(b => b.onclick = () => editJobStd(null, b.dataset.addstd));
-  $$('[data-addco]', $('#left')).forEach(b => b.onclick = () => editJobCloseout(null, b.dataset.addco));
+  $$('[data-cutsec]', $('#left')).forEach(b => { b.disabled = isLocked(); b.onclick = isLocked() ? null : () => toggleSection(b.dataset.cutsec); });
+  $$('[data-addstd]', $('#left')).forEach(b => { b.disabled = isLocked(); b.onclick = isLocked() ? null : () => editJobStd(null, b.dataset.addstd); });
+  $$('[data-addco]', $('#left')).forEach(b => { b.disabled = isLocked(); b.onclick = isLocked() ? null : () => editJobCloseout(null, b.dataset.addco); });
   $$('[data-std]', $('#left')).forEach(el => el.onclick = e => {
+    if (isLocked()) return;
     if (e.target.closest('[data-cutstd]')) return;
     editJobStd(state.jobStds.find(s => s.id === el.dataset.std), null);
   });
-  $$('[data-cutstd]', $('#left')).forEach(b => b.onclick = e => {
+  $$('[data-cutstd]', $('#left')).forEach(b => { b.disabled = isLocked(); b.onclick = isLocked() ? null : e => {
     e.stopPropagation(); strikeJobStd(state.jobStds.find(s => s.id === b.dataset.cutstd));
-  });
-  $$('[data-co]', $('#left')).forEach(el => el.onclick = () =>
+  }; });
+  $$('[data-co]', $('#left')).forEach(el => el.onclick = isLocked() ? null : () =>
     editJobCloseout(state.jobCloseouts.find(c => c.id === el.dataset.co), null));
-  $$('[data-cutco]', $('#left')).forEach(b => b.onclick = e => {
+  $$('[data-cutco]', $('#left')).forEach(b => { b.disabled = isLocked(); b.onclick = isLocked() ? null : e => {
     e.stopPropagation(); strikeJobCloseout(state.jobCloseouts.find(c => c.id === b.dataset.cutco));
-  });
+  }; });
 }
 
 const jobStdsFor = pkgId => state.jobStds.filter(s => (s.package_id || null) === (pkgId || null));
@@ -716,6 +737,7 @@ function renderMid() {
 
 /* Typing straight into the gap on the page. Enter commits, Escape abandons. */
 function editBlankInline(el) {
+  if (isLocked()) { msg('This job has been issued. Reopen the draft to edit blanks.'); return; }
   const k = el.dataset.k;
   const before = blankValue(k);
   el.textContent = before;
@@ -794,12 +816,14 @@ function renderRight() {
           This wording has not been through a principal's review.</div>`
       : '<div class="mini"><span class="chip ok">approved</span> Reviewed firm wording.</div>'}
 
-    <div class="acts">
+    ${isLocked()
+      ? '<div class="mini" style="margin-top:18px"><span class="chip mute">Issued</span> This job has been finalised. Reopen the draft to make changes.</div>'
+      : `<div class="acts">
       <button class="btn ${struck ? 'ok' : 'cut'}" id="cutclause">${struck ? 'Bring back' : 'Take out of this job'}</button>
       <button class="btn" id="propose">Propose to firm\u2026</button>
     </div>
     <div class="mini" style="margin-top:10px">Taking a clause out strikes it through. It still prints, struck, until the
-      job is finalised \u2014 so nothing disappears without you seeing it go.</div>`;
+      job is finalised \u2014 so nothing disappears without you seeing it go.</div>`}`;
   wireRight(el);
 }
 
@@ -811,7 +835,9 @@ function wireRight(el) {
     const node = $(`.ln[data-id="${state.sel}"]`, $('#mid'));
     if (node) node.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
-  $$('[data-use]', el).forEach(b => b.onclick = () => saveBlank(state.focusBlank, b.dataset.use));
+  $$('[data-use]', el).forEach(b => b.onclick = isLocked()
+    ? () => msg('This job has been issued. Reopen the draft to edit blanks.')
+    : () => saveBlank(state.focusBlank, b.dataset.use));
   const c = $('#cutclause', el); if (c) c.onclick = () => toggleClause(state.sel);
   const p = $('#propose', el); if (p) p.onclick = () => proposeClause(state.sel);
 }
@@ -1092,6 +1118,52 @@ function setTheme(t) {
   try { localStorage.setItem('arencon-spec-theme', t); } catch {}
 }
 
+/* ── issued / finalise ────────────────────────────────────────────────── */
+/* A job is locked once it has been issued. Word export still works; edits do not. */
+const isLocked = () => !!(state.job && state.job.status === 'issued');
+
+async function finalise() {
+  const D = await Dlg();
+  const todo = outstanding();
+  const blankWarn = todo.length
+    ? `<p style="color:var(--warn);margin:0 0 8px">\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. They will print as dashed gaps in the issued Word file. You can fill them in after issuing by reopening the draft.</p>`
+    : '';
+  const ok = await D.confirmDanger({
+    title: 'Finalise and issue this specification',
+    message: `Issue ${state.job.project_no}${state.job.revision ? ' ' + state.job.revision : ''}?`,
+    detail: blankWarn + 'Struck clauses will be removed from the Word export. The job will be locked against accidental edits — a principal can reopen the draft at any time.',
+    undoNote: 'A principal can reopen the draft at any time using the Reopen button in the header.',
+    confirmText: 'Issue',
+  });
+  if (!ok) return;
+  try {
+    const now = new Date().toISOString();
+    await sb.update('sg_job', `id=eq.${state.job.id}`, { status: 'issued', issued_at: now, updated_at: now });
+    state.job.status = 'issued'; state.job.issued_at = now;
+    render();
+    msg('Issued. The job is now locked. Download the Word file from the header.');
+  } catch (e) { fail(e); }
+}
+
+async function reopen() {
+  if (!isPrincipal()) { msg('Principals only.', true); return; }
+  const D = await Dlg();
+  const ok = await D.confirmDanger({
+    title: 'Reopen this job as a draft',
+    message: `Reopen ${state.job.project_no}${state.job.revision ? ' ' + state.job.revision : ''}?`,
+    detail: 'The job returns to draft status. The previous issue is not deleted — download the Word file before making changes if you need a record of what was issued.',
+    undoNote: 'Finalise again when the revised job is ready to issue.',
+    confirmText: 'Reopen',
+  });
+  if (!ok) return;
+  try {
+    await sb.update('sg_job', `id=eq.${state.job.id}`, { status: 'draft', updated_at: new Date().toISOString() });
+    state.job.status = 'draft';
+    render();
+    msg('Reopened as draft.');
+  } catch (e) { fail(e); }
+}
+
 /* ── boot ─────────────────────────────────────────────────────────────── */
 async function boot() {
   let saved = 'dark';
@@ -1100,6 +1172,8 @@ async function boot() {
   $('#theme').onclick = () =>
     setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
   $('#backjobs').onclick = () => { state.view = 'list'; state.job = null; render(); };
+  $('#finalise').onclick = finalise;
+  $('#reopen').onclick = reopen;
   $('#word').onclick = exportWord;
   $$('#tabs button').forEach(b => b.onclick = () => showPane(b.dataset.p));
   showPane('mid');
@@ -1125,3 +1199,4 @@ boot();
 </script>
 </body>
 </html>
+

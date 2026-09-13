@@ -514,6 +514,13 @@ function renderInspector() {
     <div class="tagrow" id="tagrow">${SYS_KEYS.map(k =>
       `<button data-tag="${k}" class="${(r.system_tags || []).includes(k) ? 'on' : ''}"
         ${canEdit() ? '' : 'disabled'}>${SYS_LABEL[k]}</button>`).join('')}</div>
+    <div class="insp-h">Insurer filter</div>
+    <div style="font-size:9.5pt;color:var(--ink3);margin-bottom:5px">Unset prints on all jobs regardless of insurer. Set only for clauses that must not appear on jobs without a specific insurer requirement.</div>
+    <div class="tagrow" id="insurerrow">
+      <button data-insurer="" class="${!r.insurer_req ? 'on' : ''}" ${canEdit() ? '' : 'disabled'}>All jobs</button>
+      <button data-insurer="FM" class="${r.insurer_req === 'FM' ? 'on' : ''}" ${canEdit() ? '' : 'disabled'}>FM Global only</button>
+      <button data-insurer="VS" class="${r.insurer_req === 'VS' ? 'on' : ''}" ${canEdit() ? '' : 'disabled'}>Verisk / IBC only</button>
+    </div>
     <div class="insp-h">Wording</div>
     <div class="acts">${r.basis === 'job-specific?'
       ? `<span class="pill draft" style="margin-right:6px">Names one job</span>
@@ -523,6 +530,7 @@ function renderInspector() {
   loadHistory(r.id);
   $$('.act[data-act]', el).forEach(b => (b.onclick = () => clauseAction(b.dataset.act, r.id)));
   $$('#tagrow button', el).forEach(b => (b.onclick = () => toggleTag(r.id, b.dataset.tag)));
+  $$('#insurerrow button', el).forEach(b => (b.onclick = () => setInsurerReq(r.id, b.dataset.insurer)));
   $$('[data-flag]', el).forEach(b => (b.onclick = () => setJobFlag(r.id, b.dataset.flag === 'set')));
 }
 
@@ -562,6 +570,24 @@ async function setJobFlag(id, on) {
     r.basis = on ? 'job-specific?' : null;
     renderInspector(); renderPage();
     msg(on ? 'Flagged — it will show under the review filter.' : 'Cleared.');
+  } catch (e) { msg(e.message || 'Could not save.', true); }
+}
+
+/* Insurer filter: null = all jobs, 'FM' = FM Global only, 'VS' = Verisk/IBC only.
+   The three buttons in the inspector are mutually exclusive — clicking the active
+   one clears it (back to all jobs) rather than doing nothing. */
+async function setInsurerReq(id, val) {
+  if (!canEdit()) return;
+  const r = state.clauses.find(c => c.id === id);
+  if (!r) return;
+  /* Clicking the currently-active choice clears it. */
+  const next = (r.insurer_req || '') === val ? null : (val || null);
+  try {
+    await sb.update('sg_clause', `id=eq.${id}`, { insurer_req: next,
+      updated_at: new Date().toISOString() });
+    r.insurer_req = next;
+    renderInspector(); renderPage();
+    msg(next ? `Insurer filter set to ${next}.` : 'Insurer filter cleared — prints on all jobs.');
   } catch (e) { msg(e.message || 'Could not save.', true); }
 }
 
@@ -1187,3 +1213,4 @@ boot();
 </script>
 </body>
 </html>
+
