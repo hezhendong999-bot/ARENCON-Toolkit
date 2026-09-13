@@ -440,12 +440,24 @@ async function loadClausesForJob() {
   state.clauses = await sb.select('sg_clause', `select=*&section_id=in.(${list})&order=sort_order`);
 }
 
+/* FAIL OPEN AT SECTION LEVEL TOO. A section that belongs to no system package
+   is a TEMPLATE section — General Requirements, Submittal Procedures, Closeout,
+   Fire Suppression General. It is on every job and there is no tick that turns
+   it on, so building the list purely from ticked packages dropped all of it:
+   332 clauses, silently, on every job ever created. Same rule as an untagged
+   clause — if nobody assigned it to a system, it belongs everywhere. */
 function jobSectionIds() {
   const on = new Set(state.jobPkgs.filter(p => p.included).map(p => p.package_id));
   const ids = new Set();
   state.pkgSections.forEach(ps => { if (on.has(ps.package_id)) ids.add(ps.section_id); });
+  const owned = new Set(state.pkgSections.map(ps => ps.section_id));
+  state.sections.forEach(s => { if (!owned.has(s.id)) ids.add(s.id); });
   return [...ids];
 }
+
+/* Whether the job has chosen anything yet. Section count cannot answer this any
+   more, because the template sections are always present. */
+const hasAnySystem = () => state.jobPkgs.some(p => p.included);
 
 /* "Values used before" — the same blank answered on OTHER jobs. Most recent
    first, de-duplicated, capped: a list of forty past answers is a lookup, not
@@ -688,7 +700,7 @@ function docConfig() {
 
 function renderMid() {
   const m = $('#mid');
-  if (!jobSectionIds().length) {
+  if (!hasAnySystem()) {
     m.innerHTML = `<div class="wrap"><div class="empty">
       This job has no systems yet. Tick what the building has in the Systems pane and the
       sections, standards and closeout items arrive together.</div></div>`;
