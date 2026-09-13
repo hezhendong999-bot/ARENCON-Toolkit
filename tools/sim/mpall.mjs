@@ -2,7 +2,7 @@
 /* ═══════════════════════════════════════════════════════════════════════
    THE MULTI-PUMP ESTATE, IN ONE RUN              tools/sim/mpall.mjs
    ───────────────────────────────────────────────────────────────────────
-   Eight probes now hold the multi-pump work, and a probe that is not run
+   Nine probes now hold the multi-pump work, and a probe that is not run
    is a probe that does not exist. This runs all of them and fails if any
    one fails — so "did I run them all" stops being something a session
    has to remember.
@@ -29,7 +29,8 @@ const PROBES = [
   ['mpphoto.mjs',     'placards: a scan reads this machine or refuses'],
   ['mpchecklist.mjs', 'the checklist: each machine answers for itself'],
   ['mpdefic.mjs',     'deficiencies: every work order names its machine'],
-  ['mppair.mjs',      'two pumps, one room: a whole visit']
+  ['mppair.mjs',      'two pumps, one room: a whole visit'],
+  ['mproom.mjs',      'the room review list: nothing dropped from either tool']
 ];
 
 const onDisk = fs.readdirSync(HERE).filter((f) => /^mp[a-z]+\.mjs$/.test(f) && f !== 'mpall.mjs');
