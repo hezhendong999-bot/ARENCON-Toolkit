@@ -188,14 +188,29 @@ for (const g of ['function _aConfirm', 'function _checklistFindingsHost', 'funct
 }
 if (/import Dlg from '\/lib\/ui\/dialogEngine\.js';\s*window\.ArenconDlg = Dlg;/.test(page)) ok('shell loads the sealed dialog engine the confirm needs');
 else fail('shell does not load the dialog engine');
+/* S730d — the shell wears the tools' chrome and draws nothing itself */
+const clh = read('multipump/js/clHost.js');
+if (/ArcChecklist\.create\(/.test(clh)) ok('room review runs the shipped checklist engine');
+else fail('clHost does not create the shipped checklist engine');
+if (!/cl-item|cl-seg|tog-yes|item-num/.test(shell) && !/cl-item|cl-seg|tog-yes/.test(clh)) ok('neither shell nor clHost draws a checklist row — the engine owns it');
+else fail('a checklist row is being drawn outside lib/ui/checklist.js');
+for (const cls of ['app-header', 'section-nav', 'nav-tab', 'main-wrap', 'panel', 'card-header', 'card-body']) {
+  if (page.includes(cls) || shell.includes(cls)) ok(`shell uses the shipped ${cls}`); else fail(`shell does not use the shipped ${cls}`);
+}
+if (/root\.fetch\(TOOL_FOR\.dsl[\s\S]{0,900}?proj-grid/.test(shell)) ok('project fields are the Diesel tool\u2019s own grid, read from the live file');
+else fail('project fields are not read from the Diesel tool');
+if (!/mp-field|mp-tab\b|mp-pump\b/.test(shell) && !/mp-field|class="mp-tab|class="mp-pump/.test(page)) ok('the home-made tab strip, pump buttons and field grid are gone');
+else fail('a home-made chrome component survives in the shell');
 const scope = read('multipump/js/sectionScope.js');
 if (/key:'batData',\s*scope:'pump',\s*why:/.test(scope) && !/key:'batData'[^\n]*only:/.test(scope)) ok('batData is scoped to the pump for BOTH drive types — Electric carries the key too');
 else fail('batData still marked diesel-only');
 
 const persists = ['localStorage', 'indexedDB', 'CloudSync', 'ADB.', 'R2Photos', 'saveState'];
 /* fetch is allowed for ONE thing: reading the Diesel tool\u2019s own panel markup */
-const fetches = (shell.match(/fetch\(/g) || []).length;
-if (fetches === 1 && shell.includes("root.fetch(TOOL_FOR.dsl")) ok('shell fetches once — the Diesel tool\u2019s deficiencies panel markup, never retyped'); else fail(`shell fetch count ${fetches}, expected one read of the Diesel panel`);
+const fetches = (shell.match(/root\.fetch\(TOOL_FOR\.dsl/g) || []).length;
+const otherFetch = (shell.match(/fetch\(/g) || []).length - fetches;
+if (fetches === 2 && otherFetch === 0) ok('shell reads the Diesel tool twice — its deficiencies panel and its project grid — and fetches nothing else');
+else fail(`shell fetches: ${fetches} of the Diesel tool, ${otherFetch} elsewhere`);
 const hits = persists.filter((k) => shell.includes(k));
 if (!hits.length) ok('shell.js touches no storage, sync or fetch — nothing saves');
 else fail('shell.js reaches storage or sync: ' + hits.join(', '));

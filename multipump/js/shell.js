@@ -105,40 +105,65 @@ function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function 
 
 /* ── drawing ─────────────────────────────────────────────────────────── */
 
+/* The shipped sub-nav: one scrollable row of .nav-tab, exactly as
+   renderSubNav draws it in both pump tools. */
 function drawTabs() {
-  var html = '<button type="button" class="mp-tab' + (view === 'room' ? ' on' : '') + '" data-view="room">Room review</button>';
-  pumps().forEach(function (p) {
-    var d = decisions[setKey][p.id];
-    var st = d ? (d === 'proceed' ? ' dec-go' : ' dec-hold') : '';
-    html += '<button type="button" class="mp-tab' + (view === p.id ? ' on' : '') + st + '" data-view="' + p.id + '">'
-      + esc(p.name) + '<small>' + (p.type === 'dsl' ? 'diesel' : 'electric') + (d ? ' · decided' : ' · undecided') + '</small></button>';
-  });
-  html += '<button type="button" class="mp-tab' + (view === 'defic' ? ' on' : '') + '" data-view="defic">Deficiencies<small>one list, filed by contractor</small></button>';
-  html += '<button type="button" class="mp-tab mp-tab-rec' + (view === 'record' ? ' on' : '') + '" data-view="record">Job record</button>';
-  doc.getElementById('mp-tabs').innerHTML = html;
+  var tabs = [{ id: 'room', label: 'Room review' }];
+  pumps().forEach(function (p) { tabs.push({ id: p.id, label: p.name, dot: !!decisions[setKey][p.id] }); });
+  tabs.push({ id: 'defic', label: 'Deficiencies' });
+  tabs.push({ id: 'record', label: 'Job record' });
+  doc.getElementById('section-nav').innerHTML = tabs.map(function (t) {
+    return '<div class="nav-tab' + (view === t.id ? ' active' : '') + '" data-view="' + t.id + '">'
+      + esc(t.label) + (t.dot ? '<span class="tab-dot"></span>' : '') + '</div>';
+  }).join('');
 }
 
 function drawRoomHead() {
   doc.getElementById('mp-sets').innerHTML = Object.keys(SETS).map(function (k) {
-    var arm = _setArm === k ? ' arm' : '';
-    return '<button type="button" class="mp-pump' + (k === setKey ? ' on' : '') + arm + '" data-set="' + k + '">'
-      + (arm ? 'Tap again to switch' : SETS[k].label) + '</button>';
+    var on = (k === setKey), arm = (_setArm === k);
+    return '<button type="button" class="btn btn-sm ' + (on ? '' : 'btn-outline ') + (arm ? 'mp-arm' : '')
+      + '" data-set="' + k + '">' + esc(arm ? 'Tap again to switch' : SETS[k].label) + '</button>';
   }).join('');
-  doc.getElementById('mp-set').textContent = pumps().map(function (p) { return p.name; }).join('  ·  ');
+  doc.getElementById('mp-set').textContent = _setArm
+    ? 'Switching discards the testing screens that are open.'
+    : pumps().map(function (p) { return p.name; }).join('  \u00b7  ') + '  \u2014  ' + pumps().length + ' machine' + (pumps().length > 1 ? 's' : '');
 }
 
+/* The Project Information card is the Diesel tool's own, read from the live
+   file at boot — same grid, same labels, same field ids. Retyping it here is
+   how the two drift apart. Fields the room does not own (contractor, form
+   revision, date modified) are removed after it lands: the contractor list
+   belongs to the deficiencies panel, and the rest are a single report's. */
+var _projCardReady = false, _projCardLoading = false;
 function drawRoomFields() {
-  var host = doc.getElementById('mp-room-fields');
-  if (host.children.length) return;   /* draw once — the values live in the inputs */
-  host.innerHTML = ROOM_FIELDS.map(function (f) {
-    return '<label class="mp-field"><span>' + esc(f.label) + '</span>'
-      + '<input type="' + (f.type || 'text') + '" id="mp-' + f.id + '" data-room-id="' + f.id + '" placeholder="' + esc(f.ph || '') + '"></label>';
-  }).join('');
+  /* Marked ready only when the card has actually landed — a failed read must
+     be retried the next time the room is opened, not remembered as done. */
+  if (_projCardReady || _projCardLoading) return;
+  if (typeof root.fetch !== 'function') return;
+  _projCardLoading = true;
+  var host = doc.getElementById('mp-proj-card');
+  root.fetch(TOOL_FOR.dsl, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
+    var d = new root.DOMParser().parseFromString(txt, 'text/html');
+    var grid = d.querySelector('#panel-proj .proj-grid');
+    if (!grid) throw new Error('the project grid was not found in the Diesel tool');
+    ['pi-contractor', 'pi-revision', 'pi-date-modified'].forEach(function (id) {
+      var el = grid.querySelector('#' + id), fg = el && el.closest('.field-group');
+      if (fg) fg.remove();
+    });
+    var cf = grid.querySelector('#contractor-fields'); if (cf && cf.closest('.field-group')) cf.closest('.field-group').remove();
+    Array.prototype.forEach.call(grid.querySelectorAll('input'), function (el) { el.setAttribute('data-room-id', el.id); });
+    host.innerHTML = '<div class="card"><div class="card-header">Project Information</div>'
+      + '<div class="card-body">' + grid.outerHTML + '</div></div>';
+    _projCardReady = true; _projCardLoading = false;
+  }).catch(function (e) {
+    _projCardLoading = false;
+    host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">The project fields could not be read from the Diesel tool: ' + esc(e && e.message) + '</p></div></div>';
+  });
 }
 function roomFieldValues() {
   var out = {};
   ROOM_FIELDS.forEach(function (f) {
-    var el = doc.getElementById('mp-' + f.id);
+    var el = doc.getElementById(f.id);
     out[f.id] = el ? String(el.value || '').trim() : '';
   });
   return out;
@@ -146,42 +171,116 @@ function roomFieldValues() {
 
 function drawDecision() {
   var d = decisions[setKey];
-  var html = '<div class="mp-decision"><h3>Decision to proceed</h3>'
-    + '<p>Recorded before any flow reading is taken, and taken for each machine separately — '
-    + 'one pump can be ready while the other is not, and a report with a blank performance '
-    + 'section and no decision reads as though a pump was forgotten. The wording of this '
-    + 'decision is still being written by the Owner with Shaun; these options stand in.</p>';
+  var html = '<p class="mp-hint">Recorded before any flow reading is taken, and taken for each machine '
+    + 'separately \u2014 one pump can be ready while the other is not. The wording of this decision is still '
+    + 'being written by the Owner with Shaun; these options stand in.</p>';
   pumps().forEach(function (p) {
-    html += '<div class="cl-group">' + esc(p.name) + '</div>';
+    html += '<div class="mp-dec-row"><div class="detail-label">' + esc(p.name) + '</div><div class="mp-dec-opts">';
     RR.OUTCOMES.forEach(function (o) {
-      html += '<button type="button" class="mp-opt' + (d[p.id] === o.key ? ' on' : '') + '"'
-        + ' data-dec="' + p.id + '" data-out="' + o.key + '">' + esc(o.text) + '</button>';
+      html += '<button type="button" class="btn btn-sm ' + (d[p.id] === o.key ? '' : 'btn-outline ')
+        + '" data-dec="' + p.id + '" data-out="' + esc(o.key) + '">' + esc(o.text) + '</button>';
     });
-    if (d[p.id]) {
-      html += '<button type="button" class="mp-go" data-open="' + p.id + '">Open ' + esc(p.name)
-        + ' testing \u203A</button>';
-    }
+    html += '</div>';
+    if (d[p.id]) html += '<button type="button" class="btn btn-sm mp-open" data-open="' + p.id + '">Open '
+      + esc(p.name) + ' testing \u203A</button>';
+    html += '</div>';
   });
-  doc.getElementById('mp-decision').innerHTML = html + '</div>';
+  doc.getElementById('mp-decision').innerHTML = html;
+}
+
+/* ── the review, as checklist sections ───────────────────────────────── */
+
+var PHASE_CARDS = [
+  { sec: 'rr1', phase: 'p1',  title: 'Phase 1 \u2014 before testing starts', sub: 'What you arrange, what you bring, then what others must have finished' },
+  { sec: 'rr2', phase: 'p2',  title: 'Phase 2 \u2014 the walk of the room',   sub: 'The installation itself, and each machine in it' },
+  { sec: 'rrd', phase: 'dsl', title: 'Diesel engine \u2014 per machine',      sub: 'Asked only of a diesel driver' }
+];
+
+/* Every row becomes engine items: one per machine where the row is answered
+   per machine, one otherwise. The machine's name rides as the item hint —
+   the tools' own hint styling — and VISIT / ROOM keep the engine's chips. */
+function buildItems() {
+  var items = { rr1: [], rr2: [], rrd: [] };
+  root.ROWMAP = {};
+  var multi = pumps().length > 1;
+  RR.rowsFor(pumps()).forEach(function (row) {
+    var card = PHASE_CARDS.filter(function (c) { return c.phase === row.phase; })[0];
+    if (!card) return;
+    var targets = (row.scope === 'machine') ? row.targets : [null];
+    targets.forEach(function (t) {
+      var idx = items[card.sec].length;
+      var id = card.sec + '_' + idx;
+      items[card.sec].push({
+        num: row.src || String(idx + 1),
+        text: row.text,
+        scope: (row.scope === 'visit' || row.scope === 'room') ? row.scope : '',
+        hint: (t && multi) ? t.name : ''
+      });
+      root.ROWMAP[id] = { row: row, pumpId: t ? t.id : '', key: RR.answerKey(row, t && t.id) };
+    });
+  });
+  root.MP_CL_ITEMS = items;
+  return items;
+}
+
+/* The engine's answers, copied onto the row-and-machine keys the report is
+   built from. Called by the engine after every answer. */
+function syncAnswers() {
+  var a = answers[setKey], cl = root.clState || {};
+  Object.keys(root.ROWMAP || {}).forEach(function (id) {
+    var m = root.ROWMAP[id], st = cl[id];
+    if (st && st.status) a[m.key] = { status: st.status, _ts: st._ts || Date.now() };
+    else delete a[m.key];
+  });
+  drawProgress();
+  drawTabs();
+}
+
+/* Answers already given are put back into the engine's state before it draws
+   — switching pump sets and coming back must not lose a morning's answers. */
+function seedClState() {
+  var a = answers[setKey], cl = {};
+  Object.keys(root.ROWMAP || {}).forEach(function (id) {
+    var m = root.ROWMAP[id], prev = a[m.key];
+    cl[id] = { status: prev ? prev.status : null, comment: '', photos: [], customText: '', _ts: prev ? prev._ts : 0 };
+  });
+  root.clState = cl;
 }
 
 function drawRoom() {
   drawRoomHead();
-  drawRoomFields();
-  doc.getElementById('mp-body').innerHTML = S.render(pumps(), answers[setKey]);
+  var items = buildItems();
+  seedClState();
+  var host = doc.getElementById('mp-review');
+  host.innerHTML = PHASE_CARDS.filter(function (c) { return items[c.sec].length; }).map(function (c) {
+    return '<div class="card"><div class="card-header">' + esc(c.title) + '</div>'
+      + '<div class="card-body"><p class="mp-hint">' + esc(c.sub) + '</p><div id="cl-' + c.sec + '"></div></div></div>';
+  }).join('');
+  var CL = root.mpChecklistEngine && root.mpChecklistEngine();
+  if (CL) PHASE_CARDS.forEach(function (c) { if (items[c.sec].length) CL.renderChecklist(items[c.sec], 'cl-' + c.sec, c.sec); });
   drawDecision();
+  drawProgress();
+  /* The project card is read from the Diesel tool over the network. If that
+     read fails the review must still stand — it is the part being answered. */
+  try { drawRoomFields(); } catch (e) {
+    if (root.console && root.console.warn) root.console.warn('[mp] project card unavailable', e);
+  }
+}
+
+function drawProgress() {
   var p = S.progress(pumps(), answers[setKey]);
   var un = RR.undecided(pumps(), decisions[setKey]).length;
-  doc.getElementById('mp-progress').innerHTML =
-    '<b>' + p.answered + '</b> of <b>' + p.total + '</b> answered'
-    + (un ? ' · <b>' + un + '</b> machine' + (un > 1 ? 's' : '') + ' undecided' : ' · decided');
+  var el = doc.getElementById('mp-progress');
+  if (el) el.innerHTML = '<b>' + p.answered + '</b> of <b>' + p.total + '</b> answered'
+    + (un ? ' \u00b7 <b>' + un + '</b> machine' + (un > 1 ? 's' : '') + ' undecided' : ' \u00b7 decided');
 }
 
 function show(which) {
   view = which;
-  doc.getElementById('mp-room').style.display = (view === 'room') ? '' : 'none';
-  doc.getElementById('mp-record').style.display = (view === 'record') ? '' : 'none';
-  doc.getElementById('mp-defic').style.display = (view === 'defic') ? '' : 'none';
+  ['room', 'record', 'defic'].forEach(function (v) {
+    doc.getElementById('mp-' + v).classList.toggle('active', view === v);
+  });
+  if (view === 'room') { try { drawRoomFields(); } catch (e) {} }
   if (view === 'defic') { openDeficiencies(); if (_deficReady && typeof root.updateDeficSummary === 'function') root.updateDeficSummary(); }
   Object.keys(frames).forEach(function (id) {
     frames[id].parentNode.style.display = (view === id) ? '' : 'none';
@@ -281,13 +380,14 @@ function openDeficiencies() {
   if (_deficReady || _deficLoading) return;
   _deficLoading = true;
   var host = doc.getElementById('mp-defic-panel');
-  host.innerHTML = '<div class="mp-note">Loading the deficiencies panel from the Diesel tool…</div>';
+  host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">Loading the deficiencies panel from the Diesel tool…</p></div></div>';
   root.fetch(TOOL_FOR.dsl, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
     var d = new root.DOMParser().parseFromString(txt, 'text/html');
     var panel = d.getElementById('panel-defic');
     var body = panel && panel.querySelector('.card-body');
     if (!body) throw new Error('panel-defic not found in the Diesel tool');
-    host.innerHTML = '<div class="card"><div class="card-body">' + body.innerHTML + '</div></div>';
+    host.innerHTML = '<div class="card"><div class="card-header">Deficiencies Identified</div>'
+      + '<div class="card-body">' + body.innerHTML + '</div></div>';
     if (typeof root.renderContractorTags === 'function') root.renderContractorTags();
     if (typeof root.renderDeficGroups === 'function') root.renderDeficGroups();
     if (typeof root.renderGeneralDeficGroup === 'function') root.renderGeneralDeficGroup();
@@ -295,7 +395,7 @@ function openDeficiencies() {
     _deficReady = true; _deficLoading = false;
   }).catch(function (e) {
     _deficLoading = false;
-    host.innerHTML = '<div class="mp-note">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</div>';
+    host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</p></div></div>';
   });
 }
 
@@ -379,12 +479,13 @@ function drawRecord() {
   var el = doc.getElementById('mp-record-body');
   var json = JSON.stringify(rep, null, 2);
   var tested = rep.pumps.filter(function (p) { return p.tested; }).length;
-  el.innerHTML = '<div class="mp-note">This is the record the store would save — <b>it is not saved</b>. '
+  el.innerHTML = '<div class="card"><div class="card-header">Job record</div><div class="card-body">'
+    + '<p class="mp-hint">This is the record the store would save \u2014 <b>it is not saved</b>. '
     + rep.pumps.length + ' machine' + (rep.pumps.length > 1 ? 's' : '') + ', ' + tested + ' with a testing screen open, '
     + rep.room.reviewProgress.answered + ' of ' + rep.room.reviewProgress.total + ' room answers, '
     + Math.round(json.length / 1024) + ' KB.'
     + (rep._notes.length ? '<br><b>Notes:</b> ' + rep._notes.map(esc).join('<br>') : '')
-    + '</div><pre class="mp-json">' + esc(json) + '</pre>';
+    + '</p><pre class="mp-json">' + esc(json) + '</pre></div></div>';
 }
 
 /* The room review's "No" answers, for the deficiencies roll-up. Each row
@@ -404,8 +505,9 @@ function roomFindings() {
   return out;
 }
 function scrollToRoomRow(key) {
-  var rowId = String(key).split('@')[0];
-  var el = doc.querySelector('[data-mp-item="' + rowId + '"]');
+  var want = null;
+  Object.keys(root.ROWMAP || {}).forEach(function (id) { if (root.ROWMAP[id].key === key) want = id; });
+  var el = want ? doc.getElementById('ci-' + want) : null;
   if (!el) return;
   if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
   el.style.outline = '2px solid #9C2742'; el.style.outlineOffset = '2px';
@@ -437,12 +539,6 @@ doc.addEventListener('click', function (ev) {
       drawRoom(); drawTabs(); return;
     }
   }
-  if (view !== 'room') return;
-  var hit = S.handleTap(ev, pumps(), answers[setKey]);
-  if (!hit) return;
-  if (hit.cleared) delete answers[setKey][hit.key];
-  else answers[setKey][hit.key] = { status: hit.status, _ts: Date.now() };
-  drawRoom();
 }, false);
 
 /* A room field typed here reaches every open frame. */
@@ -455,7 +551,8 @@ doc.addEventListener('change', function (ev) {
 /* The flag the shipped tools look for. Its presence IS the mode. */
 var API = { version: 'S730', collect: collect, frames: function () { return frames; },
             pumps: pumps, sets: SETS, TOOL_FOR: TOOL_FOR, show: show,
-            roomFindings: roomFindings, scrollToRoomRow: scrollToRoomRow };
+            roomFindings: roomFindings, scrollToRoomRow: scrollToRoomRow,
+            syncAnswers: syncAnswers };
 root.MPShell = API;
 
 drawRoom();

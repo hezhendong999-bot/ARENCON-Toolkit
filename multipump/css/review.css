@@ -116,3 +116,30 @@ body.dark-mode .cl-tog,body.dark-mode .mp-opt{color:#a09aa8;}
   font:700 calc(12px + var(--ts))/1 Calibri,sans-serif;color:var(--steel,#4A5568);cursor:pointer;}
 .mp-own-btn.on{background:var(--arencon,#9C2742);border-color:var(--arencon,#9C2742);color:#fff;}
 .mp-own-none .mp-own-btn{border-color:var(--warn,#C98A4A);}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PART S730d · THE SHELL WEARS THE TOOLS' CHROME
+   Supersedes PART S730. The page now uses the shipped classes — .app-header,
+   .section-nav/.nav-tab, .main-wrap, .panel, .card, .btn, .cl-item — so
+   almost nothing is left to style here. What remains is the title line in
+   the header, the pump-set row, and the decision block. Anything that
+   duplicated a shipped component is gone: the review rows, the tab strip,
+   the project fields and the old pump buttons are all drawn by the tools'
+   own code now, and their rules with them.
+   ═══════════════════════════════════════════════════════════════════════ */
+.mp-title{padding:11px 18px 9px;font:700 calc(16px + var(--ts))/1.2 Calibri,sans-serif;color:#fff;}
+.mp-title span{font-weight:400;font-size:calc(12px + var(--ts));opacity:.6;margin-left:8px;}
+.mp-setrow{display:flex;gap:8px;flex-wrap:wrap;}
+.mp-arm{border-color:var(--warn)!important;color:var(--warn)!important;background:#fff!important;}
+.mp-hint{margin:0 0 12px;font:400 calc(13px + var(--ts))/1.5 Calibri,sans-serif;color:var(--silver);}
+.mp-dec-row{padding:12px 0;border-top:1px solid var(--border);}
+.mp-dec-row:first-of-type{border-top:0;}
+.mp-dec-opts{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0;}
+.mp-open{margin-top:8px;}
+.mp-bar-r{color:var(--silver);}
+.mp-frame-wrap{display:flex;flex-direction:column;height:calc(100vh - 96px);}
+.mp-frame-note{padding:7px 18px;background:color-mix(in srgb,var(--warn) 10%,#fff);border-bottom:1px solid var(--border);
+  font:400 calc(12.5px + var(--ts))/1.4 Calibri,sans-serif;color:var(--steel);}
+.mp-frame{flex:1;width:100%;border:0;background:#fff;}
+.mp-json{margin:0 0 16px;padding:12px;background:#fff;border:1px solid var(--border);border-radius:10px;
+  font:400 calc(11.5px + var(--ts))/1.45 Calibri,sans-serif;color:var(--slate);white-space:pre-wrap;word-break:break-word;}

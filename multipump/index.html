@@ -40,33 +40,56 @@
 </head>
 <body>
 
-<div class="mp-head">
-  <h1>Fire pump commissioning <span>· multi-pump · nothing saves · not live</span></h1>
-  <div class="mp-tabs" id="mp-tabs"></div>
+<!-- The shipped tools' chrome, class for class: dark app header, the scrollable
+     section-nav of .nav-tab, then .main-wrap > .panel > .card. Nothing about
+     this page's navigation is invented. -->
+<header class="app-header">
+  <div class="mp-title">Fire Pump Commissioning <span>multi-pump &middot; nothing saves &middot; not live</span></div>
+  <div class="section-nav" id="section-nav"></div>
+</header>
+
+<div class="main-wrap">
+
+  <div class="panel active" id="mp-room">
+    <div class="card">
+      <div class="card-header">Pumps on this job</div>
+      <div class="card-body">
+        <div class="mp-setrow" id="mp-sets"></div>
+        <p class="mp-hint" id="mp-set"></p>
+      </div>
+    </div>
+
+    <div id="mp-proj-card"></div>
+
+    <div id="mp-review"></div>
+
+    <div class="card">
+      <div class="card-header">Decision to proceed</div>
+      <div class="card-body" id="mp-decision"></div>
+    </div>
+  </div>
+
+  <div class="panel" id="mp-defic">
+    <div id="mp-defic-panel"></div>
+    <p class="mp-hint" id="mp-defic-note" style="display:none"></p>
+    <!-- the deficiency engine's upload path clicks this; the host answers "not yet" -->
+    <input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">
+  </div>
+
+  <div class="panel" id="mp-record"><div id="mp-record-body"></div></div>
+
 </div>
 
-<div id="mp-room">
-  <div class="mp-pumps" id="mp-sets"></div>
-  <div class="mp-note">
-    One walk of the room. <b>VISIT</b> rows are answered once for the day, <b>ROOM</b> once for the
-    installation, and the rest once for each machine. A solid dot marks a check neither of the
-    current tools asks; a hollow one marks a check reworded or split. Project fields below are the
-    room's and are locked inside every machine's testing screen.
-  </div>
-  <div class="mp-fields" id="mp-room-fields"></div>
-  <div id="mp-body"></div>
-  <div id="mp-decision"></div>
-  <div class="mp-bar"><span id="mp-progress"></span><span id="mp-set"></span></div>
-</div>
+<div class="mp-bar"><span id="mp-progress"></span><span class="mp-bar-r">nothing saves &middot; not live</span></div>
 
 <div id="mp-frames"></div>
 
 <div id="mp-defic" style="display:none">
-  <div class="mp-note">The job’s deficiencies — <b>one list, filed by contractor</b>, drawn by the same engine the
+  <p class="mp-hint">The job’s deficiencies — <b>one list, filed by contractor</b>, drawn by the same engine the
     Diesel and Electric tools use. Each entry says which machine it is about, or the room; one with no answer
-    cannot be issued. <b>Nothing saves.</b> Photographs here are not stored yet.</div>
-  <div id="mp-defic-panel" class="main-wrap"></div>
-  <div id="mp-defic-note" class="mp-note" style="display:none"></div>
+    cannot be issued. <b>Nothing saves.</b> Photographs here are not stored yet.</p>
+  <div id="mp-defic-panel"></div>
+  <p id="mp-defic-note" class="mp-hint" style="display:none"></p>
   <!-- the engine's upload path clicks this; the host's handleFiles answers "not yet" -->
   <input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">
 </div>
@@ -84,6 +107,8 @@
 <script src="js/reportShape.js"></script>
 <script src="js/pumpContext.js"></script>
 <script src="js/checklistScope.js"></script>
+<script src="js/clHost.js"></script>
+<script src="../lib/ui/checklist.js"></script>
 <script src="js/deficiencyOwner.js"></script>
 <!-- the deficiencies engine the shipped tools run, with this page as its host -->
 <script src="../lib/data/photoMint.js"></script>
