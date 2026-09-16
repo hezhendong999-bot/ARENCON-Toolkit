@@ -1,0 +1,1 @@
+updateDarkToggleIcon();if(typeof _updateInspectorChip==='function')_updateInspectorChip();

@@ -1,0 +1,1 @@
+/* S447: fullscreen-force REMOVED (all tools). The old S439/S441 pointerdown->requestFullscreen forced fullscreen on PC (and misfired under DevTools / installed-PWA display-mode gates). Field tablets get fullscreen from the PWA/TWA manifest with no JS, so this had no upside on desktop. Intentionally inert. */
