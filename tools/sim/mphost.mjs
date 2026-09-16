@@ -186,21 +186,45 @@ for (const t of TOOLS) {
 for (const g of ['function _aConfirm', 'function _checklistFindingsHost', 'function _jumpToChecklistItemHost']) {
   if (host.includes(g)) ok(`deficHost provides ${g.replace('function ', '')}`); else fail(`deficHost missing ${g}`);
 }
-if (/import Dlg from '\/lib\/ui\/dialogEngine\.js';\s*window\.ArenconDlg = Dlg;/.test(page)) ok('shell loads the sealed dialog engine the confirm needs');
-else fail('shell does not load the dialog engine');
-/* S730d — the shell wears the tools' chrome and draws nothing itself */
-const clh = read('multipump/js/clHost.js');
-if (/ArcChecklist\.create\(/.test(clh)) ok('room review runs the shipped checklist engine');
-else fail('clHost does not create the shipped checklist engine');
-if (!/cl-item|cl-seg|tog-yes|item-num/.test(shell) && !/cl-item|cl-seg|tog-yes/.test(clh)) ok('neither shell nor clHost draws a checklist row — the engine owns it');
-else fail('a checklist row is being drawn outside lib/ui/checklist.js');
-for (const cls of ['app-header', 'section-nav', 'nav-tab', 'main-wrap', 'panel', 'card-header', 'card-body']) {
-  if (page.includes(cls) || shell.includes(cls)) ok(`shell uses the shipped ${cls}`); else fail(`shell does not use the shipped ${cls}`);
+if (/function _aConfirm\(msg, onOk, okText\)/.test(host)) ok('deficHost provides the confirm the removal asks for');
+else fail('deficHost has no _aConfirm');
+/* S730g — the shell is built to the APPROVED DEMO, not to the tools' chrome */
+const css = read('multipump/css/demo.css');
+for (const tok of ['--paper:#EFEDF0', '--dsl:#C98A4A', '--ele:#2C7FB8', '--site:#5E7C8A', '--arencon:#9C2742']) {
+  if (css.includes(tok)) ok(`demo token ${tok} copied verbatim`); else fail(`demo token ${tok} missing or altered`);
 }
-if (/root\.fetch\(TOOL_FOR\.dsl[\s\S]{0,900}?proj-grid/.test(shell)) ok('project fields are the Diesel tool\u2019s own grid, read from the live file');
-else fail('project fields are not read from the Diesel tool');
-if (!/mp-field|mp-tab\b|mp-pump\b/.test(shell) && !/mp-field|class="mp-tab|class="mp-pump/.test(page)) ok('the home-made tab strip, pump buttons and field grid are gone');
-else fail('a home-made chrome component survives in the shell');
+if (/\[data-theme="dark"\]\{/.test(css)) ok('both modes defined off data-theme, as the demo carries them');
+else fail('dark mode tokens missing');
+if (/@media\(pointer:coarse\)\{[\s\S]*min-height:50px/.test(css)) ok('coarse-pointer block present — gloves');
+else fail('the demo\u2019s coarse-pointer block is missing');
+for (const comp of ['.card.keyed', '.chd', '.cbd', '.tabs button.on', '.item .yn button.y.on', '.sech .b', '.tflag.dsl', '.donut', '.sheet.open', '.prow']) {
+  if (css.includes(comp)) ok(`demo component ${comp} present`); else fail(`demo component ${comp} missing`);
+}
+/* the tools' chrome must be GONE from this page */
+/* The tools' chrome must not be EMITTED here. Prose in the file header may
+   name it — that is the record of a rejected approach, not a use of it — so
+   the check reads markup and stylesheet links, never comments. */
+const shellCode = shell.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const pageCode = page.replace(/<!--[\s\S]*?-->/g, '');
+const chrome = ['app-header', 'section-nav', 'nav-tab', 'main-wrap', 'proj-grid', 'cl-item', 'cl-seg', 'diesel-01.css', 'diesel-02.css'];
+const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
+const leftover = chrome.filter((c) => pageCode.includes(c) || shellCode.includes(c) || cssCode.includes(c));
+if (!leftover.length) ok('none of the single-pump tool\u2019s chrome survives in the shell');
+else fail('tool chrome still referenced: ' + leftover.join(', '));
+if (!fs.existsSync(path.join(REPO, 'multipump/css/review.css')) && !fs.existsSync(path.join(REPO, 'multipump/js/clHost.js')))
+  ok('the rejected chrome files are deleted, not left behind');
+else fail('a rejected chrome file is still on disk');
+/* the demo's own rules */
+if (/sheet\('Change the pumps on this job\?'/.test(shell) && !/confirm\(|alert\(|prompt\(/.test(shell))
+  ok('the destructive set switch confirms through the demo\u2019s sheet, never the browser');
+else fail('set switch does not confirm through a custom sheet');
+if (/data-theme="light"/.test(page) && /function toggleTheme\(\)/.test(shell)) ok('page boots Light with a manual toggle — field default, no auto-switching');
+else fail('theme boot or toggle missing');
+if (/Site &amp; Room/.test(shell) && !/Job record/.test(shell) && !/mp-json/.test(shell))
+  ok('tabs are Site & Room + one per pump + Deficiencies; the invented JSON screen is gone');
+else fail('tab set does not match the demo');
+if (/function pctPump\(/.test(shell) && /function pctSite\(/.test(shell)) ok('completion is per scope, one donut each — a barely-started machine cannot hide');
+else fail('per-scope completion missing');
 const scope = read('multipump/js/sectionScope.js');
 if (/key:'batData',\s*scope:'pump',\s*why:/.test(scope) && !/key:'batData'[^\n]*only:/.test(scope)) ok('batData is scoped to the pump for BOTH drive types — Electric carries the key too');
 else fail('batData still marked diesel-only');
@@ -209,7 +233,7 @@ const persists = ['localStorage', 'indexedDB', 'CloudSync', 'ADB.', 'R2Photos', 
 /* fetch is allowed for ONE thing: reading the Diesel tool\u2019s own panel markup */
 const fetches = (shell.match(/root\.fetch\(TOOL_FOR\.dsl/g) || []).length;
 const otherFetch = (shell.match(/fetch\(/g) || []).length - fetches;
-if (fetches === 2 && otherFetch === 0) ok('shell reads the Diesel tool twice — its deficiencies panel and its project grid — and fetches nothing else');
+if (fetches === 1 && otherFetch === 0) ok('shell reads the Diesel tool once — its deficiencies panel markup — and fetches nothing else');
 else fail(`shell fetches: ${fetches} of the Diesel tool, ${otherFetch} elsewhere`);
 const hits = persists.filter((k) => shell.includes(k));
 if (!hits.length) ok('shell.js touches no storage, sync or fetch — nothing saves');

@@ -1,117 +1,62 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-<title>Fire Pump Commissioning — multi-pump job</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ARENCON — Multi-pump commissioning</title>
 <!--
   ═══════════════════════════════════════════════════════════════════════
-  MULTI-PUMP COMMISSIONING — SHELL              multipump/index.html
+  MULTI-PUMP COMMISSIONING                      multipump/index.html
   ───────────────────────────────────────────────────────────────────────
-  One room, one visit, one report. The room is reviewed ONCE, and only
-  the testing that follows is per machine.
+  Built to the Owner-approved demo of record, DEMO_multipump_FINAL_S728.html.
+  Its own screen with its own shape — a centred column, a breadcrumb, pill
+  tabs keyed to each pump's drive type, cards with a coloured left edge.
+  NOT the single-pump tool's chrome with extra tabs; two earlier builds
+  made that mistake and were rejected.
 
-  TESTING RUNS IN THE SHIPPED TOOLS. Each machine's tab opens the live
-  Diesel or Electric commissioning tool in a frame under the tab strip,
-  in a mode the tool recognises from this page's MPShell flag: it keeps
-  no record of its own and this page reads it back through its manifest.
-  No copied screen, no merged code — see js/shell.js for the reasoning.
+  Site & Room is answered once. Each pump's TESTING runs in the live
+  Diesel or Electric tool, embedded below its own tab, in a mode the tool
+  recognises from this page's MPShell flag — it keeps no record of its own
+  there and this page reads it back through its manifest.
 
-  NOT LIVE, AND DELIBERATELY REACHABLE ONLY BY TYPING THE ADDRESS. Nothing
-  links here — not the Hub, not the portal — and this page is not in the
-  service worker's file list, so no tablet will fetch it. The single-pump
-  Diesel and Electric tools remain the live tools.
-
-  NOTHING IS SAVED. Answers live in memory for as long as the page is
-  open and are gone on reload. That is not an omission to be fixed
-  quietly: how an answer is STORED is the part that must not be invented
-  at speed, and the save path ships with the Owner present at a tablet.
-  "Job record" shows what would be saved.
+  NOT LIVE. Nothing links here and it is not precached.
+  NOTHING SAVES. Answers live in memory until the page is closed.
   ═══════════════════════════════════════════════════════════════════════
 -->
 <script src="../shared/auth-gate.js"></script>
-<!-- BOTH of the tool's stylesheets, in the tool's own order. diesel-02.css is
-     not optional decoration: it carries the later overrides for the buttons,
-     the nav tabs, the cards and the Yes/No/N/A toggles. Loading only the first
-     file gave this page the tools' class names with a third of their styling
-     missing, which is why it did not look like the tools. Nothing is redefined
-     here — :root, body and every component come from these two files, exactly
-     as they do in Diesel and Electric. -->
-<link rel="stylesheet" href="../diesel-app/css/diesel-01.css?v=202609131918">
-<link rel="stylesheet" href="../diesel-app/css/diesel-02.css?v=202609061544">
-<link rel="stylesheet" href="css/review.css">
+<link rel="stylesheet" href="css/demo.css">
 </head>
 <body>
 
-<!-- The shipped tools' chrome, class for class: dark app header, the scrollable
-     section-nav of .nav-tab, then .main-wrap > .panel > .card. Nothing about
-     this page's navigation is invented. -->
-<header class="app-header">
-  <div class="mp-title">Fire Pump Commissioning <span>multi-pump &middot; nothing saves &middot; not live</span></div>
-  <div class="section-nav" id="section-nav"></div>
-</header>
+<div class="wrap">
 
-<div class="main-wrap">
-
-  <div class="panel active" id="mp-room">
-    <div class="card">
-      <div class="card-header">Pumps on this job</div>
-      <div class="card-body">
-        <div class="mp-setrow" id="mp-sets"></div>
-        <p class="mp-hint" id="mp-set"></p>
-      </div>
-    </div>
-
-    <div id="mp-proj-card"></div>
-
-    <div id="mp-review"></div>
-
-    <div class="card">
-      <div class="card-header">Decision to proceed</div>
-      <div class="card-body" id="mp-decision"></div>
-    </div>
+  <div class="bar">
+    <b>Multi-pump commissioning</b>
+    <button class="tb" onclick="toggleTheme()" aria-label="Light or dark">&#9728;/&#9790;</button>
+    <span>Nothing saves &middot; not live &middot; one room, one visit, one report.</span>
   </div>
 
-  <div class="panel" id="mp-defic">
-    <div id="mp-defic-panel"></div>
-    <p class="mp-hint" id="mp-defic-note" style="display:none"></p>
-    <!-- the deficiency engine's upload path clicks this; the host answers "not yet" -->
-    <input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">
-  </div>
+  <div class="crumb" id="crumb"></div>
 
-  <div class="panel" id="mp-record"><div id="mp-record-body"></div></div>
+  <div class="tabs" id="tabs"></div>
+
+  <div id="view"></div>
+  <div id="frames"></div>
 
 </div>
 
-<div class="mp-bar"><span id="mp-progress"></span><span class="mp-bar-r">nothing saves &middot; not live</span></div>
+<div class="sheet" id="sheet"><div class="inner">
+  <h4 id="shT"></h4>
+  <div id="shB"></div>
+  <div class="sheetbtns" id="shBtns"></div>
+</div></div>
 
-<div id="mp-frames"></div>
-
-<div id="mp-defic" style="display:none">
-  <p class="mp-hint">The job’s deficiencies — <b>one list, filed by contractor</b>, drawn by the same engine the
-    Diesel and Electric tools use. Each entry says which machine it is about, or the room; one with no answer
-    cannot be issued. <b>Nothing saves.</b> Photographs here are not stored yet.</p>
-  <div id="mp-defic-panel"></div>
-  <p id="mp-defic-note" class="mp-hint" style="display:none"></p>
-  <!-- the engine's upload path clicks this; the host's handleFiles answers "not yet" -->
-  <input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">
-</div>
-
-<div id="mp-record" style="display:none"><div id="mp-record-body"></div></div>
-
-<!-- the sealed dialog engine: every removal confirms through it, no engine no removal -->
-<script type="module">
-  import Dlg from '/lib/ui/dialogEngine.js';
-  window.ArenconDlg = Dlg;
-</script>
 <script src="js/roomReview.js"></script>
 <script src="js/reviewSurface.js"></script>
 <script src="js/sectionScope.js"></script>
 <script src="js/reportShape.js"></script>
 <script src="js/pumpContext.js"></script>
 <script src="js/checklistScope.js"></script>
-<script src="js/clHost.js"></script>
-<script src="../lib/ui/checklist.js"></script>
 <script src="js/deficiencyOwner.js"></script>
 <!-- the deficiencies engine the shipped tools run, with this page as its host -->
 <script src="../lib/data/photoMint.js"></script>

@@ -5,6 +5,14 @@
    room review (walked once), the list of machines, the decision to
    proceed for each, and — later — deficiencies and the combined report.
 
+   ── THE LOOK ────────────────────────────────────────────────────────
+   Built to the Owner-approved demo of record, DEMO_multipump_FINAL_S728.
+   Its own screen: a centred column, a breadcrumb, pill tabs keyed to each
+   machine's drive type, cards with a coloured left edge, compact
+   checklist rows. Two earlier builds dressed this page in the
+   single-pump tool's chrome instead and were rejected — that is not a
+   styling preference to revisit, it is a decided design.
+
    ── THE ARCHITECTURE, DECIDED S730 ──────────────────────────────────
    A machine's TESTING is done by the shipped tool for its drive type —
    the Diesel or the Electric commissioning tool — running inside this
@@ -37,10 +45,9 @@
    ── NOTHING SAVES, STILL ────────────────────────────────────────────
    Every answer on this page and every value typed into a frame lives in
    memory until the page is closed. The store (store.js) exists and is
-   not wired here; that ships with the Owner at a tablet. "Job record"
-   at the foot of the page shows exactly what WOULD be saved — the mp1
-   report shape — so the filing path can be walked at a desk before the
-   save path is trusted with a job.
+   not wired here; that ships with the Owner at a tablet. collect()
+   assembles the mp1 report shape on demand so the filing path can be
+   exercised without a save path existing.
 
    ── WHAT STAYS OFF IN A FRAME ───────────────────────────────────────
    Sections 1 and 2 (the room review supersedes them), and the whole
@@ -95,228 +102,205 @@ var ROOM_FIELDS = [
 ];
 
 var frames = {};        /* pumpId → iframe element */
-var view = 'room';      /* 'room' | pumpId | 'record' */
-var _setArm = null;     /* two-tap confirm for a set switch */
+var view = 'site';      /* 'site' | pumpId | 'defic' */
 
 function pumps() { return SETS[setKey].pumps; }
 function pumpById(id) { return pumps().filter(function (p) { return p.id === id; })[0] || null; }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
   return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-/* ── drawing ─────────────────────────────────────────────────────────── */
+/* ── drawing: the demo's shapes, nothing invented ────────────────────── */
 
-/* The shipped sub-nav: one scrollable row of .nav-tab, exactly as
-   renderSubNav draws it in both pump tools. */
+var TC = { dsl: 'var(--dsl)', ele: 'var(--ele)' };
+var TBG = { dsl: 'var(--dsl-bg)', ele: 'var(--ele-bg)' };
+
+function toggleTheme() {
+  var el = doc.documentElement;
+  el.setAttribute('data-theme', el.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+}
+root.toggleTheme = toggleTheme;
+
+/* a custom bottom sheet — the demo's modal, never the browser's */
+function sheet(title, bodyHtml, buttons) {
+  doc.getElementById('shT').textContent = title;
+  doc.getElementById('shB').innerHTML = bodyHtml;
+  doc.getElementById('shBtns').innerHTML = buttons.map(function (b, i) {
+    return '<button class="btn' + (b.cls ? ' ' + b.cls : '') + '" data-sheet-btn="' + i + '">' + esc(b.label) + '</button>';
+  }).join('');
+  _sheetActions = buttons.map(function (b) { return b.act || null; });
+  doc.getElementById('sheet').classList.add('open');
+}
+var _sheetActions = [];
+function closeSheet() { doc.getElementById('sheet').classList.remove('open'); }
+
+function drawCrumb() {
+  doc.getElementById('crumb').innerHTML =
+    '<button data-view="site">Fire Pump</button><span>&rsaquo;</span>'
+    + '<span>' + esc(SETS[setKey].label) + '</span><span>&rsaquo;</span>'
+    + '<span>' + (view === 'site' ? 'Site &amp; Room' : view === 'defic' ? 'Deficiencies'
+        : esc((pumpById(view) || {}).name || '')) + '</span>';
+}
+
+/* Percentage per scope. One overall number would let a barely-started
+   machine hide inside a mostly-finished room. */
+function pctSite() {
+  var p = S.progress(pumps(), answers[setKey]);
+  return p.total ? Math.round(p.answered / p.total * 100) : 0;
+}
+function pctPump(id) {
+  var f = frames[id], w = f && f.contentWindow;
+  if (!w) return 0;
+  try {
+    var cl = w.eval('typeof clState!=="undefined"?clState:null');
+    var secs = w.eval('typeof CL_SECTIONS!=="undefined"?CL_SECTIONS:null');
+    if (!cl || !secs) return 0;
+    var tot = 0, done = 0;
+    Object.keys(cl).forEach(function (k) {
+      if (!secs.some(function (sc) { return k.indexOf(sc + '_') === 0; })) return;
+      tot++; if (cl[k] && cl[k].status) done++;
+    });
+    return tot ? Math.round(done / tot * 100) : 0;
+  } catch (e) { return 0; }
+}
+
 function drawTabs() {
-  var tabs = [{ id: 'room', label: 'Room review' }];
-  pumps().forEach(function (p) { tabs.push({ id: p.id, label: p.name, dot: !!decisions[setKey][p.id] }); });
-  tabs.push({ id: 'defic', label: 'Deficiencies' });
-  tabs.push({ id: 'record', label: 'Job record' });
-  doc.getElementById('section-nav').innerHTML = tabs.map(function (t) {
-    return '<div class="nav-tab' + (view === t.id ? ' active' : '') + '" data-view="' + t.id + '">'
-      + esc(t.label) + (t.dot ? '<span class="tab-dot"></span>' : '') + '</div>';
-  }).join('');
-}
-
-function drawRoomHead() {
-  doc.getElementById('mp-sets').innerHTML = Object.keys(SETS).map(function (k) {
-    var on = (k === setKey), arm = (_setArm === k);
-    return '<button type="button" class="btn btn-sm ' + (on ? '' : 'btn-outline ') + (arm ? 'mp-arm' : '')
-      + '" data-set="' + k + '">' + esc(arm ? 'Tap again to switch' : SETS[k].label) + '</button>';
-  }).join('');
-  doc.getElementById('mp-set').textContent = _setArm
-    ? 'Switching discards the testing screens that are open.'
-    : pumps().map(function (p) { return p.name; }).join('  \u00b7  ') + '  \u2014  ' + pumps().length + ' machine' + (pumps().length > 1 ? 's' : '');
-}
-
-/* The Project Information card is the Diesel tool's own, read from the live
-   file at boot — same grid, same labels, same field ids. Retyping it here is
-   how the two drift apart. Fields the room does not own (contractor, form
-   revision, date modified) are removed after it lands: the contractor list
-   belongs to the deficiencies panel, and the rest are a single report's. */
-var _projCardReady = false, _projCardLoading = false;
-function drawRoomFields() {
-  /* Marked ready only when the card has actually landed — a failed read must
-     be retried the next time the room is opened, not remembered as done. */
-  if (_projCardReady || _projCardLoading) return;
-  if (typeof root.fetch !== 'function') return;
-  _projCardLoading = true;
-  var host = doc.getElementById('mp-proj-card');
-  root.fetch(TOOL_FOR.dsl, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
-    var d = new root.DOMParser().parseFromString(txt, 'text/html');
-    var grid = d.querySelector('#panel-proj .proj-grid');
-    if (!grid) throw new Error('the project grid was not found in the Diesel tool');
-    ['pi-contractor', 'pi-revision', 'pi-date-modified'].forEach(function (id) {
-      var el = grid.querySelector('#' + id), fg = el && el.closest('.field-group');
-      if (fg) fg.remove();
-    });
-    var cf = grid.querySelector('#contractor-fields'); if (cf && cf.closest('.field-group')) cf.closest('.field-group').remove();
-    Array.prototype.forEach.call(grid.querySelectorAll('input'), function (el) { el.setAttribute('data-room-id', el.id); });
-    host.innerHTML = '<div class="card"><div class="card-header">Project Information</div>'
-      + '<div class="card-body">' + grid.outerHTML + '</div></div>';
-    _projCardReady = true; _projCardLoading = false;
-  }).catch(function (e) {
-    _projCardLoading = false;
-    host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">The project fields could not be read from the Diesel tool: ' + esc(e && e.message) + '</p></div></div>';
-  });
-}
-function roomFieldValues() {
-  var out = {};
-  ROOM_FIELDS.forEach(function (f) {
-    var el = doc.getElementById(f.id);
-    out[f.id] = el ? String(el.value || '').trim() : '';
-  });
-  return out;
-}
-
-function drawDecision() {
-  var d = decisions[setKey];
-  var html = '<p class="mp-hint">Recorded before any flow reading is taken, and taken for each machine '
-    + 'separately \u2014 one pump can be ready while the other is not. The wording of this decision is still '
-    + 'being written by the Owner with Shaun; these options stand in.</p>';
+  var h = '<button class="' + (view === 'site' ? 'on' : '') + '" style="--tc:var(--site);--tbg:var(--site-bg)"'
+    + ' data-view="site"><span class="dot" style="background:var(--site)"></span>Site &amp; Room'
+    + '<span class="pc">' + pctSite() + '%</span></button>';
   pumps().forEach(function (p) {
-    html += '<div class="mp-dec-row"><div class="detail-label">' + esc(p.name) + '</div><div class="mp-dec-opts">';
-    RR.OUTCOMES.forEach(function (o) {
-      html += '<button type="button" class="btn btn-sm ' + (d[p.id] === o.key ? '' : 'btn-outline ')
-        + '" data-dec="' + p.id + '" data-out="' + esc(o.key) + '">' + esc(o.text) + '</button>';
-    });
-    html += '</div>';
-    if (d[p.id]) html += '<button type="button" class="btn btn-sm mp-open" data-open="' + p.id + '">Open '
-      + esc(p.name) + ' testing \u203A</button>';
-    html += '</div>';
+    h += '<button class="' + (view === p.id ? 'on' : '') + '" style="--tc:' + TC[p.type] + ';--tbg:' + TBG[p.type] + '"'
+      + ' data-view="' + p.id + '"><span class="dot" style="background:' + TC[p.type] + '"></span>'
+      + esc(p.name.split(' ')[0]) + '<span class="pc">' + pctPump(p.id) + '%</span></button>';
   });
-  doc.getElementById('mp-decision').innerHTML = html;
+  h += '<button class="' + (view === 'defic' ? 'on' : '') + '" style="--tc:var(--fail);--tbg:var(--fail-bg)"'
+    + ' data-view="defic"><span class="dot" style="background:var(--fail)"></span>Deficiencies'
+    + '<span class="pc">' + deficCount() + '</span></button>';
+  doc.getElementById('tabs').innerHTML = h;
+  drawCrumb();
 }
 
-/* ── the review, as checklist sections ───────────────────────────────── */
+function deficCount() {
+  if (typeof root.mpDeficLists !== 'function') return 0;
+  var l = root.mpDeficLists(), n = (l.general || []).length;
+  Object.keys(l.byContractor || {}).forEach(function (c) { n += (l.byContractor[c] || []).length; });
+  return n;
+}
+
+/* ── Site & Room ─────────────────────────────────────────────────────── */
 
 var PHASE_CARDS = [
-  { sec: 'rr1', phase: 'p1',  title: 'Phase 1 \u2014 before testing starts', sub: 'What you arrange, what you bring, then what others must have finished' },
-  { sec: 'rr2', phase: 'p2',  title: 'Phase 2 \u2014 the walk of the room',   sub: 'The installation itself, and each machine in it' },
-  { sec: 'rrd', phase: 'dsl', title: 'Diesel engine \u2014 per machine',      sub: 'Asked only of a diesel driver' }
+  { phase: 'p1',  title: 'Phase 1 \u2014 before testing starts', sub: 'What you arrange, what you bring, then what others must have finished' },
+  { phase: 'p2',  title: 'Phase 2 \u2014 the walk of the room',   sub: 'The installation itself, and each machine in it' },
+  { phase: 'dsl', title: 'Diesel engine \u2014 per machine',      sub: 'Asked only of a diesel driver' }
 ];
 
-/* Every row becomes engine items: one per machine where the row is answered
-   per machine, one otherwise. The machine's name rides as the item hint —
-   the tools' own hint styling — and VISIT / ROOM keep the engine's chips. */
-function buildItems() {
-  var items = { rr1: [], rr2: [], rrd: [] };
-  root.ROWMAP = {};
-  var multi = pumps().length > 1;
-  RR.rowsFor(pumps()).forEach(function (row) {
-    var card = PHASE_CARDS.filter(function (c) { return c.phase === row.phase; })[0];
-    if (!card) return;
+function itemsHtml(rows) {
+  var a = answers[setKey], h = '';
+  rows.forEach(function (row) {
     var targets = (row.scope === 'machine') ? row.targets : [null];
     targets.forEach(function (t) {
-      var idx = items[card.sec].length;
-      var id = card.sec + '_' + idx;
-      items[card.sec].push({
-        num: row.src || String(idx + 1),
-        text: row.text,
-        scope: (row.scope === 'visit' || row.scope === 'room') ? row.scope : '',
-        hint: (t && multi) ? t.name : ''
-      });
-      root.ROWMAP[id] = { row: row, pumpId: t ? t.id : '', key: RR.answerKey(row, t && t.id) };
+      var key = RR.answerKey(row, t && t.id);
+      var v = (a[key] && a[key].status) || '';
+      var flag = row.scope === 'visit' ? '<span class="tflag visit">visit</span>'
+               : row.scope === 'room'  ? '<span class="tflag room">room</span>'
+               : (t && pumps().length > 1)
+                 ? '<span class="tflag ' + t.type + '">' + esc(t.name.split(' ')[0]) + '</span>' : '';
+      h += '<div class="item" id="it-' + esc(key) + '"><span class="n">' + esc(row.src || '') + '</span>'
+        + '<span class="t">' + esc(row.text) + flag + '</span><span class="yn">'
+        + '<button class="y' + (v === 'yes' ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="yes">Y</button>'
+        + '<button class="n' + (v === 'no'  ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="no">N</button>'
+        + '<button class="a' + (v === 'na'  ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="na">N/A</button>'
+        + '</span></div>';
     });
   });
-  root.MP_CL_ITEMS = items;
-  return items;
+  return h;
 }
 
-/* The engine's answers, copied onto the row-and-machine keys the report is
-   built from. Called by the engine after every answer. */
-function syncAnswers() {
-  var a = answers[setKey], cl = root.clState || {};
-  Object.keys(root.ROWMAP || {}).forEach(function (id) {
-    var m = root.ROWMAP[id], st = cl[id];
-    if (st && st.status) a[m.key] = { status: st.status, _ts: st._ts || Date.now() };
-    else delete a[m.key];
+function viewSite() {
+  var rows = RR.rowsFor(pumps());
+  var h = '<div class="card keyed" style="--tc:var(--site)"><div class="chd">Site &amp; Room'
+    + '<span class="sp"></span><span class="rt">walked once \u00b7 shared by every machine</span></div><div class="cbd">'
+    + '<div class="note">One walk of the room. <b>VISIT</b> is answered once for the day, <b>ROOM</b> once for '
+    + 'the installation, and the rest once for each machine. Duplicating these per pump creates two places for '
+    + 'the same answer to disagree.</div>';
+  PHASE_CARDS.forEach(function (c) {
+    var mine = rows.filter(function (r) { return r.phase === c.phase; });
+    if (!mine.length) return;
+    h += '<div class="sec"><div class="sech"><span class="b" style="background:var(--site)"></span>'
+      + esc(c.title) + '</div><div class="note" style="margin-bottom:8px">' + esc(c.sub) + '</div>'
+      + itemsHtml(mine) + '</div>';
   });
-  drawProgress();
-  drawTabs();
-}
+  h += '</div></div>';
 
-/* Answers already given are put back into the engine's state before it draws
-   — switching pump sets and coming back must not lose a morning's answers. */
-function seedClState() {
-  var a = answers[setKey], cl = {};
-  Object.keys(root.ROWMAP || {}).forEach(function (id) {
-    var m = root.ROWMAP[id], prev = a[m.key];
-    cl[id] = { status: prev ? prev.status : null, comment: '', photos: [], customText: '', _ts: prev ? prev._ts : 0 };
+  h += '<div class="card"><div class="chd">Pumps on this job<span class="sp"></span>'
+    + '<span class="rt">' + pumps().length + ' machine' + (pumps().length > 1 ? 's' : '') + '</span></div><div class="cbd">'
+    + '<div class="note">Drive type is a property of each machine, not of the app \u2014 a room with one '
+    + 'electric and one diesel is the common case.</div>';
+  pumps().forEach(function (p) {
+    h += '<div class="prow"><span class="idc ' + p.type + '">' + (p.type === 'dsl' ? 'DIESEL' : 'ELECTRIC') + '</span>'
+      + '<div class="nm">' + esc(p.name) + '<small>tested in the shipped '
+      + (p.type === 'dsl' ? 'Diesel' : 'Electric') + ' tool</small></div>'
+      + '<div class="acts"><button class="mini" data-view="' + p.id + '">Open testing \u203A</button></div></div>';
   });
-  root.clState = cl;
-}
+  h += '<div class="seg" style="margin-top:6px">' + Object.keys(SETS).map(function (k) {
+      return '<button class="' + (k === setKey ? 'on' : '') + '" data-set="' + k + '">' + esc(SETS[k].label) + '</button>';
+    }).join('') + '</div></div></div>';
 
-function drawRoom() {
-  drawRoomHead();
-  var items = buildItems();
-  seedClState();
-  var host = doc.getElementById('mp-review');
-  host.innerHTML = PHASE_CARDS.filter(function (c) { return items[c.sec].length; }).map(function (c) {
-    return '<div class="card"><div class="card-header">' + esc(c.title) + '</div>'
-      + '<div class="card-body"><p class="mp-hint">' + esc(c.sub) + '</p><div id="cl-' + c.sec + '"></div></div></div>';
-  }).join('');
-  var CL = root.mpChecklistEngine && root.mpChecklistEngine();
-  if (CL) PHASE_CARDS.forEach(function (c) { if (items[c.sec].length) CL.renderChecklist(items[c.sec], 'cl-' + c.sec, c.sec); });
-  drawDecision();
-  drawProgress();
-  /* The project card is read from the Diesel tool over the network. If that
-     read fails the review must still stand — it is the part being answered. */
-  try { drawRoomFields(); } catch (e) {
-    if (root.console && root.console.warn) root.console.warn('[mp] project card unavailable', e);
-  }
-}
+  h += '<div class="card"><div class="chd">Project Information</div><div class="cbd">'
+    + '<div class="note">Typed once here and locked inside every machine\u2019s testing screen.</div>'
+    + ROOM_FIELDS.map(function (f) {
+        return '<div class="field"><label>' + esc(f.label) + '</label>'
+          + '<input type="' + (f.type || 'text') + '" id="' + f.id + '" data-room-id="' + f.id
+          + '" placeholder="' + esc(f.ph || '') + '"></div>';
+      }).join('') + '</div></div>';
 
-function drawProgress() {
-  var p = S.progress(pumps(), answers[setKey]);
-  var un = RR.undecided(pumps(), decisions[setKey]).length;
-  var el = doc.getElementById('mp-progress');
-  if (el) el.innerHTML = '<b>' + p.answered + '</b> of <b>' + p.total + '</b> answered'
-    + (un ? ' \u00b7 <b>' + un + '</b> machine' + (un > 1 ? 's' : '') + ' undecided' : ' \u00b7 decided');
-}
-
-function show(which) {
-  view = which;
-  ['room', 'record', 'defic'].forEach(function (v) {
-    doc.getElementById('mp-' + v).classList.toggle('active', view === v);
+  h += '<div class="card"><div class="chd">Decision to proceed<span class="sp"></span>'
+    + '<span class="rt">before any flow reading is taken</span></div><div class="cbd">'
+    + '<div class="note">Taken for each machine separately \u2014 one pump can be ready while the other is not. '
+    + 'The wording is still being written by the Owner with Shaun; these options stand in.</div>';
+  pumps().forEach(function (p) {
+    var d = decisions[setKey][p.id];
+    h += '<div class="sec"><div class="sech"><span class="b" style="background:' + TC[p.type] + '"></span>'
+      + esc(p.name) + '</div><div class="pickrow seg">'
+      + RR.OUTCOMES.map(function (o) {
+          return '<button class="' + (d === o.key ? 'on' : '') + '" style="--sc:' + TC[p.type] + '"'
+            + ' data-dec="' + p.id + '" data-out="' + esc(o.key) + '">' + esc(o.text) + '</button>';
+        }).join('') + '</div></div>';
   });
-  if (view === 'room') { try { drawRoomFields(); } catch (e) {} }
-  if (view === 'defic') { openDeficiencies(); if (_deficReady && typeof root.updateDeficSummary === 'function') root.updateDeficSummary(); }
-  Object.keys(frames).forEach(function (id) {
-    frames[id].parentNode.style.display = (view === id) ? '' : 'none';
+  h += '</div></div>';
+
+  h += '<div class="card"><div class="chd">Completion<span class="sp"></span>'
+    + '<span class="rt">one number per scope</span></div><div class="cbd">'
+    + '<div class="note">One overall percentage would hide a machine that has barely been started.</div>'
+    + '<div class="donuts"><div class="donut"><div class="v" style="color:var(--site)">' + pctSite() + '%</div>'
+    + '<div class="l">Site &amp; Room</div></div>';
+  pumps().forEach(function (p) {
+    h += '<div class="donut"><div class="v" style="color:' + TC[p.type] + '">' + pctPump(p.id) + '%</div>'
+      + '<div class="l">' + esc(p.name) + '</div></div>';
   });
-  if (view !== 'room' && view !== 'record' && view !== 'defic') {
-    var p = pumpById(view);
-    if (p) openFrame(p);
-  }
-  if (view === 'record') drawRecord();
-  drawTabs();
+  h += '</div></div></div>';
+  return h;
 }
 
 /* ── the machine frames ──────────────────────────────────────────────── */
 
-/* Created the first time a machine's testing is opened, never before: a
-   two-pump job means two whole tools in memory, and a job that never
-   reaches testing should not pay for them. */
 function openFrame(p) {
   if (frames[p.id]) { frames[p.id].parentNode.style.display = ''; syncRoomIntoFrame(frames[p.id]); return; }
   var wrap = doc.createElement('div');
-  wrap.className = 'mp-frame-wrap';
-  wrap.innerHTML = '<div class="mp-frame-note">' + esc(p.name) + ' \u2014 testing in the shipped '
-    + (p.type === 'dsl' ? 'Diesel' : 'Electric') + ' tool. <b>Nothing saves.</b> Photographs taken here are held in memory only until the store is wired.</div>';
+  wrap.className = 'frame-wrap';
+  wrap.innerHTML = '<div class="frame-note">' + esc(p.name) + ' \u2014 testing in the shipped '
+    + (p.type === 'dsl' ? 'Diesel' : 'Electric') + ' tool. Nothing saves; photographs are held in memory only.</div>';
   var f = doc.createElement('iframe');
-  f.className = 'mp-frame';
+  f.className = 'frame';
   f.setAttribute('title', p.name + ' testing');
   f.setAttribute('data-pump', p.id);
   f.src = TOOL_FOR[p.type];
-  f.addEventListener('load', function () { onFrameLoad(f, p); });
+  f.addEventListener('load', function () { onFrameLoad(f, p); drawTabs(); });
   wrap.appendChild(f);
-  doc.getElementById('mp-frames').appendChild(wrap);
+  doc.getElementById('frames').appendChild(wrap);
   frames[p.id] = f;
 }
 
-/* The tool has booted in multi-pump mode. Shape its navigation for the
-   one job it has here — testing this machine — and fill the room fields. */
 function onFrameLoad(f, p) {
   var w = f.contentWindow;
   try {
@@ -324,15 +308,6 @@ function onFrameLoad(f, p) {
     var ph = w.PHASES;
     ph.setup.panels = ph.setup.panels.filter(function (x) { return x.id !== 's1' && x.id !== 's2'; });
     delete ph.closeout;
-    /* The checklist counts must follow: Sections 1 and 2 are the room
-       review's now, and a tally that still asks for them would show this
-       machine forever incomplete. CL_GROUPS is a const ARRAY — its
-       contents can be edited in place, and the derived list is rebuilt
-       the same way the tool built it. */
-    /* Top-level `const` is not a property of the frame's window, so the two
-       lists are reached by evaluating their names in the frame's own global
-       scope. Same origin, our own document — this is a reference, not code
-       from anywhere else. */
     var groups = w.eval('typeof CL_GROUPS !== "undefined" ? CL_GROUPS : null');
     var sections = w.eval('typeof CL_SECTIONS !== "undefined" ? CL_SECTIONS : null');
     if (groups && sections) {
@@ -350,14 +325,10 @@ function onFrameLoad(f, p) {
     if (typeof w.updateProgress === 'function') w.updateProgress();
     syncRoomIntoFrame(f);
   } catch (e) {
-    /* Reached directly: a warning routed through a host object is missing
-       exactly where nobody is looking. */
     if (root.console && root.console.warn) root.console.warn('[mp] frame shaping failed for ' + p.id, e);
   }
 }
 
-/* Room-level project fields are typed once, here, and locked in every
-   frame — the same lock Hub mode applies. */
 function syncRoomIntoFrame(f) {
   var w = f.contentWindow; if (!w || !w.document) return;
   var vals = roomFieldValues();
@@ -369,40 +340,79 @@ function syncRoomIntoFrame(f) {
   });
 }
 
+function roomFieldValues() {
+  var out = {};
+  ROOM_FIELDS.forEach(function (f) {
+    var el = doc.getElementById(f.id);
+    out[f.id] = el ? String(el.value || '').trim() : '';
+  });
+  return out;
+}
+
 /* ── deficiencies ────────────────────────────────────────────────────── */
 
-/* The panel's markup is the Diesel tool's own — read from the live file
-   at first open, never retyped here, so a change to the shipped panel is
-   a change to this one. The engine that draws into it is loaded by the
-   page (lib/ui/deficiencies.js) with deficHost.js as its host. */
 var _deficReady = false, _deficLoading = false;
 function openDeficiencies() {
-  if (_deficReady || _deficLoading) return;
+  var host = doc.getElementById('view');
+  host.innerHTML = '<div class="card keyed" style="--tc:var(--fail)"><div class="chd">Deficiencies'
+    + '<span class="sp"></span><span class="rt">one list \u00b7 filed by contractor</span></div>'
+    + '<div class="cbd"><div class="note">Every deficiency names its owner. \u201cExcessive vibration\u201d with no '
+    + 'owner does not tell a contractor which machine to look at. <b>Nothing saves</b>; photographs are not stored yet.</div>'
+    + '<div id="defic-panel"></div><p class="note" id="mp-defic-note" style="display:none"></p>'
+    + '<input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">'
+    + '</div></div>';
+  if (_deficReady) { redrawDefic(); return; }
+  if (_deficLoading) return;
   _deficLoading = true;
-  var host = doc.getElementById('mp-defic-panel');
-  host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">Loading the deficiencies panel from the Diesel tool…</p></div></div>';
+  doc.getElementById('defic-panel').innerHTML = '<div class="note">Loading the deficiencies panel from the Diesel tool\u2026</div>';
   root.fetch(TOOL_FOR.dsl, { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (txt) {
     var d = new root.DOMParser().parseFromString(txt, 'text/html');
     var panel = d.getElementById('panel-defic');
     var body = panel && panel.querySelector('.card-body');
     if (!body) throw new Error('panel-defic not found in the Diesel tool');
-    host.innerHTML = '<div class="card"><div class="card-header">Deficiencies Identified</div>'
-      + '<div class="card-body">' + body.innerHTML + '</div></div>';
-    if (typeof root.renderContractorTags === 'function') root.renderContractorTags();
-    if (typeof root.renderDeficGroups === 'function') root.renderDeficGroups();
-    if (typeof root.renderGeneralDeficGroup === 'function') root.renderGeneralDeficGroup();
-    if (typeof root.updateDeficSummary === 'function') root.updateDeficSummary();
+    _deficMarkup = body.innerHTML;
     _deficReady = true; _deficLoading = false;
+    redrawDefic();
   }).catch(function (e) {
     _deficLoading = false;
-    host.innerHTML = '<div class="card"><div class="card-body"><p class="mp-hint">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</p></div></div>';
+    var el = doc.getElementById('defic-panel');
+    if (el) el.innerHTML = '<div class="warn">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</div>';
   });
 }
+var _deficMarkup = '';
+function redrawDefic() {
+  var el = doc.getElementById('defic-panel'); if (!el) return;
+  el.innerHTML = _deficMarkup;
+  if (typeof root.renderContractorTags === 'function') root.renderContractorTags();
+  if (typeof root.renderDeficGroups === 'function') root.renderDeficGroups();
+  if (typeof root.renderGeneralDeficGroup === 'function') root.renderGeneralDeficGroup();
+  if (typeof root.updateDeficSummary === 'function') root.updateDeficSummary();
+}
 
-/* ── the job record ──────────────────────────────────────────────────── */
+/* ── which screen is showing ─────────────────────────────────────────── */
 
-/* What WOULD be saved. Built from the modules, never assembled by hand
-   here, so the desk walk exercises the same filing the store will. */
+function show(which) {
+  view = which;
+  Object.keys(frames).forEach(function (id) {
+    frames[id].parentNode.style.display = (view === id) ? '' : 'none';
+  });
+  var v = doc.getElementById('view');
+  if (view === 'site') { v.innerHTML = viewSite(); }
+  else if (view === 'defic') { openDeficiencies(); }
+  else {
+    v.innerHTML = '';
+    var p = pumpById(view);
+    if (p) openFrame(p);
+  }
+  drawTabs();
+}
+
+function drawRoom() { if (view === 'site') show('site'); else drawTabs(); }
+
+/* ── what the store would save ───────────────────────────────────────── */
+
+/* Built from the modules, never assembled by hand here, so the filing this
+   exercises is the filing the store will do. Nothing is written anywhere. */
 function collect() {
   var rep = Shape.blank();
   rep.room.proj = roomFieldValues();
@@ -419,13 +429,8 @@ function collect() {
     }
     var w = f.contentWindow, flat;
     try { flat = w.dieselCollectViaManifest(); }
-    catch (e) { notes.push(p.id + ': the tool refused to be read — ' + (e && e.message)); return; }
+    catch (e) { notes.push(p.id + ': the tool refused to be read \u2014 ' + (e && e.message)); return; }
     pump.tested = true;
-    /* Pump-scope keys and the room/pump split of `proj`, through the one
-       module allowed to cross that line. Room-scope keys typed inside a
-       frame (contractors, signatures…) cannot be reached there — the
-       Closeout phase is off — but if one is ever found non-empty it is
-       reported, not dropped. */
     var filed = Ctx.fileInto(rep, p.id, flat, w.DieselReportManifest);
     pump._filed = filed.filed; pump._offType = filed.offType;
     Object.keys(flat).forEach(function (k) {
@@ -434,20 +439,14 @@ function collect() {
       var empty = v == null || v === '' || (Array.isArray(v) && !v.length)
                || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length);
       if (empty) return;
-      /* The room's, so it is filed on the room ONCE. Two frames agreeing is
-         the normal case (schema version, form revision); two frames
-         disagreeing is a note, and the first value stands. */
       var have = rep.room[k];
       var haveEmpty = have == null || have === '' || (Array.isArray(have) && !have.length)
                    || (typeof have === 'object' && !Array.isArray(have) && !Object.keys(have).length);
       if (haveEmpty) rep.room[k] = v;
       else if (JSON.stringify(have) !== JSON.stringify(v)) {
-        notes.push(p.id + ': room-scope key "' + k + '" differs from the value already on the room — room kept, this frame\u2019s value not filed');
+        notes.push(p.id + ': room-scope key "' + k + '" differs from the value already on the room \u2014 room kept');
       }
     });
-    /* Checklist: Sections 1 and 2 are the room review's here. Their seeded
-       blank entries are not filed; a non-blank one would be a defect in
-       the frame shaping and is reported. */
     var cl = {};
     Object.keys(flat.clState || {}).forEach(function (id) {
       var st = flat.clState[id] || {};
@@ -457,9 +456,6 @@ function collect() {
     });
     pump._checklist = CL.fileInto(rep, p.id, cl);
   });
-  /* Deficiencies: the engine's own lists, whole, plus what ownership says
-     about them. An entry with no owner is the report's problem to fix
-     before issue, and it is counted here, never hidden. */
   var Own = root.MPDeficiencyOwner;
   if (Own && typeof root.mpDeficLists === 'function') {
     var lists = root.mpDeficLists(), byC = lists.byContractor, gen = lists.general || [];
@@ -467,30 +463,14 @@ function collect() {
     var isDel = function (d) { return !!(d && d.deleted); };
     var un = Own.unassigned(byC, gen, { isDeleted: isDel });
     rep.deficiencyOwnership = { unassigned: un.length, readyToIssue: Own.readyToIssue(byC, gen, rep, { isDeleted: isDel }) };
-    if (un.length) notes.push(un.length + ' deficienc' + (un.length > 1 ? 'ies' : 'y') + ' not yet tagged to a machine or the room — cannot issue');
+    if (un.length) notes.push(un.length + ' deficienc' + (un.length > 1 ? 'ies' : 'y') + ' not yet tagged \u2014 cannot issue');
   }
   rep._notes = notes;
   rep._nothingSaves = true;
   return rep;
 }
 
-function drawRecord() {
-  var rep = collect();
-  var el = doc.getElementById('mp-record-body');
-  var json = JSON.stringify(rep, null, 2);
-  var tested = rep.pumps.filter(function (p) { return p.tested; }).length;
-  el.innerHTML = '<div class="card"><div class="card-header">Job record</div><div class="card-body">'
-    + '<p class="mp-hint">This is the record the store would save \u2014 <b>it is not saved</b>. '
-    + rep.pumps.length + ' machine' + (rep.pumps.length > 1 ? 's' : '') + ', ' + tested + ' with a testing screen open, '
-    + rep.room.reviewProgress.answered + ' of ' + rep.room.reviewProgress.total + ' room answers, '
-    + Math.round(json.length / 1024) + ' KB.'
-    + (rep._notes.length ? '<br><b>Notes:</b> ' + rep._notes.map(esc).join('<br>') : '')
-    + '</p><pre class="mp-json">' + esc(json) + '</pre></div></div>';
-}
-
-/* The room review's "No" answers, for the deficiencies roll-up. Each row
-   says who it is about — the visit, the room, or the machine — in the
-   words the room uses. */
+/* The room's "No" answers, for the deficiencies roll-up. */
 function roomFindings() {
   var out = [], a = answers[setKey];
   RR.rowsFor(pumps()).forEach(function (row) {
@@ -505,39 +485,65 @@ function roomFindings() {
   return out;
 }
 function scrollToRoomRow(key) {
-  var want = null;
-  Object.keys(root.ROWMAP || {}).forEach(function (id) { if (root.ROWMAP[id].key === key) want = id; });
-  var el = want ? doc.getElementById('ci-' + want) : null;
+  show('site');
+  var el = doc.getElementById('it-' + key);
   if (!el) return;
   if (typeof el.scrollIntoView === 'function') el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  el.style.outline = '2px solid #9C2742'; el.style.outlineOffset = '2px';
+  el.style.outline = '2px solid var(--arencon)'; el.style.outlineOffset = '2px';
   setTimeout(function () { el.style.outline = ''; el.style.outlineOffset = ''; }, 2200);
 }
 
 /* ── one handler for the whole page ──────────────────────────────────── */
 
 doc.addEventListener('click', function (ev) {
-  var t = ev.target && ev.target.closest ? ev.target.closest('[data-view],[data-set],[data-dec],[data-open]') : null;
-  if (t) {
-    if (t.hasAttribute('data-view')) { show(t.getAttribute('data-view')); return; }
-    if (t.hasAttribute('data-open')) { show(t.getAttribute('data-open')); return; }
-    if (t.hasAttribute('data-set')) {
-      var k = t.getAttribute('data-set');
-      if (k === setKey) { _setArm = null; drawRoomHead(); return; }
-      /* Destructive: the machines' testing screens are discarded. One
-         confirming tap, in place, no native dialog. */
-      if (_setArm !== k) { _setArm = k; drawRoomHead(); return; }
-      _setArm = null;
-      Object.keys(frames).forEach(function (id) { frames[id].parentNode.remove(); });
-      frames = {};
-      setKey = k; view = 'room';
-      drawRoom(); show('room'); return;
+  var t = ev.target && ev.target.closest
+    ? ev.target.closest('[data-view],[data-set],[data-dec],[data-ans],[data-sheet-btn]') : null;
+  if (!t) return;
+
+  if (t.hasAttribute('data-sheet-btn')) {
+    var act = _sheetActions[+t.getAttribute('data-sheet-btn')];
+    closeSheet(); if (typeof act === 'function') act();
+    return;
+  }
+  if (t.hasAttribute('data-view')) { show(t.getAttribute('data-view')); return; }
+
+  if (t.hasAttribute('data-ans')) {
+    var key = t.getAttribute('data-ans'), v = t.getAttribute('data-v');
+    var a = answers[setKey];
+    if (a[key] && a[key].status === v) delete a[key];
+    else a[key] = { status: v, _ts: Date.now() };
+    var row = doc.getElementById('it-' + key);
+    if (row) {
+      ['y', 'n', 'a'].forEach(function (c) {
+        var btn = row.querySelector('.yn button.' + c);
+        if (btn) btn.classList.toggle('on', (a[key] || {}).status === btn.getAttribute('data-v'));
+      });
     }
-    if (t.hasAttribute('data-dec')) {
-      var who = t.getAttribute('data-dec'), out = t.getAttribute('data-out');
-      decisions[setKey][who] = (decisions[setKey][who] === out) ? '' : out;
-      drawRoom(); drawTabs(); return;
-    }
+    drawTabs();
+    return;
+  }
+
+  if (t.hasAttribute('data-set')) {
+    var k = t.getAttribute('data-set');
+    if (k === setKey) return;
+    /* Destructive: the machines' testing screens are discarded. Confirmed in
+       the demo's own sheet, never the browser's dialog. */
+    sheet('Change the pumps on this job?',
+      '<p>Switching to <b>' + esc(SETS[k].label) + '</b> discards the testing screens that are open and the '
+      + 'answers given for the current set. There is no undo on this screen.</p>',
+      [{ label: 'Cancel' },
+       { label: 'Switch', cls: 'danger', act: function () {
+          Object.keys(frames).forEach(function (id) { frames[id].parentNode.remove(); });
+          frames = {}; setKey = k; show('site');
+        } }]);
+    return;
+  }
+
+  if (t.hasAttribute('data-dec')) {
+    var who = t.getAttribute('data-dec'), out = t.getAttribute('data-out');
+    decisions[setKey][who] = (decisions[setKey][who] === out) ? '' : out;
+    show('site');
+    return;
   }
 }, false);
 
@@ -552,11 +558,9 @@ doc.addEventListener('change', function (ev) {
 var API = { version: 'S730', collect: collect, frames: function () { return frames; },
             pumps: pumps, sets: SETS, TOOL_FOR: TOOL_FOR, show: show,
             roomFindings: roomFindings, scrollToRoomRow: scrollToRoomRow,
-            syncAnswers: syncAnswers };
+            sheet: sheet, redrawDefic: redrawDefic };
 root.MPShell = API;
 
-drawRoom();
-drawTabs();
-show('room');
+show('site');
 
 })(window);

@@ -82,22 +82,26 @@ function _deficOwnerHook(d, scope) {
   var MP = window.MPShell, Own = window.MPDeficiencyOwner;
   if (!MP || !Own) return '';
   var own = Own.ownerOf(d);
-  var opts = [{ key: 'room', label: 'Room' }].concat(MP.pumps().map(function (p) { return { key: p.id, label: p.name }; }));
-  var html = '<span class="mp-own' + (own ? '' : ' mp-own-none') + '" data-own-scope="' + escHtml(scope) + '">'
-    + '<span class="mp-own-lbl">' + (own ? 'About' : 'About which?') + '</span>';
+  var opts = [{ key: 'room', label: 'Room' }].concat(MP.pumps().map(function (p) {
+    return { key: p.id, label: p.name.split(' ')[0], type: p.type }; }));
+  var html = '<span class="seg" style="margin-left:8px">';
   opts.forEach(function (o) {
     var on = own && ((o.key === 'room' && own.scope === 'room') || (own.scope === 'pump' && own.id === o.key));
-    html += '<button type="button" class="mp-own-btn' + (on ? ' on' : '') + '" onclick="event.stopPropagation();mpSetDeficOwner(\''
-      + escHtml(scope) + '\',\'' + escHtml(o.key) + '\')">' + escHtml(o.label) + '</button>';
+    var col = o.key === 'room' ? 'var(--site)' : (o.type === 'dsl' ? 'var(--dsl)' : 'var(--ele)');
+    html += '<button type="button" class="' + (on ? 'on' : '') + '" style="--sc:' + col + '"'
+      + ' onclick="event.stopPropagation();mpSetDeficOwner(\'' + escHtml(scope) + '\',\'' + escHtml(o.key) + '\')">'
+      + escHtml(o.label) + '</button>';
   });
-  return html + '</span>';
+  if (!own) html += '</span><span class="tflag" style="background:var(--attn-bg);color:var(--attn);border:1px solid var(--attn)">about which?</span>';
+  else html += '</span>';
+  return html;
 }
 function mpSetDeficOwner(scope, key) {
   var ref = _deficByScope(scope); if (!ref || !ref.d) return;
   if (key === 'room') MPDeficiencyOwner.tag(ref.d, 'room');
   else MPDeficiencyOwner.tag(ref.d, 'pump', key);
-  if (ref.kind === 'g') renderGeneralDeficGroup(); else renderDeficGroup(ref.name);
-  updateDeficSummary();
+  if (window.MPShell && typeof window.MPShell.redrawDefic === 'function') window.MPShell.redrawDefic();
+  else { if (ref.kind === 'g') renderGeneralDeficGroup(); else renderDeficGroup(ref.name); updateDeficSummary(); }
 }
 
 /* The engine's lists are top-level consts, which are not window properties.
