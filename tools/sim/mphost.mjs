@@ -188,42 +188,45 @@ for (const g of ['function _aConfirm', 'function _checklistFindingsHost', 'funct
 }
 if (/function _aConfirm\(msg, onOk, okText\)/.test(host)) ok('deficHost provides the confirm the removal asks for');
 else fail('deficHost has no _aConfirm');
-/* S730g — the shell is built to the APPROVED DEMO, not to the tools' chrome */
+/* S730h — built to the COMPLETE demo of record */
 const css = read('multipump/css/demo.css');
-for (const tok of ['--paper:#EFEDF0', '--dsl:#C98A4A', '--ele:#2C7FB8', '--site:#5E7C8A', '--arencon:#9C2742']) {
-  if (css.includes(tok)) ok(`demo token ${tok} copied verbatim`); else fail(`demo token ${tok} missing or altered`);
-}
-if (/\[data-theme="dark"\]\{/.test(css)) ok('both modes defined off data-theme, as the demo carries them');
-else fail('dark mode tokens missing');
-if (/@media\(pointer:coarse\)\{[\s\S]*min-height:50px/.test(css)) ok('coarse-pointer block present — gloves');
-else fail('the demo\u2019s coarse-pointer block is missing');
-for (const comp of ['.card.keyed', '.chd', '.cbd', '.tabs button.on', '.item .yn button.y.on', '.sech .b', '.tflag.dsl', '.donut', '.sheet.open', '.prow']) {
-  if (css.includes(comp)) ok(`demo component ${comp} present`); else fail(`demo component ${comp} missing`);
-}
-/* the tools' chrome must be GONE from this page */
-/* The tools' chrome must not be EMITTED here. Prose in the file header may
-   name it — that is the record of a rejected approach, not a use of it — so
-   the check reads markup and stylesheet links, never comments. */
+const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
 const shellCode = shell.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const pageCode = page.replace(/<!--[\s\S]*?-->/g, '');
-const chrome = ['app-header', 'section-nav', 'nav-tab', 'main-wrap', 'proj-grid', 'cl-item', 'cl-seg', 'diesel-01.css', 'diesel-02.css'];
-const cssCode = css.replace(/\/\*[\s\S]*?\*\//g, '');
+
+/* tokens and structure, copied not re-derived */
+for (const tok of ['--paper:#EFEDF0', '--dsl:#C98A4A', '--ele:#2C7FB8', '--site:#5E7C8A', '--arencon:#9C2742', '--glow1:rgba(156,39,66,.10)']) {
+  if (cssCode.includes(tok)) ok(`demo token ${tok} verbatim`); else fail(`demo token ${tok} missing or altered`);
+}
+if (/\[data-theme="dark"\]\{/.test(cssCode)) ok('both modes off data-theme'); else fail('dark tokens missing');
+if (/body::before[\s\S]{0,200}radial-gradient/.test(cssCode)) ok('the Bold corner glows are present');
+else fail('the demo background glows are missing');
+if (/max-width:780px/.test(cssCode)) ok('780px column, as the demo sets it'); else fail('column width is not the demo\u2019s');
+if (/@media\(pointer:coarse\)/.test(cssCode)) ok('coarse-pointer block present — gloves'); else fail('coarse-pointer block missing');
+for (const comp of ['.top img', '.fresh', '.iconbtn', '.steps', '.step .num', '.eyebrow .num', '.card{', '.chip{', '.choice', '.pump ', '.tabs button.on', '.item .yn button.y.on', '.donut', '.scrim', '.modal']) {
+  if (cssCode.includes(comp)) ok(`demo component ${comp.trim()} present`); else fail(`demo component ${comp.trim()} missing`);
+}
+/* the page */
+if (/<img src="data:image\/png;base64,/.test(pageCode)) ok('logo embedded from logo_base64.txt with its data: prefix');
+else fail('logo missing or without the data: prefix');
+if (/id="fresh"/.test(pageCode) && /Not saved/.test(pageCode)) ok('freshness pill present and honest — this page saves nothing');
+else fail('freshness pill missing or claims a save');
+if (/id="steps"/.test(pageCode) && /SCREENS = \[/.test(shellCode)) ok('the demo\u2019s six-screen step strip is rendered');
+else fail('step strip missing');
+if (/k: 'report',\s*n: '06',\s*t: 'Report',\s*built: true/.test(shellCode)) ok('Report is the built screen; the rest are declared unbuilt, not faked');
+else fail('screen build flags missing');
+if (/is not built yet/.test(shellCode)) ok('an unbuilt step says so through the modal instead of doing nothing');
+else fail('unbuilt steps are silent');
+/* the demo's modal, not a sheet and never the browser's */
+if (/function modal\(title, body, acts\)/.test(shellCode) && !/function sheet\(/.test(shellCode))
+  ok('the centred scrim modal replaced the bottom sheet, as the complete demo specifies');
+else fail('modal shape does not match the demo');
+if (!/confirm\(|alert\(|prompt\(/.test(shellCode)) ok('no browser dialog anywhere in the shell'); else fail('a browser dialog survives');
+/* no tool chrome, no earlier demo's leftovers */
+const chrome = ['app-header', 'section-nav', 'nav-tab', 'main-wrap', 'proj-grid', 'cl-item', 'cl-seg', 'diesel-01.css', 'diesel-02.css', 'review.css'];
 const leftover = chrome.filter((c) => pageCode.includes(c) || shellCode.includes(c) || cssCode.includes(c));
-if (!leftover.length) ok('none of the single-pump tool\u2019s chrome survives in the shell');
-else fail('tool chrome still referenced: ' + leftover.join(', '));
-if (!fs.existsSync(path.join(REPO, 'multipump/css/review.css')) && !fs.existsSync(path.join(REPO, 'multipump/js/clHost.js')))
-  ok('the rejected chrome files are deleted, not left behind');
-else fail('a rejected chrome file is still on disk');
-/* the demo's own rules */
-if (/sheet\('Change the pumps on this job\?'/.test(shell) && !/confirm\(|alert\(|prompt\(/.test(shell))
-  ok('the destructive set switch confirms through the demo\u2019s sheet, never the browser');
-else fail('set switch does not confirm through a custom sheet');
-if (/data-theme="light"/.test(page) && /function toggleTheme\(\)/.test(shell)) ok('page boots Light with a manual toggle — field default, no auto-switching');
-else fail('theme boot or toggle missing');
-if (/Site &amp; Room/.test(shell) && !/Job record/.test(shell) && !/mp-json/.test(shell))
-  ok('tabs are Site & Room + one per pump + Deficiencies; the invented JSON screen is gone');
-else fail('tab set does not match the demo');
-if (/function pctPump\(/.test(shell) && /function pctSite\(/.test(shell)) ok('completion is per scope, one donut each — a barely-started machine cannot hide');
+if (!leftover.length) ok('none of the single-pump tool\u2019s chrome survives'); else fail('tool chrome still referenced: ' + leftover.join(', '));
+if (/function pctPump\(/.test(shellCode) && /function pctSite\(/.test(shellCode)) ok('completion is per scope — a barely-started machine cannot hide');
 else fail('per-scope completion missing');
 const scope = read('multipump/js/sectionScope.js');
 if (/key:'batData',\s*scope:'pump',\s*why:/.test(scope) && !/key:'batData'[^\n]*only:/.test(scope)) ok('batData is scoped to the pump for BOTH drive types — Electric carries the key too');

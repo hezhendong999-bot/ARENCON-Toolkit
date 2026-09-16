@@ -109,40 +109,59 @@ function pumpById(id) { return pumps().filter(function (p) { return p.id === id;
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
   return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-/* ── drawing: the demo's shapes, nothing invented ────────────────────── */
+/* ── drawing: the complete demo's shapes, nothing invented ───────────── */
 
 var TC = { dsl: 'var(--dsl)', ele: 'var(--ele)' };
-var TBG = { dsl: 'var(--dsl-bg)', ele: 'var(--ele-bg)' };
+
+/* The flow the demo defines. Screens not built yet keep their step pill —
+   hiding them would hide the shape of the job from the person using it. */
+var SCREENS = [
+  { k: 'hub',    n: '01', t: 'Hub',      built: false },
+  { k: 'roster', n: '02', t: 'Roster',   built: false },
+  { k: 'add',    n: '03', t: 'Add pump', built: false },
+  { k: 'pump',   n: '04', t: 'Pump',     built: false },
+  { k: 'round',  n: '05', t: 'Round',    built: false },
+  { k: 'report', n: '06', t: 'Report',   built: true  }
+];
+
+function drawSteps() {
+  doc.getElementById('steps').innerHTML = SCREENS.map(function (sc) {
+    var on = (sc.k === 'report' && view !== 'notbuilt') || sc.k === screen;
+    return '<div class="step' + (on ? ' on' : '') + (sc.built ? '' : ' ghost')
+      + '" data-screen="' + sc.k + '"><span class="num">' + sc.n + '</span>' + esc(sc.t) + '</div>';
+  }).join('');
+}
+var screen = 'report';
 
 function toggleTheme() {
   var el = doc.documentElement;
-  el.setAttribute('data-theme', el.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+  var dark = el.getAttribute('data-theme') === 'dark';
+  el.setAttribute('data-theme', dark ? 'light' : 'dark');
+  doc.getElementById('themeBtn').innerHTML = dark ? '\u263D' : '\u2600';
 }
 root.toggleTheme = toggleTheme;
 
-/* a custom bottom sheet — the demo's modal, never the browser's */
-function sheet(title, bodyHtml, buttons) {
-  doc.getElementById('shT').textContent = title;
-  doc.getElementById('shB').innerHTML = bodyHtml;
-  doc.getElementById('shBtns').innerHTML = buttons.map(function (b, i) {
-    return '<button class="btn' + (b.cls ? ' ' + b.cls : '') + '" data-sheet-btn="' + i + '">' + esc(b.label) + '</button>';
+/* the demo's CENTRED modal — never a browser dialog, never a bottom sheet */
+var _modalActions = [];
+function modal(title, body, acts) {
+  doc.getElementById('mTitle').textContent = title;
+  doc.getElementById('mBody').innerHTML = body;
+  doc.getElementById('mActs').innerHTML = acts.map(function (a, i) {
+    return '<button class="btn' + (a.cls ? ' ' + a.cls : '') + '" data-modal-btn="' + i + '">' + esc(a.label) + '</button>';
   }).join('');
-  _sheetActions = buttons.map(function (b) { return b.act || null; });
-  doc.getElementById('sheet').classList.add('open');
+  _modalActions = acts.map(function (a) { return a.act || null; });
+  doc.getElementById('scrim').classList.add('on');
 }
-var _sheetActions = [];
-function closeSheet() { doc.getElementById('sheet').classList.remove('open'); }
+function closeModal() { doc.getElementById('scrim').classList.remove('on'); }
 
-function drawCrumb() {
-  doc.getElementById('crumb').innerHTML =
-    '<button data-view="site">Fire Pump</button><span>&rsaquo;</span>'
-    + '<span>' + esc(SETS[setKey].label) + '</span><span>&rsaquo;</span>'
-    + '<span>' + (view === 'site' ? 'Site &amp; Room' : view === 'defic' ? 'Deficiencies'
-        : esc((pumpById(view) || {}).name || '')) + '</span>';
+/* a card, the demo's way: eyebrow number, title, optional right-hand note */
+function card(num, title, sub, bodyHtml) {
+  return '<div class="card"><div class="eyebrow"><span class="num">' + esc(num) + '</span>'
+    + '<h2>' + esc(title) + '</h2></div>'
+    + (sub ? '<p class="sub">' + sub + '</p>' : '')
+    + '<hr class="hr">' + bodyHtml + '</div>';
 }
 
-/* Percentage per scope. One overall number would let a barely-started
-   machine hide inside a mostly-finished room. */
 function pctSite() {
   var p = S.progress(pumps(), answers[setKey]);
   return p.total ? Math.round(p.answered / p.total * 100) : 0;
@@ -164,19 +183,28 @@ function pctPump(id) {
 }
 
 function drawTabs() {
-  var h = '<button class="' + (view === 'site' ? 'on' : '') + '" style="--tc:var(--site);--tbg:var(--site-bg)"'
+  var h = '<button class="' + (view === 'site' ? 'on' : '') + '" style="--tc:var(--site)"'
     + ' data-view="site"><span class="dot" style="background:var(--site)"></span>Site &amp; Room'
     + '<span class="pc">' + pctSite() + '%</span></button>';
   pumps().forEach(function (p) {
-    h += '<button class="' + (view === p.id ? 'on' : '') + '" style="--tc:' + TC[p.type] + ';--tbg:' + TBG[p.type] + '"'
+    h += '<button class="' + (view === p.id ? 'on' : '') + '" style="--tc:' + TC[p.type] + '"'
       + ' data-view="' + p.id + '"><span class="dot" style="background:' + TC[p.type] + '"></span>'
       + esc(p.name.split(' ')[0]) + '<span class="pc">' + pctPump(p.id) + '%</span></button>';
   });
-  h += '<button class="' + (view === 'defic' ? 'on' : '') + '" style="--tc:var(--fail);--tbg:var(--fail-bg)"'
+  h += '<button class="' + (view === 'defic' ? 'on' : '') + '" style="--tc:var(--fail)"'
     + ' data-view="defic"><span class="dot" style="background:var(--fail)"></span>Deficiencies'
     + '<span class="pc">' + deficCount() + '</span></button>';
-  doc.getElementById('tabs').innerHTML = h;
-  drawCrumb();
+  return '<div class="tabs">' + h + '</div>';
+}
+
+/* drawTabs returns markup; this puts a fresh copy in place so the
+   per-scope percentages move the moment an answer is given. */
+function refreshTabs() {
+  var cur = doc.querySelector('#view .tabs');
+  if (!cur) return;
+  var tmp = doc.createElement('div');
+  tmp.innerHTML = drawTabs();
+  cur.parentNode.replaceChild(tmp.firstChild, cur);
 }
 
 function deficCount() {
@@ -189,24 +217,24 @@ function deficCount() {
 /* ── Site & Room ─────────────────────────────────────────────────────── */
 
 var PHASE_CARDS = [
-  { phase: 'p1',  title: 'Phase 1 \u2014 before testing starts', sub: 'What you arrange, what you bring, then what others must have finished' },
-  { phase: 'p2',  title: 'Phase 2 \u2014 the walk of the room',   sub: 'The installation itself, and each machine in it' },
-  { phase: 'dsl', title: 'Diesel engine \u2014 per machine',      sub: 'Asked only of a diesel driver' }
+  { phase: 'p1',  title: 'Before testing starts', sub: 'What you arrange, what you bring, then what others must have finished' },
+  { phase: 'p2',  title: 'The walk of the room',  sub: 'The installation itself, and each machine in it' },
+  { phase: 'dsl', title: 'Diesel engine',         sub: 'Asked only of a diesel driver' }
 ];
 
-function itemsHtml(rows) {
+function itemsHtml(rows, colour) {
   var a = answers[setKey], h = '';
   rows.forEach(function (row) {
     var targets = (row.scope === 'machine') ? row.targets : [null];
     targets.forEach(function (t) {
       var key = RR.answerKey(row, t && t.id);
       var v = (a[key] && a[key].status) || '';
-      var flag = row.scope === 'visit' ? '<span class="tflag visit">visit</span>'
-               : row.scope === 'room'  ? '<span class="tflag room">room</span>'
+      var chip = row.scope === 'visit' ? '<span class="chip c-mute">visit</span>'
+               : row.scope === 'room'  ? '<span class="chip c-site">room</span>'
                : (t && pumps().length > 1)
-                 ? '<span class="tflag ' + t.type + '">' + esc(t.name.split(' ')[0]) + '</span>' : '';
+                 ? '<span class="chip c-' + (t.type === 'dsl' ? 'dsl' : 'ele') + '">' + esc(t.name.split(' ')[0]) + '</span>' : '';
       h += '<div class="item" id="it-' + esc(key) + '"><span class="n">' + esc(row.src || '') + '</span>'
-        + '<span class="t">' + esc(row.text) + flag + '</span><span class="yn">'
+        + '<span class="t">' + esc(row.text) + ' ' + chip + '</span><span class="yn">'
         + '<button class="y' + (v === 'yes' ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="yes">Y</button>'
         + '<button class="n' + (v === 'no'  ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="no">N</button>'
         + '<button class="a' + (v === 'na'  ? ' on' : '') + '" data-ans="' + esc(key) + '" data-v="na">N/A</button>'
@@ -217,68 +245,61 @@ function itemsHtml(rows) {
 }
 
 function viewSite() {
-  var rows = RR.rowsFor(pumps());
-  var h = '<div class="card keyed" style="--tc:var(--site)"><div class="chd">Site &amp; Room'
-    + '<span class="sp"></span><span class="rt">walked once \u00b7 shared by every machine</span></div><div class="cbd">'
-    + '<div class="note">One walk of the room. <b>VISIT</b> is answered once for the day, <b>ROOM</b> once for '
-    + 'the installation, and the rest once for each machine. Duplicating these per pump creates two places for '
-    + 'the same answer to disagree.</div>';
+  var rows = RR.rowsFor(pumps()), body = '';
+  body += '<div class="note">One walk of the room. <b>VISIT</b> is answered once for the day, <b>ROOM</b> once '
+    + 'for the installation, and the rest once for each machine. Duplicating these per pump creates two places '
+    + 'for the same answer to disagree.</div>';
   PHASE_CARDS.forEach(function (c) {
     var mine = rows.filter(function (r) { return r.phase === c.phase; });
     if (!mine.length) return;
-    h += '<div class="sec"><div class="sech"><span class="b" style="background:var(--site)"></span>'
-      + esc(c.title) + '</div><div class="note" style="margin-bottom:8px">' + esc(c.sub) + '</div>'
+    body += '<div class="sec"><div class="sech"><span class="b" style="background:var(--site)"></span>'
+      + esc(c.title) + '</div><div class="hint" style="margin:0 0 9px">' + esc(c.sub) + '</div>'
       + itemsHtml(mine) + '</div>';
   });
-  h += '</div></div>';
+  var h = card('01', 'Site & Room', 'Walked once \u00b7 shared by every machine.', body);
 
-  h += '<div class="card"><div class="chd">Pumps on this job<span class="sp"></span>'
-    + '<span class="rt">' + pumps().length + ' machine' + (pumps().length > 1 ? 's' : '') + '</span></div><div class="cbd">'
-    + '<div class="note">Drive type is a property of each machine, not of the app \u2014 a room with one '
+  var pl = '<div class="note">Drive type is a property of each machine, not of the app \u2014 a room with one '
     + 'electric and one diesel is the common case.</div>';
   pumps().forEach(function (p) {
-    h += '<div class="prow"><span class="idc ' + p.type + '">' + (p.type === 'dsl' ? 'DIESEL' : 'ELECTRIC') + '</span>'
-      + '<div class="nm">' + esc(p.name) + '<small>tested in the shipped '
-      + (p.type === 'dsl' ? 'Diesel' : 'Electric') + ' tool</small></div>'
-      + '<div class="acts"><button class="mini" data-view="' + p.id + '">Open testing \u203A</button></div></div>';
+    pl += '<div class="pump"><div class="hdr"><span class="chip c-' + (p.type === 'dsl' ? 'dsl' : 'ele') + '">'
+      + (p.type === 'dsl' ? 'Diesel' : 'Electric') + '</span>'
+      + '<div class="nm">' + esc(p.name) + '<div class="meta">tested in the shipped '
+      + (p.type === 'dsl' ? 'Diesel' : 'Electric') + ' tool \u00b7 ' + pctPump(p.id) + '% complete</div></div></div>'
+      + '<div class="rowbtns"><button class="btn sm" data-view="' + p.id + '">Open testing</button></div></div>';
   });
-  h += '<div class="seg" style="margin-top:6px">' + Object.keys(SETS).map(function (k) {
-      return '<button class="' + (k === setKey ? 'on' : '') + '" data-set="' + k + '">' + esc(SETS[k].label) + '</button>';
-    }).join('') + '</div></div></div>';
+  pl += '<div class="rowbtns">' + Object.keys(SETS).map(function (k) {
+      return '<button class="btn sm' + (k === setKey ? ' pri' : '') + '" data-set="' + k + '">' + esc(SETS[k].label) + '</button>';
+    }).join('') + '</div>'
+    + '<div class="hint">Until the roster screen is built, the machines on this job are chosen here.</div>';
+  h += card('02', 'Pumps on this job', pumps().length + ' machine' + (pumps().length > 1 ? 's' : '') + ' in this room.', pl);
 
-  h += '<div class="card"><div class="chd">Project Information</div><div class="cbd">'
-    + '<div class="note">Typed once here and locked inside every machine\u2019s testing screen.</div>'
-    + ROOM_FIELDS.map(function (f) {
-        return '<div class="field"><label>' + esc(f.label) + '</label>'
-          + '<input type="' + (f.type || 'text') + '" id="' + f.id + '" data-room-id="' + f.id
-          + '" placeholder="' + esc(f.ph || '') + '"></div>';
-      }).join('') + '</div></div>';
+  h += card('03', 'Project Information', 'Typed once here and locked inside every machine\u2019s testing screen.',
+    ROOM_FIELDS.map(function (f) {
+      return '<label class="lbl" for="' + f.id + '">' + esc(f.label) + '</label>'
+        + '<input type="text" id="' + f.id + '" data-room-id="' + f.id + '" placeholder="' + esc(f.ph || '') + '" style="margin-bottom:11px">';
+    }).join(''));
 
-  h += '<div class="card"><div class="chd">Decision to proceed<span class="sp"></span>'
-    + '<span class="rt">before any flow reading is taken</span></div><div class="cbd">'
-    + '<div class="note">Taken for each machine separately \u2014 one pump can be ready while the other is not. '
+  var dec = '<div class="note">Taken for each machine separately \u2014 one pump can be ready while the other is not. '
     + 'The wording is still being written by the Owner with Shaun; these options stand in.</div>';
   pumps().forEach(function (p) {
     var d = decisions[setKey][p.id];
-    h += '<div class="sec"><div class="sech"><span class="b" style="background:' + TC[p.type] + '"></span>'
-      + esc(p.name) + '</div><div class="pickrow seg">'
+    dec += '<div class="sec"><div class="sech"><span class="b" style="background:' + TC[p.type] + '"></span>'
+      + esc(p.name) + '</div><div class="choices">'
       + RR.OUTCOMES.map(function (o) {
-          return '<button class="' + (d === o.key ? 'on' : '') + '" style="--sc:' + TC[p.type] + '"'
-            + ' data-dec="' + p.id + '" data-out="' + esc(o.key) + '">' + esc(o.text) + '</button>';
+          return '<button class="choice' + (d === o.key ? ' sel' : '') + '" data-dec="' + p.id
+            + '" data-out="' + esc(o.key) + '"><span class="ct">' + esc(o.text) + '</span></button>';
         }).join('') + '</div></div>';
   });
-  h += '</div></div>';
+  h += card('04', 'Decision to proceed', 'Recorded before any flow reading is taken.', dec);
 
-  h += '<div class="card"><div class="chd">Completion<span class="sp"></span>'
-    + '<span class="rt">one number per scope</span></div><div class="cbd">'
-    + '<div class="note">One overall percentage would hide a machine that has barely been started.</div>'
+  var don = '<div class="note">One overall percentage would hide a machine that has barely been started.</div>'
     + '<div class="donuts"><div class="donut"><div class="v" style="color:var(--site)">' + pctSite() + '%</div>'
     + '<div class="l">Site &amp; Room</div></div>';
   pumps().forEach(function (p) {
-    h += '<div class="donut"><div class="v" style="color:' + TC[p.type] + '">' + pctPump(p.id) + '%</div>'
-      + '<div class="l">' + esc(p.name) + '</div></div>';
+    don += '<div class="donut"><div class="v" style="color:' + TC[p.type] + '">' + pctPump(p.id) + '%</div>'
+      + '<div class="l">' + esc(p.name.split(' ')[0]) + '</div></div>';
   });
-  h += '</div></div></div>';
+  h += card('05', 'Completion', 'One number per scope.', don + '</div>');
   return h;
 }
 
@@ -295,7 +316,7 @@ function openFrame(p) {
   f.setAttribute('title', p.name + ' testing');
   f.setAttribute('data-pump', p.id);
   f.src = TOOL_FOR[p.type];
-  f.addEventListener('load', function () { onFrameLoad(f, p); drawTabs(); });
+  f.addEventListener('load', function () { onFrameLoad(f, p); refreshTabs(); });
   wrap.appendChild(f);
   doc.getElementById('frames').appendChild(wrap);
   frames[p.id] = f;
@@ -351,16 +372,14 @@ function roomFieldValues() {
 
 /* ── deficiencies ────────────────────────────────────────────────────── */
 
-var _deficReady = false, _deficLoading = false;
+var _deficReady = false, _deficLoading = false, _deficMarkup = '';
 function openDeficiencies() {
-  var host = doc.getElementById('view');
-  host.innerHTML = '<div class="card keyed" style="--tc:var(--fail)"><div class="chd">Deficiencies'
-    + '<span class="sp"></span><span class="rt">one list \u00b7 filed by contractor</span></div>'
-    + '<div class="cbd"><div class="note">Every deficiency names its owner. \u201cExcessive vibration\u201d with no '
-    + 'owner does not tell a contractor which machine to look at. <b>Nothing saves</b>; photographs are not stored yet.</div>'
-    + '<div id="defic-panel"></div><p class="note" id="mp-defic-note" style="display:none"></p>'
-    + '<input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">'
-    + '</div></div>';
+  doc.getElementById('view').innerHTML = drawTabs() + card('06', 'Deficiencies',
+    'One list, filed by contractor.',
+    '<div class="note">Every deficiency names its owner. \u201cExcessive vibration\u201d with no owner does not tell a '
+    + 'contractor which machine to look at. <b>Nothing saves</b>; photographs are not stored yet.</div>'
+    + '<div id="defic-panel"></div><p class="hint" id="mp-defic-note" style="display:none"></p>'
+    + '<input type="file" id="global-file-input" style="display:none" onchange="handleFiles(this.files)">');
   if (_deficReady) { redrawDefic(); return; }
   if (_deficLoading) return;
   _deficLoading = true;
@@ -376,10 +395,9 @@ function openDeficiencies() {
   }).catch(function (e) {
     _deficLoading = false;
     var el = doc.getElementById('defic-panel');
-    if (el) el.innerHTML = '<div class="warn">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</div>';
+    if (el) el.innerHTML = '<div class="banner b-warn">The deficiencies panel could not be read from the Diesel tool: ' + esc(e && e.message) + '</div>';
   });
 }
-var _deficMarkup = '';
 function redrawDefic() {
   var el = doc.getElementById('defic-panel'); if (!el) return;
   el.innerHTML = _deficMarkup;
@@ -397,14 +415,16 @@ function show(which) {
     frames[id].parentNode.style.display = (view === id) ? '' : 'none';
   });
   var v = doc.getElementById('view');
-  if (view === 'site') { v.innerHTML = viewSite(); }
+  if (view === 'site') { v.innerHTML = drawTabs() + viewSite(); }
   else if (view === 'defic') { openDeficiencies(); }
   else {
-    v.innerHTML = '';
     var p = pumpById(view);
+    v.innerHTML = drawTabs() + (p ? card('06', p.name, (p.type === 'dsl' ? 'Diesel' : 'Electric')
+      + ' driver · tested in the shipped tool below.', '<div class="note">Sections 1 and 2 are the room’s and '
+      + 'are not asked again here. The tool keeps no record of its own in this position — the job does.</div>') : '');
     if (p) openFrame(p);
   }
-  drawTabs();
+  drawSteps();
 }
 
 function drawRoom() { if (view === 'site') show('site'); else drawTabs(); }
@@ -497,12 +517,25 @@ function scrollToRoomRow(key) {
 
 doc.addEventListener('click', function (ev) {
   var t = ev.target && ev.target.closest
-    ? ev.target.closest('[data-view],[data-set],[data-dec],[data-ans],[data-sheet-btn]') : null;
+    ? ev.target.closest('[data-view],[data-set],[data-dec],[data-ans],[data-modal-btn],[data-screen],#themeBtn') : null;
   if (!t) return;
 
-  if (t.hasAttribute('data-sheet-btn')) {
-    var act = _sheetActions[+t.getAttribute('data-sheet-btn')];
-    closeSheet(); if (typeof act === 'function') act();
+  if (t.hasAttribute('data-modal-btn')) {
+    var act = _modalActions[+t.getAttribute('data-modal-btn')];
+    closeModal(); if (typeof act === 'function') act();
+    return;
+  }
+  if (t.id === 'themeBtn') { toggleTheme(); return; }
+  if (t.hasAttribute('data-screen')) {
+    var k = t.getAttribute('data-screen');
+    var sc = SCREENS.filter(function (x) { return x.k === k; })[0];
+    if (sc && !sc.built) {
+      modal(sc.n + ' \u2014 ' + sc.t + ' is not built yet',
+        'The demo defines six screens. This build has the report; the equipment layer \u2014 the roster, adding a '
+        + 'pump with its drive type gated and locked, rounds, and the parallel/series arrangement \u2014 comes next. '
+        + 'The step is shown rather than hidden so the shape of the job stays visible while it is filled in.',
+        [{ label: 'Understood', cls: 'pri' }]);
+    }
     return;
   }
   if (t.hasAttribute('data-view')) { show(t.getAttribute('data-view')); return; }
@@ -519,7 +552,7 @@ doc.addEventListener('click', function (ev) {
         if (btn) btn.classList.toggle('on', (a[key] || {}).status === btn.getAttribute('data-v'));
       });
     }
-    drawTabs();
+    refreshTabs();
     return;
   }
 
@@ -528,11 +561,11 @@ doc.addEventListener('click', function (ev) {
     if (k === setKey) return;
     /* Destructive: the machines' testing screens are discarded. Confirmed in
        the demo's own sheet, never the browser's dialog. */
-    sheet('Change the pumps on this job?',
-      '<p>Switching to <b>' + esc(SETS[k].label) + '</b> discards the testing screens that are open and the '
-      + 'answers given for the current set. There is no undo on this screen.</p>',
+    modal('Change the pumps on this job?',
+      'Switching to <b>' + esc(SETS[k].label) + '</b> discards the testing screens that are open and the '
+      + 'answers given for the current set. There is no undo on this screen.',
       [{ label: 'Cancel' },
-       { label: 'Switch', cls: 'danger', act: function () {
+       { label: 'Switch', cls: 'dang', act: function () {
           Object.keys(frames).forEach(function (id) { frames[id].parentNode.remove(); });
           frames = {}; setKey = k; show('site');
         } }]);
@@ -547,6 +580,10 @@ doc.addEventListener('click', function (ev) {
   }
 }, false);
 
+doc.getElementById('scrim').addEventListener('click', function (ev) {
+  if (ev.target && ev.target.id === 'scrim') closeModal();
+}, false);
+
 /* A room field typed here reaches every open frame. */
 doc.addEventListener('change', function (ev) {
   var t = ev.target;
@@ -558,9 +595,10 @@ doc.addEventListener('change', function (ev) {
 var API = { version: 'S730', collect: collect, frames: function () { return frames; },
             pumps: pumps, sets: SETS, TOOL_FOR: TOOL_FOR, show: show,
             roomFindings: roomFindings, scrollToRoomRow: scrollToRoomRow,
-            sheet: sheet, redrawDefic: redrawDefic };
+            modal: modal, redrawDefic: redrawDefic };
 root.MPShell = API;
 
+drawSteps();
 show('site');
 
 })(window);
