@@ -534,16 +534,29 @@ function renderInspector() {
   $$('[data-flag]', el).forEach(b => (b.onclick = () => setJobFlag(r.id, b.dataset.flag === 'set')));
 }
 
-/* The system keys a clause may carry. These are the PACKAGE keys the job tool
-   already ticks — not a parallel vocabulary. A clause tagged 'diesel' prints on
-   a job that has ticked the diesel fire pump package. If these two lists ever
-   drift apart, tagged clauses vanish from jobs silently. */
-const SYS_KEYS = ['wet', 'dry', 'preaction', 'standpipe', 'underground', 'electric', 'diesel', 'alarm',
-                  'lhd', 'aspirating', 'firestop', 'extinguish', 'emerglight', 'gypsum'];
-const SYS_LABEL = { wet: 'Wet', dry: 'Dry', preaction: 'Preaction', standpipe: 'Standpipe', underground: 'Underground',
-  electric: 'Electric pump', diesel: 'Diesel pump', alarm: 'Fire alarm', lhd: 'Linear heat',
-  aspirating: 'Aspirating', firestop: 'Fire stopping', extinguish: 'Extinguishers',
+/* The system keys a clause may carry ARE the package keys the job tool ticks.
+   These were once a hardcoded copy, which meant a package added in the Master
+   File never appeared here and a clause could never be tagged for it — and,
+   worse, a renamed key made already-tagged clauses vanish from jobs silently.
+   They are now read from the packages table, so there is one list, not two.
+   The labels below are only a shorter display name where the package's own
+   name is long; anything absent falls back to the package name itself. */
+let SYS_KEYS = [];
+const SYS_SHORT = { wet: 'Wet', dry: 'Dry', preaction: 'Preaction', standpipe: 'Standpipe',
+  underground: 'Underground', electric: 'Electric pump', diesel: 'Diesel pump',
+  alarm: 'Fire alarm', lhd: 'Linear heat', aspirating: 'Aspirating',
+  firestop: 'Fire stopping', extinguish: 'Extinguishers',
   emerglight: 'Emerg. lighting', gypsum: 'Gypsum' };
+const SYS_LABEL = new Proxy({}, { get: (_, k) => SYS_SHORT[k] || SYS_NAME[k] || k });
+let SYS_NAME = {};
+
+async function loadSystemKeys() {
+  try {
+    const pkgs = await sb.select('sg_package', 'select=key,name,sort_order&active=eq.true&order=sort_order');
+    SYS_KEYS = (pkgs || []).map(p => p.key);
+    SYS_NAME = Object.fromEntries((pkgs || []).map(p => [p.key, p.name]));
+  } catch { SYS_KEYS = []; SYS_NAME = {}; }
+}
 
 async function toggleTag(id, key) {
   if (!canEdit()) return;
@@ -1242,6 +1255,7 @@ async function boot() {
      layout the user actually sees, not the one that existed at mount. */
   try { window.__specRefit && window.__specRefit(); } catch {}
   try {
+    await loadSystemKeys();
     await loadSections();
   } catch (err) { msg('Could not load the master: ' + err.message, true); return; }
   renderRail(); renderCounts(); setFresh(false);
