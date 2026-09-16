@@ -421,7 +421,7 @@ const isSecStruck = id => !!(state.jobSecs.find(s => s.section_id === id) || {})
 async function loadFirm() {
   const [packages, sections, pkgSections, firmStds, stdPkgs, firmCloseouts, blanks, typicals] = await Promise.all([
     sb.select('sg_package', 'select=*&active=eq.true&order=sort_order,name'),
-    sb.select('sg_section', 'select=*&order=sort_order,code'),
+    sb.select('sg_section', 'select=*&active=eq.true&order=sort_order,code'),
     sb.select('sg_package_section', 'select=*&order=sort_order'),
     sb.select('sg_standard', 'select=*&active=eq.true&order=sort_order,designation'),
     sb.select('sg_standard_package', 'select=*'),

@@ -106,6 +106,8 @@ body[data-rail="fold"] .rail .railhead{display:none}
 /* section list */
 .sec{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:9px;cursor:pointer;color:var(--ink2)}
 .sec:hover{background:var(--b-chrome-hover);color:var(--ink)}
+.sec.retired{opacity:.62}
+.sec.retired .code{text-decoration:line-through}
 .sec.on{background:color-mix(in srgb,var(--brand) 16%,transparent);color:var(--ink);
         outline:1px solid color-mix(in srgb,var(--brand) 40%,transparent)}
 .sec .code{font:9.5pt ui-monospace,Consolas,monospace;color:var(--ink3);flex:none;width:74px}
@@ -312,10 +314,14 @@ function renderRail() {
     `<div class="divh">Division ${d}</div>` + byDiv[d].map(s => {
       const sys = !!s.system_tag;
       const on = !sys || state.systems[s.system_tag] !== false;
-      return `<div class="sec ${on ? '' : 'off'}" data-id="${s.id}" data-code="${s.code}"
-                   data-tag="${s.system_tag || ''}">
+      /* A retired section still shows here — its wording is the source for the
+         sections that replaced it, and hiding it would strand that content.
+         It simply never reaches a job. */
+      const retired = s.active === false;
+      return `<div class="sec ${on ? '' : 'off'}${retired ? ' retired' : ''}" data-id="${s.id}" data-code="${s.code}"
+                   data-tag="${s.system_tag || ''}"${retired ? ` title="Retired — ${escapeHtml(s.retired_note || 'no longer printed on jobs')}"` : ''}>
         <span class="code">${s.code}</span>
-        <span class="t">${s.title}</span>
+        <span class="t">${s.title}${retired ? ' <span class="chip mute">retired</span>' : ''}</span>
         ${counts(s)}
         ${sys ? `<button class="sw" data-tag="${s.system_tag}" aria-checked="${on}"
                    title="Include this system"></button>`
