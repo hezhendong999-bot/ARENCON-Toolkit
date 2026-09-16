@@ -258,8 +258,11 @@ var DEF_TOOLS = [
     desc: 'Company intranet — notices, links and internal resources.',
     tags: [] },
   /* SPEC S1 (Mark, 4 Sep 2026): Specification Generator — master clause database,
-     job = decision set, Word = one-way publication of the NMS template. */
-  { cat: 'office', name: 'Specification Generator', file: 'ARENCON_Specification_Generator.html',
+     job = decision set, Word = one-way publication of the NMS template.
+     S13 (Mark, 13 Sep 2026): repointed from the single-file tool to spec/. The
+     old file is frozen and stores nothing to the cloud — anyone landing there
+     was editing content that went nowhere. */
+  { cat: 'office', name: 'Specification Generator', file: 'spec/job/index.html',
     color: '#9C2742', lcolor: '#9C2742', icon: 'S',
     desc: 'Project specifications from the governed master — NMS Word output.',
     tags: [{ t: 'Office', c: '#9C2742' }, { t: 'Draft', c: '#46C5E8' }] }

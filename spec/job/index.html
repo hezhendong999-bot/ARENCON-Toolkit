@@ -305,6 +305,8 @@ import { ARENCON_LOGO as LOGO_SRC } from '../../lib/assets/logo.js';
 const state = {
   me: null, role: 'inspector',
   view: 'list',            // 'list' | 'job'
+  scopeProject: null,      // set when arrived from a Hub project
+  jobQuery: '',            // flat-list search text
   jobs: [], job: null,
   /* firm side */
   packages: [], sections: [], pkgSections: [], firmStds: [], stdPkgs: [], firmCloseouts: [], blanks: [], typicals: [],
@@ -517,34 +519,65 @@ function renderList() {
   $('#left').innerHTML = ''; $('#right').innerHTML = '';
   $('#jobname').textContent = 'Specification — Jobs';
   $('#backjobs').hidden = true; $('#word').hidden = true;
+  $('#finalise').hidden = true; $('#issuedbadge').hidden = true; $('#reopen').hidden = true;
   const m = $('#mid');
   m.classList.remove('deck'); m.classList.add('pad');
+  const scoped = state.scopeProject
+    ? state.jobs.filter(j => j.project_id === state.scopeProject.id) : state.jobs;
+  const q = (state.jobQuery || '').trim().toLowerCase();
+  const list = !q ? scoped : scoped.filter(j =>
+    [j.project_no, j.revision, j.client, j.site, j.city, j.doc_title]
+      .filter(Boolean).join(' ').toLowerCase().includes(q));
+  const P = state.scopeProject;
   m.innerHTML = `<div class="wrap">
-    <h1>Jobs</h1>
-    <p class="sub">A job carries its own answers and its own choices. It reads the firm's wording; it never changes it.</p>
-    <div class="acts" style="margin:0 0 18px"><button class="btn go" id="newjob">New job</button></div>
-    ${state.jobs.length ? state.jobs.map(j => `<button class="jobcard" data-job="${j.id}">
+    <h1>${P ? escapeHtml(P.project_number || 'Project') + ' \u2014 specifications' : 'Jobs'}</h1>
+    <p class="sub">${P
+      ? escapeHtml(P.project_name || P.client || '') + ' \u00b7 showing only this project\u2019s specifications.'
+      : 'A job carries its own answers and its own choices. It reads the firm\u2019s wording; it never changes it.'}</p>
+    <div class="acts" style="margin:0 0 14px">
+      <button class="btn go" id="newjob">New ${P ? 'specification for this project' : 'job'}</button>
+      ${P ? '<button class="btn" id="allspecs">All specifications</button>' : ''}
+    </div>
+    ${scoped.length > 6 || q ? `<div class="fld" style="margin:0 0 14px">
+      <input id="jobsearch" type="search" placeholder="Find by project #, client or site"
+        value="${escapeHtml(state.jobQuery || '')}" style="width:100%;padding:9px 11px;
+        border:1px solid var(--line);border-radius:9px;background:transparent;color:inherit;font:inherit"></div>` : ''}
+    ${list.length ? list.map(j => `<button class="jobcard" data-job="${j.id}">
         <span class="n">${escapeHtml(j.project_no)}${j.revision ? ' ' + escapeHtml(j.revision) : ''} — ${escapeHtml(j.client || 'No client yet')}</span>
         <span class="state ${j.status === 'draft' ? 'draft' : 'issued'}">${escapeHtml(j.status)}</span>
         <span class="s">${escapeHtml([j.site, j.city].filter(Boolean).join(', ') || 'No site address yet')}
-          · ${PROVN[j.province] || j.province || '—'} · last touched ${tor(j.updated_at)}</span>
+          · ${PROVN[j.province] || j.province || '—'} · last touched ${tor(j.updated_at)}${
+          !P && j.project_id ? ' · <span class="chip mute">linked to Hub</span>' : ''}</span>
       </button>`).join('')
-    : '<div class="empty">No jobs yet. Start one and pick the systems the building has.</div>'}
+    : `<div class="empty">${q ? 'Nothing matches that.'
+        : P ? 'No specifications on this project yet.'
+        : 'No jobs yet. Start one and pick the systems the building has.'}</div>`}
   </div>`;
   $('#newjob').onclick = newJob;
+  const all = $('#allspecs'); if (all) all.onclick = () => { state.scopeProject = null; state.jobQuery = ''; renderList(); };
+  const s = $('#jobsearch');
+  if (s) s.oninput = () => { state.jobQuery = s.value; const at = s.selectionStart; renderList();
+    const ns = $('#jobsearch'); if (ns) { ns.focus(); try { ns.setSelectionRange(at, at); } catch (e) {} } };
   $$('[data-job]', m).forEach(b => b.onclick = () => openJob(b.dataset.job));
 }
 
 async function newJob() {
   const D = await Dlg();
+  const P = state.scopeProject;
   const out = await D.form({
-    title: 'New job', icon: '\u271a', accent: 'slate', width: 580,
-    message: 'Only the project number is needed to start. Everything else can be filled in as it becomes known — the document shows the template wherever a field is still blank.',
+    title: P ? `New specification \u2014 ${P.project_number || 'project'}` : 'New job',
+    icon: '\u271a', accent: 'slate', width: 580,
+    message: P
+      ? 'Project number, client and site come from the Hub project, so an issued specification cannot disagree with it. Everything else can be filled in as it becomes known.'
+      : 'Only the project number is needed to start. Everything else can be filled in as it becomes known — the document shows the template wherever a field is still blank.',
     fields: [
-      { key: 'project_no', label: 'Project #', type: 'text', placeholder: '7310.18', required: true },
+      { key: 'project_no', label: 'Project #', type: 'text', placeholder: '7310.18', required: true,
+        value: P ? (P.project_number || '') : '' },
       { key: 'revision', label: 'Revision', type: 'text', placeholder: 'A01' },
-      { key: 'client', label: 'Client', type: 'text', placeholder: 'Give & Go' },
-      { key: 'site', label: 'Site address', type: 'text', placeholder: '5780 Highway 7' },
+      { key: 'client', label: 'Client', type: 'text', placeholder: 'Give & Go',
+        value: P ? (P.client || '') : '' },
+      { key: 'site', label: 'Site address', type: 'text', placeholder: '5780 Highway 7',
+        value: P ? (P.address || '') : '' },
       { key: 'city', label: 'City, Province', type: 'text', placeholder: 'Vaughan, ON' },
       { key: 'doc_title', label: 'Document title', type: 'text', placeholder: 'Automatic Sprinkler Protection and Fire Alarm System' },
       { key: 'province', label: 'Province', type: 'select', value: 'ON',
@@ -562,6 +595,7 @@ async function newJob() {
       site: (out.site || '').trim(), city: (out.city || '').trim(),
       doc_title: (out.doc_title || '').trim(), issue_date: todayTor(),
       province: out.province, insurer: out.insurer, status: 'draft',
+      project_id: P ? P.id : null,
       created_by: state.me ? state.me.id : null, updated_at: new Date().toISOString(),
     };
     const made = await sb.insert('sg_job', row);
@@ -1229,6 +1263,18 @@ async function boot() {
     }
     await loadFirm();
     await loadJobs();
+    /* Arriving from a Hub project scopes the list to that project's specs and
+       prefills a new one from the Hub record. Standalone use passes nothing and
+       gets the flat list of every spec. */
+    const pid = new URLSearchParams(location.search).get('project');
+    if (pid) {
+      try {
+        const rows = await sb.select('projects',
+          `select=id,project_number,project_name,client,address&id=eq.${pid}&deleted_at=is.null`);
+        if (rows && rows[0]) state.scopeProject = rows[0];
+        else msg('That project could not be found — showing every specification.', true);
+      } catch { msg('Could not reach the Hub project — showing every specification.', true); }
+    }
     render();
   } catch (e) {
     fail(e);
