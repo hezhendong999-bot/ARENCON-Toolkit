@@ -2134,32 +2134,13 @@ function _showRemoteUpdateBanner(remoteTs){
   });
 }
 
-/* S728 — THE ISSUE'S OWN SAVE MUST BE ALLOWED THROUGH.
-
-   _doIssue sets proj.status='issued', appends the ledger entry, then saves. But
-   both push doors below refuse to send an issued report — so the guard that
-   protects an issued report from edits was blocking the one save that RECORDS
-   the issue. The report showed ISSUED and locked on the device while the cloud
-   still held the draft. Confirmed on 1490.04 FRT #2 (Round 7): screen said
-   B01/issued, cloud said A02/draft, nothing of the issue reached it. Every
-   "issued lock flaky" symptom traced back here.
-
-   Why a flag and not a reorder: the server also refuses writes to a row already
-   marked issued, and what marks it there is _syncIssueStatus('issued'), which
-   runs AFTER the save. So there is a real window where the content push is
-   still accepted server-side, and the fix is to let exactly one push use it —
-   not to move the status set, which would leave the pushed copy saying 'draft'.
-
-   ONE push, and only for a few seconds. A flag that outlived its save would be
-   a hole in the issued lock, so it carries a deadline and is cleared by the
-   first door that uses it. Anything else still gets the refusal it should. */
-var _s728IssuePushUntil = 0;
-function _s728ClaimIssuePush() {
-  if (!_s728IssuePushUntil) return false;
-  if (Date.now() > _s728IssuePushUntil) { _s728IssuePushUntil = 0; return false; }
-  _s728IssuePushUntil = 0;          // one use only
-  return true;
-}
+/* S728 introduced a 20-second one-shot flag (_s728IssuePushUntil /
+   _s728ClaimIssuePush) that let the issuing save through the push doors below.
+   S729 REMOVED it: issue is now one server call (SyncEngine.issue →
+   frt_issue_report) and never travels through these doors. The flag was a
+   race with a deadline — consumed by the first door that saw an issued report
+   whether or not the write landed — and five production rows were found issued
+   on a device and draft in the cloud. Do not reintroduce a flag here. */
 
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
@@ -2176,10 +2157,11 @@ function _pushToCloud() {
      legitimately READING, and every refusal sets work aside that was never
      meant to exist. _pushDirty is preserved: if the report is unlocked by
      Revise, the held work goes up on the next cycle. */
-  /* S728 — _pushDirty is tested INSIDE the claim: this door checks `issued`
-     before it checks whether anything changed, so claiming first would let an
-     idle 15s tick burn the one-shot and the issue would never leave. */
-  if (_s700IsIssued() && !(_pushDirty && _s728ClaimIssuePush())) return;
+  /* S729 — the S728 one-shot that let the issuing save through this door is
+     gone. Issue no longer travels through the push doors at all; it is one
+     server call in _doIssue via SyncEngine.issue(). This door is once again a
+     plain refusal for an issued report. */
+  if (_s700IsIssued()) return;
   // S155: skip-if-unchanged gate. The 15s interval keeps ticking, but if
   // nothing has changed since the last successful push, no network round
   // trip happens. The 'saved' Model event sets _pushDirty=true the moment
@@ -2228,8 +2210,9 @@ function _pushToCloudNow() {
     return;
   }
   /* S700a — same rule at the door the heartbeat flush and the banner use, so
-     it holds on its own rather than relying on the caller above. */
-  if (_s700IsIssued() && !_s728ClaimIssuePush()) {
+     it holds on its own rather than relying on the caller above. S729: plain
+     refusal again; issue does not pass through here (see _doIssue). */
+  if (_s700IsIssued()) {
     _setCloudStatus('error', 'Issued \u2014 closed to edits');
     return;
   }
@@ -4361,6 +4344,36 @@ function _doIssue(newRev) {
      copy, no second entry, and NO message. The modal already offered this
      number, so the screen simply does not move. */
   var _reIssue = (newRev === curRev);
+
+  /* S729 — ISSUE IS ONE SERVER WRITE.
+     Before: the screen locked first, the device saved, and the cloud was a
+     best-effort push behind a 20-second one-shot flag, followed by a second
+     request for the status column. Five reports were found issued on a tablet
+     and draft in the cloud. Now: the live model is mutated so the engine
+     serialises the issued body, SyncEngine.issue() writes body + status column
+     + ledger in ONE server call (frt_issue_report), and only the returned row
+     commits anything — the IDB save, the header, the toast. Anything short of
+     that row reverts every mutation and says so. Nothing is armed, nothing is
+     timed, nothing is sequenced behind anything. */
+  var _undo = {
+    revision:     proj.info ? proj.info.revision     : undefined,
+    dateOfIssue:  proj.info ? proj.info.dateOfIssue  : undefined,
+    lastDraftNum: proj.info ? proj.info._lastDraftNum : undefined,
+    status:       proj.status,
+    versions:     proj.versions
+  };
+  function _revert() {
+    try {
+      if (!proj.info) proj.info = {};
+      proj.info.revision    = _undo.revision;
+      proj.info.dateOfIssue = _undo.dateOfIssue;
+      if (_undo.lastDraftNum === undefined) delete proj.info._lastDraftNum;
+      else proj.info._lastDraftNum = _undo.lastDraftNum;
+      proj.status   = _undo.status;
+      proj.versions = _undo.versions;
+    } catch (_r) {}
+  }
+
   var draftMatch = curRev.match(/^A(\d+)$/);
   if (draftMatch) {
     if (!proj.info) proj.info = {};
@@ -4372,49 +4385,64 @@ function _doIssue(newRev) {
      defeating the rule this branch exists to honour. */
   if (!_reIssue) proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
   proj.status = 'issued';
-  _recordVersionMove(proj, newRev, true);   /* S724 — before the save, so the entry rides the same write */
-  /* S728 — status is now 'issued', which both push doors refuse. Open them for
-     this one save so the issue actually reaches the cloud. Armed here, directly
-     before saveNow, so the window is as narrow as possible; see the note on
-     _s728IssuePushUntil. 10s covers a slow tablet write without leaving the
-     lock open for anything else. */
-  _s728IssuePushUntil = Date.now() + 20000;
-  /* Push as soon as the local write lands. Waiting for the 15s heartbeat would
-     race the deadline, and _syncIssueStatus below marks the row issued
-     server-side — after which the server refuses the content write too. If the
-     heartbeat happens to win, it claims the one-shot and this call is refused,
-     which is correct: the work is already gone up. */
-  var _issSave = Model.saveNow();
-  /* S728 — the status-column write is sequenced BEHIND the content push, not
-     fired alongside it. The push moves updated_at; the status PATCH sends an
-     If-Match from the last value seen, so in parallel it 412s and is dropped.
-     Chained, it carries the token the push just refreshed. */
-  function _issPushThenStatus() {
-    var p;
-    try { p = _pushToCloudNow(); } catch (_p) {}
-    if (p && typeof p.then === 'function') {
-      p.then(function () { _syncIssueStatus('issued'); },
-             function () { _syncIssueStatus('issued'); });
-    } else {
-      _syncIssueStatus('issued');
-    }
+  _recordVersionMove(proj, newRev, true);   /* S724 — rides the same write */
+
+  var _btn = document.getElementById('btn-issue');
+  if (_btn) _btn.disabled = true;
+
+  function _paintFields() {
+    var revEl = document.querySelector('[data-field="revision"]');
+    if (revEl) revEl.value = (proj.info && proj.info.revision) || '';
+    var doiEl = document.querySelector('[data-field="dateOfIssue"]');
+    if (doiEl) doiEl.value = (proj.info && proj.info.dateOfIssue) || '';
   }
-  try {
-    if (_issSave && typeof _issSave.then === 'function') {
-      _issSave.then(_issPushThenStatus, _issPushThenStatus);
-    } else { _issPushThenStatus(); }
-  } catch (_e728) { try { _syncIssueStatus('issued'); } catch (_s) {} }
-  _updateHeaderForProject();
-  // Update revision field if visible
-  var revEl = document.querySelector('[data-field="revision"]');
-  if (revEl) revEl.value = newRev;
-  var doiEl = document.querySelector('[data-field="dateOfIssue"]');
-  if (doiEl) doiEl.value = proj.info.dateOfIssue;
-  // S728: the Supabase status write now runs chained behind the content push
-  // (see _issPushThenStatus above), not here — fired at this point it raced the
-  // push and 412'd on a stale If-Match, leaving the column at 'draft'.
-  /* §4 — a re-issue mints nothing and says nothing. */
-  if (!_reIssue) toast('Report issued as ' + newRev);
+  function _commit(row) {
+    if (_btn) _btn.disabled = false;
+    _pushDirty = false;
+    if (row && row.updated_at) _lastPulledUpdatedAt = row.updated_at;
+    try { Model.saveNow(); } catch (_) {}
+    if (_hubMode) _setCloudStatus('synced', 'Issued \u2014 saved to cloud');
+    _updateHeaderForProject();
+    _paintFields();
+    /* §4 — a re-issue mints nothing and says nothing. */
+    if (!_reIssue) toast('Report issued as ' + newRev);
+  }
+  function _fail(err) {
+    if (_btn) _btn.disabled = false;
+    _revert();
+    _updateHeaderForProject();
+    _paintFields();
+    _setCloudStatus('error', 'Not issued');
+    var code = (err && err.code) || '';
+    var st   = (err && err.status) || 0;
+    var msg;
+    if (code === 'ISSUE_OFFLINE') {
+      msg = 'No signal. Issuing needs the cloud, so the copy that leaves the firm is the copy on record. Get to signal and press Issue again. Nothing was issued.';
+    } else if (code === 'ISSUE_PHOTOS_PENDING') {
+      msg = 'Photographs are still uploading' + (err.count ? ' (' + err.count + ')' : '') + '. Wait for the cloud indicator to turn green, then press Issue again. Nothing was issued.';
+    } else if (code === 'ISSUE_NO_BASELINE' || st === 428) {
+      msg = 'This device has not yet loaded the latest copy from the cloud. Give the sync a moment, then press Issue again. Nothing was issued.';
+    } else if (st === 412) {
+      msg = 'Another device saved this report after you last synced. Let the sync pull the latest copy, check it, then press Issue again. Nothing was issued.';
+    } else if (st === 423) {
+      msg = 'This report is already issued with different words. Use Issue \u2192 Revise if you mean to change what was sent. Nothing was issued.';
+    } else if (st === 409) {
+      msg = 'The cloud refused this copy because it would erase report content. Nothing was issued. Check the report and try again.';
+    } else {
+      msg = 'The issue did not reach the cloud (' + ((err && err.message) || 'unknown error') + '). Nothing was issued. Try again with signal.';
+    }
+    try { showAlert('Not issued', msg); } catch (_) { try { toast(msg); } catch (_t) {} }
+    console.error('[Issue S729] refused:', code || st, err);
+  }
+
+  /* Standalone (no ?project=) has no cloud row and never did: commit locally,
+     exactly as before. Hub mode goes to the server and waits. */
+  if (!_hubMode) { _commit(null); return; }
+  if (_hubMode) _setCloudStatus('saving', 'Issuing\u2026');
+  var p;
+  try { p = SyncEngine.issue(_projectId); } catch (_e) { p = Promise.reject(_e); }
+  if (!p || typeof p.then !== 'function') p = Promise.reject(new Error('ISSUE_NO_ENGINE'));
+  p.then(_commit, _fail);
 }
 
 function _doRevise(newRev) {

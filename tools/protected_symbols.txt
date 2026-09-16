@@ -1322,3 +1322,9 @@ _frtVersionEntryId
 # its own). Removing this reopens local-drawer and cloud writes from a frame.
 _mpEmbedded
 MPShell
+# ── S729 — Issue is ONE server write (Owner-approved via independent review lock,
+# 16 Sep 2026). _doIssue commits only on the returned row; SyncEngine.issue()
+# takes the single-flight slot and sends frt_issue_report instead of a PATCH;
+# the S728 one-shot flag is gone. Removing either symbol reopens the five-row
+# "issued on device, draft in cloud" failure.
+_doIssue
