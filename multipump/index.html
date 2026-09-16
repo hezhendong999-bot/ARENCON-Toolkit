@@ -30,13 +30,16 @@
   ═══════════════════════════════════════════════════════════════════════
 -->
 <script src="../shared/auth-gate.js"></script>
-<link rel="stylesheet" href="../diesel-app/css/diesel-01.css">
+<!-- BOTH of the tool's stylesheets, in the tool's own order. diesel-02.css is
+     not optional decoration: it carries the later overrides for the buttons,
+     the nav tabs, the cards and the Yes/No/N/A toggles. Loading only the first
+     file gave this page the tools' class names with a third of their styling
+     missing, which is why it did not look like the tools. Nothing is redefined
+     here — :root, body and every component come from these two files, exactly
+     as they do in Diesel and Electric. -->
+<link rel="stylesheet" href="../diesel-app/css/diesel-01.css?v=202609131918">
+<link rel="stylesheet" href="../diesel-app/css/diesel-02.css?v=202609061544">
 <link rel="stylesheet" href="css/review.css">
-<style>
-  :root{--ts:0px;}
-  body{margin:0;background:var(--bg,#EFEDF0);font-family:Calibri,sans-serif;color:var(--slate,#1C2333);}
-  #mp-room{padding-bottom:86px;}
-</style>
 </head>
 <body>
 
