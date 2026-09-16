@@ -221,11 +221,12 @@ const fail = e => msg(e.message || String(e), true);
 
 /* ── load ─────────────────────────────────────────────────────────────── */
 async function loadAll() {
-  const [packages, sections, pkgSections, stds, closeouts, blanks, typicals, proposals, changes, receipts, profiles] = await Promise.all([
+  const [packages, sections, pkgSections, stds, stdPkgs, closeouts, blanks, typicals, proposals, changes, receipts, profiles] = await Promise.all([
     sb.select('sg_package', 'select=*&order=sort_order'),
     sb.select('sg_section', 'select=id,code,title&order=sort_order'),
     sb.select('sg_package_section', 'select=*'),
     sb.select('sg_standard', 'select=*&order=sort_order,designation'),
+    sb.select('sg_standard_package', 'select=*'),
     sb.select('sg_closeout', 'select=*&order=sort_order'),
     sb.select('sg_blank', 'select=*&order=package_id,key'),
     sb.select('sg_blank_typical', 'select=*&active=eq.true&order=blank_key,sort_order'),
@@ -234,10 +235,15 @@ async function loadAll() {
     sb.select('sg_change_receipt', 'select=*&state=in.(declined,flagged)&order=acted_at.desc&limit=200'),
     sb.select('profiles', 'select=id,full_name'),
   ]);
-  Object.assign(state, { packages, sections, pkgSections, stds, closeouts, blanks, typicals, proposals, changes, receipts });
+  Object.assign(state, { packages, sections, pkgSections, stds, stdPkgs, closeouts, blanks, typicals, proposals, changes, receipts });
   state.profiles = Object.fromEntries(profiles.map(p => [p.id, p.full_name || p.id.slice(0, 8)]));
   counts();
 }
+
+/* A standard may ride with several systems. No links at all means every job. */
+const stdPkgIds = id => (state.stdPkgs || []).filter(sp => sp.standard_id === id).map(sp => sp.package_id);
+const stdRidesWith = (id, pkgId) => stdPkgIds(id).includes(pkgId);
+const stdIsEveryJob = id => !stdPkgIds(id).length;
 function counts() {
   const p = state.proposals.filter(x => x.state === 'open').length;
   const r = state.receipts.length;
@@ -309,6 +315,9 @@ async function editStd(s, defaults) {
         options: [{ value: '', label: '—' }, ...Object.entries(INSN).map(([v, l]) => ({ value: v, label: l }))] },
       { key: 'active', label: 'In use', type: 'select', value: s.active ? 'y' : 'n',
         options: [{ value: 'y', label: 'Yes' }, { value: 'n', label: 'No — kept for the record, not cited' }] },
+      { key: 'pkgs', label: 'Rides with these systems — tick none to cite it on every job', type: 'multi',
+        value: fresh ? (s.package_id ? [s.package_id] : []) : stdPkgIds(s.id),
+        options: state.packages.map(p => ({ value: p.id, label: p.name })) },
     ],
     submitText: fresh ? 'Add' : 'Save',
   });
@@ -317,8 +326,18 @@ async function editStd(s, defaults) {
     source: out.source, province: out.source === 'code' ? (out.province || null) : null,
     insurer: out.source === 'insurer' ? (out.insurer || null) : null, active: out.active === 'y', updated_at: new Date().toISOString() };
   try {
-    if (fresh) { row.package_id = s.package_id || null; await sb.insert('sg_standard', row); }
+    let sid = s.id;
+    if (fresh) { row.package_id = null; const r = await sb.insert('sg_standard', row); sid = (r && r[0] && r[0].id) || null; }
     else await sb.update('sg_standard', `id=eq.${s.id}`, row);
+    /* Links are rewritten wholesale — the picker IS the answer, so anything
+       unticked is meant to be gone. Cheap: a handful of rows per standard. */
+    if (sid) {
+      await sb.del('sg_standard_package', `standard_id=eq.${sid}`);
+      const picked = out.pkgs || [];
+      if (picked.length) {
+        await sb.insert('sg_standard_package', picked.map(pid => ({ standard_id: sid, package_id: pid })));
+      }
+    }
     await loadAll(); render(); msg(fresh ? 'Standard added.' : 'Standard saved.');
   } catch (e) { fail(e); }
 }
@@ -354,7 +373,7 @@ function packages() {
     ${readOnlyNote()}
     ${state.packages.map(p => {
       const ns = state.pkgSections.filter(x => x.package_id === p.id).length;
-      const nst = state.stds.filter(x => x.package_id === p.id && x.active).length;
+      const nst = state.stds.filter(x => stdRidesWith(x.id, p.id) && x.active).length;
       const nc = state.closeouts.filter(x => x.package_id === p.id && x.active).length;
       const nb = state.blanks.filter(x => x.package_id === p.id).length;
       return `<div class="card pkg ${p.active ? '' : 'off'}" data-pkg="${p.id}"><div class="row">
@@ -382,7 +401,7 @@ function packages() {
 function packageEditor(m) {
   const p = state.packages.find(x => x.id === state.pkg); if (!p) { state.pkg = null; return render(); }
   const secs = state.pkgSections.filter(x => x.package_id === p.id).map(x => state.sections.find(s => s.id === x.section_id)).filter(Boolean);
-  const stds = state.stds.filter(x => x.package_id === p.id);
+  const stds = state.stds.filter(x => stdRidesWith(x.id, p.id));
   const cos = state.closeouts.filter(x => x.package_id === p.id);
   const bl = state.blanks.filter(x => x.package_id === p.id);
   const P = isPrincipal();
@@ -454,7 +473,7 @@ function packageEditor(m) {
 
 /* ── whole-job standards ──────────────────────────────────────────────── */
 function jobstds() {
-  const m = $('#main'); const list = state.stds.filter(s => !s.package_id);
+  const m = $('#main'); const list = state.stds.filter(s => stdIsEveryJob(s.id));
   const grp = k => list.filter(s => s.source === k);
   const P = isPrincipal();
   const block = (title, items, note, kind, addLabel) => {

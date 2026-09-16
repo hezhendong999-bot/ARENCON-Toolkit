@@ -307,7 +307,7 @@ const state = {
   view: 'list',            // 'list' | 'job'
   jobs: [], job: null,
   /* firm side */
-  packages: [], sections: [], pkgSections: [], firmStds: [], firmCloseouts: [], blanks: [], typicals: [],
+  packages: [], sections: [], pkgSections: [], firmStds: [], stdPkgs: [], firmCloseouts: [], blanks: [], typicals: [],
   /* job side */
   jobPkgs: [], jobSecs: [], jobClauses: [], jobBlanks: [], jobStds: [], jobCloseouts: [],
   clauses: [],             // master clauses for the sections this job carries
@@ -404,17 +404,23 @@ const isSecStruck = id => !!(state.jobSecs.find(s => s.section_id === id) || {})
 
 /* ══ data ═════════════════════════════════════════════════════════════════ */
 async function loadFirm() {
-  const [packages, sections, pkgSections, firmStds, firmCloseouts, blanks, typicals] = await Promise.all([
+  const [packages, sections, pkgSections, firmStds, stdPkgs, firmCloseouts, blanks, typicals] = await Promise.all([
     sb.select('sg_package', 'select=*&active=eq.true&order=sort_order,name'),
     sb.select('sg_section', 'select=*&order=sort_order,code'),
     sb.select('sg_package_section', 'select=*&order=sort_order'),
     sb.select('sg_standard', 'select=*&active=eq.true&order=sort_order,designation'),
+    sb.select('sg_standard_package', 'select=*'),
     sb.select('sg_closeout', 'select=*&active=eq.true&order=sort_order'),
     sb.select('sg_blank', 'select=*&order=key'),
     sb.select('sg_blank_typical', 'select=*&active=eq.true&order=blank_key,sort_order'),
   ]);
-  Object.assign(state, { packages, sections, pkgSections, firmStds, firmCloseouts, blanks, typicals });
+  Object.assign(state, { packages, sections, pkgSections, firmStds, stdPkgs, firmCloseouts, blanks, typicals });
 }
+
+/* A standard may ride with several packages — NFPA 25 comes with any water-based
+   system. No package links at all means it is cited on every job. */
+const stdPkgIds = std => state.stdPkgs.filter(sp => sp.standard_id === std.id).map(sp => sp.package_id);
+const stdIsEveryJob = std => !stdPkgIds(std).length;
 
 async function loadJobs() {
   state.jobs = await sb.select('sg_job', 'select=*&order=updated_at.desc');
@@ -865,7 +871,7 @@ async function rebuildWholeJobStandards() {
       const ids = derived.map(s => `"${s.id}"`).join(',');
       await sb.del('sg_job_standard', `id=in.(${ids})`);
     }
-    const want = state.firmStds.filter(s => !s.package_id && (
+    const want = state.firmStds.filter(s => stdIsEveryJob(s) && (
       (s.source === 'code' && (s.province === j.province || s.province === 'XX')) ||
       (s.source === 'insurer' && j.insurer !== 'NO' && s.insurer === j.insurer)));
     if (want.length) {
@@ -874,6 +880,41 @@ async function rebuildWholeJobStandards() {
     }
     state.jobStds = await sb.select('sg_job_standard', `select=*&job_id=eq.${j.id}&order=sort_order,designation`);
   } catch (e) { fail(e); }
+}
+
+/* The set of included packages once this toggle lands, computed before the
+   reload so the recompute below works on the new state, not the old. */
+function includedAfter(pkgId, turningOn) {
+  const on = new Set(state.jobPkgs.filter(p => p.included).map(p => p.package_id));
+  if (turningOn) on.add(pkgId); else on.delete(pkgId);
+  return on;
+}
+
+/* Package-brought standards are RECOMPUTED, never incrementally patched.
+   NFPA 25 rides with seven water-based packages; a job with wet and standpipe
+   must cite it once, and unticking wet must not take it away while standpipe
+   is still on. Rows already on the job are left untouched so anything struck,
+   pinned or edited by hand survives a system being toggled. */
+async function syncPackageStandards(included) {
+  const want = new Map();                 /* standard_id → the package it shows under */
+  state.firmStds.forEach(s => {
+    const mine = stdPkgIds(s).filter(id => included.has(id));
+    if (!mine.length) return;
+    const primary = state.packages.filter(p => mine.includes(p.id))
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))[0];
+    if (primary) want.set(s.id, primary.id);
+  });
+  const derived = state.jobStds.filter(s => s.standard_id && s.package_id);
+  const have = new Set(derived.map(s => s.standard_id));
+
+  const stale = derived.filter(s => !want.has(s.standard_id) && !s.pinned);
+  if (stale.length) {
+    await sb.del('sg_job_standard', `id=in.(${stale.map(s => `"${s.id}"`).join(',')})`);
+  }
+  const add = state.firmStds.filter(s => want.has(s.id) && !have.has(s.id));
+  if (add.length) {
+    await sb.insert('sg_job_standard', add.map((s, i) => normStd(s, want.get(s.id), i)));
+  }
 }
 
 /* Every row built from ONE normalised shape with explicit nulls. PostgREST
@@ -895,8 +936,7 @@ async function togglePackage(pkgId) {
   try {
     if (turningOn) {
       await sb.upsert('sg_job_package', [{ job_id: state.job.id, package_id: pkgId, included: true }]);
-      const stds = state.firmStds.filter(s => s.package_id === pkgId);
-      if (stds.length) await sb.insert('sg_job_standard', stds.map((s, i) => normStd(s, pkgId, i)));
+      await syncPackageStandards(includedAfter(pkgId, true));
       const cos = state.firmCloseouts.filter(c => c.package_id === pkgId);
       if (cos.length) await sb.insert('sg_job_closeout', cos.map((c, i) => ({
         job_id: state.job.id, closeout_id: c.id, package_id: pkgId, body: c.body,
@@ -915,7 +955,7 @@ async function togglePackage(pkgId) {
       });
       if (!ok) return;
       await sb.del('sg_job_package', `job_id=eq.${state.job.id}&package_id=eq.${pkgId}`);
-      await sb.del('sg_job_standard', `job_id=eq.${state.job.id}&package_id=eq.${pkgId}`);
+      await syncPackageStandards(includedAfter(pkgId, false));
       await sb.del('sg_job_closeout', `job_id=eq.${state.job.id}&package_id=eq.${pkgId}`);
       delete state.open[pkgId];
       msg(`${p.name} taken out.`);
