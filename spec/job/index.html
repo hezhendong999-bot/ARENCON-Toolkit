@@ -306,6 +306,7 @@ const state = {
   me: null, role: 'inspector',
   view: 'list',            // 'list' | 'job'
   scopeProject: null,      // set when arrived from a Hub project
+  snapshots: [],           // every issue ever made for the open job, newest first
   jobQuery: '',            // flat-list search text
   jobs: [], job: null,
   /* firm side */
@@ -357,6 +358,18 @@ function paintBody(r) {
     return v
       ? `<span class="fx done" data-k="${escapeHtml(k)}">${escapeHtml(v)}</span>`
       : `<span class="fx todo" data-k="${escapeHtml(k)}">[${escapeHtml(d.prompt || d.label)}]</span>`;
+  });
+}
+
+/* The same substitution as paintBody, but plain text, for the Word file.
+   These two MUST stay a pair: the screen and the deliverable have to say the
+   same thing. An unanswered blank prints its prompt in square brackets — the
+   same as the screen — so an incomplete document is visibly incomplete in the
+   contractor's copy instead of shipping a raw ⟦marker⟧. */
+function plainBody(r) {
+  return String(r.body || '').replace(BLANK_RE, (_, k) => {
+    const v = blankValue(k), d = blankDef(k);
+    return v || `[${d.prompt || d.label}]`;
   });
 }
 
@@ -429,7 +442,7 @@ async function loadJobs() {
 }
 
 async function loadJob(id) {
-  const [job, jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts] = await Promise.all([
+  const [job, jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots] = await Promise.all([
     sb.select('sg_job', `select=*&id=eq.${id}`),
     sb.select('sg_job_package', `select=*&job_id=eq.${id}`),
     sb.select('sg_job_section', `select=*&job_id=eq.${id}`),
@@ -437,9 +450,10 @@ async function loadJob(id) {
     sb.select('sg_job_blank', `select=*&job_id=eq.${id}`),
     sb.select('sg_job_standard', `select=*&job_id=eq.${id}&order=sort_order,designation`),
     sb.select('sg_job_closeout', `select=*&job_id=eq.${id}&order=sort_order`),
+    sb.select('sg_job_snapshot', `select=*&job_id=eq.${id}&order=issued_at.desc`),
   ]);
   if (!job.length) throw new Error('That job no longer exists.');
-  Object.assign(state, { job: job[0], jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts });
+  Object.assign(state, { job: job[0], jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots });
   await loadClausesForJob();
   await loadUsedBefore();
 }
@@ -678,8 +692,9 @@ function renderLeft() {
         </div>` : ''}
       </div>`;
     }).join('')}
-    <div class="mini" style="margin-top:12px">Taking anything out strikes it through and leaves it on the page.
-      Nothing actually leaves the document until the job is finalised.</div>`;
+    <div class="mini" style="margin-top:12px">Striking a section or a clause leaves it on the page, struck, so you can see
+      what you took out. Struck things are not in the Word file. Unticking a whole system is different \u2014 its
+      sections, standards and closeout items are removed outright.</div>`;
 
   if (!isLocked()) {
     $('#prov').onchange = e => setJobField('province', e.target.value);
@@ -862,8 +877,8 @@ function renderRight() {
       <button class="btn ${struck ? 'ok' : 'cut'}" id="cutclause">${struck ? 'Bring back' : 'Take out of this job'}</button>
       <button class="btn" id="propose">Propose to firm\u2026</button>
     </div>
-    <div class="mini" style="margin-top:10px">Taking a clause out strikes it through. It still prints, struck, until the
-      job is finalised \u2014 so nothing disappears without you seeing it go.</div>`}`;
+    <div class="mini" style="margin-top:10px">Taking a clause out strikes it through and leaves it on the page, so you
+      can see what you removed. It is not in the Word file.</div>`}`;
   wireRight(el);
 }
 
@@ -1161,18 +1176,24 @@ async function exportWord() {
   try {
     msg('Building the Word file\u2026');
     const { buildSpecDocx, specFileName } = await import('../js/docx.js');
-    const cfg = docConfig();
-    const sections = cfg.sections.map(s => ({
-      code: s.code, title: s.title,
-      rows: numbered(cfg.rowsFor(s.id).filter(c => !isStruck(c.id))),
-    }));
+    /* An issued revision exports the copy stored when it was issued — NEVER the
+       live master. That is the whole point of the snapshot: the same revision
+       must produce the same words a year later, whatever the firm has since
+       changed. A draft exports what is on screen now. */
+    const snap = isLocked() ? (state.snapshots || [])[0] : null;
+    const set = snap
+      ? { sections: snap.sections, header: snap.header, toc: snap.toc || [] }
+      : buildIssueSet();
+    if (isLocked() && !snap) {
+      msg('This job was issued before copies were stored, so this export follows the current firm wording. Reopen and re-issue it to store a copy.', true);
+    }
     const blob = await buildSpecDocx({
-      sections, header: cfg.header, toc: state.toc || [], logo: LOGO_SRC,
+      sections: set.sections, header: set.header, toc: set.toc, logo: LOGO_SRC,
       address: ['1551 Caterpillar Road, Suite 206', 'Mississauga, ON  L4X 2Z6'],
     });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = specFileName(cfg.header);
+    a.download = specFileName(set.header);
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     msg('Word file downloaded.');
@@ -1196,28 +1217,64 @@ function setTheme(t) {
 /* A job is locked once it has been issued. Word export still works; edits do not. */
 const isLocked = () => !!(state.job && state.job.status === 'issued');
 
+/* Build the document exactly as it stands right now, blanks substituted and
+   struck material already gone. This is what gets stored and what every later
+   export of this revision reads. Shares buildIssueSet() with the Word export so
+   the two can never describe different documents. */
+function buildIssueSet() {
+  const cfg = docConfig();
+  const sections = cfg.sections
+    .filter(s => !isSecStruck(s.id))
+    .map(s => ({
+      code: s.code, title: s.title,
+      rows: numbered(cfg.rowsFor(s.id).filter(c => !isStruck(c.id)))
+        .map(c => ({ ...c, body: plainBody(c) })),
+    }));
+  const keptCodes = new Set(sections.map(s => s.code));
+  return { sections, header: cfg.header, toc: (state.toc || []).filter(t => keptCodes.has(t.code)) };
+}
+
 async function finalise() {
   const D = await Dlg();
   const todo = outstanding();
   const blankWarn = todo.length
-    ? `<p style="color:var(--warn);margin:0 0 8px">\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. They will print as dashed gaps in the issued Word file. You can fill them in after issuing by reopening the draft.</p>`
+    ? `<p style="color:var(--warn);margin:0 0 8px">\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. Each will print in the issued file as its prompt in square brackets, which a contractor will see. Fill them in first unless you mean to issue it incomplete.</p>`
     : '';
   const ok = await D.confirmDanger({
-    title: 'Finalise and issue this specification',
+    title: 'Issue this specification',
     message: `Issue ${state.job.project_no}${state.job.revision ? ' ' + state.job.revision : ''}?`,
-    detail: blankWarn + 'Struck clauses will be removed from the Word export. The job will be locked against accidental edits — a principal can reopen the draft at any time.',
-    undoNote: 'A principal can reopen the draft at any time using the Reopen button in the header.',
+    detail: blankWarn + 'A copy of the wording as it stands right now is stored against this revision. Later changes to the firm\u2019s wording will not alter what this revision says. Struck clauses and struck sections are not in the file.',
+    undoNote: 'A principal can reopen the draft. The stored copy of this issue is kept either way.',
     confirmText: 'Issue',
   });
   if (!ok) return;
   try {
     const now = new Date().toISOString();
+    const set = buildIssueSet();
+    /* Snapshot FIRST. If this fails the job stays a draft, which is the safe
+       direction — an issued job with no stored copy is the whole defect. */
+    await sb.insert('sg_job_snapshot', [{
+      job_id: state.job.id, revision: state.job.revision || '', issued_at: now,
+      issued_by: state.me ? state.me.id : null,
+      header: set.header, sections: set.sections, toc: set.toc,
+      standards: state.jobStds.filter(s => !s.struck),
+      closeouts: state.jobCloseouts.filter(c => c.included && !c.struck),
+    }]);
     await sb.update('sg_job', `id=eq.${state.job.id}`, { status: 'issued', issued_at: now, updated_at: now });
     state.job.status = 'issued'; state.job.issued_at = now;
     const li = state.jobs.find(j => j.id === state.job.id); if (li) li.status = 'issued';
+    await loadSnapshots();
     render();
-    msg('Issued. The job is now locked. Download the Word file from the header.');
+    msg('Issued. A copy of this revision is stored. Download the Word file from the header.');
   } catch (e) { fail(e); }
+}
+
+/* Every issue ever made for this job, newest first. */
+async function loadSnapshots() {
+  try {
+    state.snapshots = await sb.select('sg_job_snapshot',
+      `select=*&job_id=eq.${state.job.id}&order=issued_at.desc`);
+  } catch { state.snapshots = []; }
 }
 
 async function reopen() {
@@ -1226,8 +1283,8 @@ async function reopen() {
   const ok = await D.confirmDanger({
     title: 'Reopen this job as a draft',
     message: `Reopen ${state.job.project_no}${state.job.revision ? ' ' + state.job.revision : ''}?`,
-    detail: 'The job returns to draft status. The previous issue is not deleted — download the Word file before making changes if you need a record of what was issued.',
-    undoNote: 'Finalise again when the revised job is ready to issue.',
+    detail: 'The job goes back to draft so it can be edited. The copy stored when it was issued is kept and cannot be altered \u2014 change the revision before issuing again, or the new issue will sit under the same revision number as the old one.',
+    undoNote: 'Issue it again when the revised job is ready.',
     confirmText: 'Reopen',
   });
   if (!ok) return;
