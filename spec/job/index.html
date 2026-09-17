@@ -306,6 +306,7 @@ const state = {
   me: null, role: 'inspector',
   view: 'list',            // 'list' | 'job'
   scopeProject: null,      // set when arrived from a Hub project
+  changes: [], receipts: [],   // firm changes since this job started, and what it did about them
   snapshots: [],           // every issue ever made for the open job, newest first
   jobQuery: '',            // flat-list search text
   jobs: [], job: null,
@@ -349,10 +350,19 @@ const blanksIn = body => {
 const blankDef = key => state.blanks.find(b => b.key === key) || { key, label: key, prompt: key, kind: 'text', optional: false };
 const blankValue = key => (state.jobBlanks.find(b => b.blank_key === key) || {}).value || '';
 
+/* The wording this JOB uses for a clause. Normally the firm's live wording —
+   that is the whole point of a job reading the master. The exception is a
+   change this job declined: it keeps what it had, stored as an override, and
+   everything downstream must read through here or the decline is cosmetic. */
+const bodyFor = r => {
+  const j = state.jobClauses.find(x => x.clause_id === r.id);
+  return (j && j.body_override) ? j.body_override : (r.body || '');
+};
+
 /* Paint a clause body: escape first, THEN swap the markers, so nothing in a
    clause body can inject markup through this path. */
 function paintBody(r) {
-  const raw = escapeHtml(r.body);
+  const raw = escapeHtml(bodyFor(r));
   return raw.replace(BLANK_RE, (_, k) => {
     const v = blankValue(k), d = blankDef(k);
     return v
@@ -367,7 +377,7 @@ function paintBody(r) {
    same as the screen — so an incomplete document is visibly incomplete in the
    contractor's copy instead of shipping a raw ⟦marker⟧. */
 function plainBody(r) {
-  return String(r.body || '').replace(BLANK_RE, (_, k) => {
+  return String(bodyFor(r)).replace(BLANK_RE, (_, k) => {
     const v = blankValue(k), d = blankDef(k);
     return v || `[${d.prompt || d.label}]`;
   });
@@ -378,7 +388,7 @@ function outstanding() {
   const seen = new Set(), out = [];
   for (const r of state.clauses) {
     if (isStruck(r.id)) continue;
-    for (const k of blanksIn(r.body)) {
+    for (const k of blanksIn(bodyFor(r))) {
       if (seen.has(k)) continue;
       seen.add(k);
       const d = blankDef(k);
@@ -442,7 +452,7 @@ async function loadJobs() {
 }
 
 async function loadJob(id) {
-  const [job, jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots] = await Promise.all([
+  const [job, jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots, changes, receipts] = await Promise.all([
     sb.select('sg_job', `select=*&id=eq.${id}`),
     sb.select('sg_job_package', `select=*&job_id=eq.${id}`),
     sb.select('sg_job_section', `select=*&job_id=eq.${id}`),
@@ -451,9 +461,11 @@ async function loadJob(id) {
     sb.select('sg_job_standard', `select=*&job_id=eq.${id}&order=sort_order,designation`),
     sb.select('sg_job_closeout', `select=*&job_id=eq.${id}&order=sort_order`),
     sb.select('sg_job_snapshot', `select=*&job_id=eq.${id}&order=issued_at.desc`),
+    sb.select('sg_change', 'select=*&order=created_at.desc'),
+    sb.select('sg_change_receipt', `select=*&job_id=eq.${id}`),
   ]);
   if (!job.length) throw new Error('That job no longer exists.');
-  Object.assign(state, { job: job[0], jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots });
+  Object.assign(state, { job: job[0], jobPkgs, jobSecs, jobClauses, jobBlanks, jobStds, jobCloseouts, snapshots, changes, receipts });
   await loadClausesForJob();
   await loadUsedBefore();
 }
@@ -634,7 +646,7 @@ function renderLeft() {
   const secBlock = s => {
     const cl = state.clauses.filter(c => c.section_id === s.id && !isStruck(c.id));
     const need = new Set(), got = new Set();
-    cl.forEach(c => blanksIn(c.body).forEach(k => {
+    cl.forEach(c => blanksIn(bodyFor(c)).forEach(k => {
       const d = blankDef(k);
       if (d.optional) return;
       need.add(k); if (blankValue(k)) got.add(k);
@@ -828,6 +840,107 @@ async function saveBlank(key, value) {
   } catch (e) { fail(e); renderMid(); }
 }
 
+/* ── firm changes since this job started ──────────────────────────────────
+   A job reads the firm's wording live, so a reworded clause is ALREADY in this
+   job the moment it is saved. That makes "take it" the default and declining
+   the real decision: declining pins the wording this job had, as an override.
+   An issued job is frozen by its snapshot and is never disturbed by any of it. */
+const changesForJob = () => {
+  if (!state.job || isLocked()) return [];
+  const started = state.job.created_at || '';
+  const mine = new Set(jobSectionIds());
+  return (state.changes || []).filter(ch => {
+    if (started && ch.created_at && ch.created_at < started) return false;
+    if (ch.target_id) {
+      const c = state.clauses.find(x => x.id === ch.target_id);
+      if (!c || !mine.has(c.section_id) || isStruck(c.id)) return false;
+    }
+    return true;
+  });
+};
+const receiptFor = id => (state.receipts || []).find(r => r.change_id === id);
+const unseenChanges = () => changesForJob().filter(ch => !receiptFor(ch.id));
+
+function changeBanner() {
+  const n = unseenChanges().length;
+  if (!n) return '';
+  return `<div class="banner" id="chbanner" role="button" tabindex="0">
+    <span class="chip warn">${n} updated</span>
+    <span>The firm's wording changed since this job started.
+      <span class="mini">Open to see what changed and decide what this job does.</span></span></div>`;
+}
+
+async function openChangeTray() {
+  const D = await Dlg();
+  const list = changesForJob();
+  if (!list.length) { msg('Nothing has changed since this job started.'); return; }
+  const pick = await D.pickList({
+    title: 'Firm changes since this job started',
+    icon: '\u21bb', accent: 'info', width: 560,
+    message: 'A change to the firm\u2019s wording is already in this job. Declining pins the wording this job had instead.',
+    items: list.map(ch => {
+      const r = receiptFor(ch.id);
+      return { id: ch.id, label: ch.summary,
+        sub: r
+          ? (r.state === 'declined' ? `Kept this job\u2019s wording \u2014 ${r.reason || 'no reason given'}` : 'Taken into this job')
+          : (ch.mandatory ? 'Required by the firm' : 'Not decided yet') };
+    }),
+    cancelText: 'Close',
+  });
+  if (!pick) return;
+  const ch = list.find(c => c.id === pick);
+  if (ch) await decideChange(ch);
+}
+
+async function decideChange(ch) {
+  const D = await Dlg();
+  if (receiptFor(ch.id)) { msg('This job has already decided on that change.'); return; }
+  if (ch.mandatory) { await recordChange(ch, 'applied', null); msg('Taken in \u2014 the firm marked it required.'); return; }
+  const out = await D.form({
+    title: ch.summary, icon: '\u21bb', accent: 'slate', width: 620,
+    message: (ch.before_text && ch.after_text)
+      ? `Was:\n${ch.before_text}\n\nNow:\n${ch.after_text}`
+      : 'This wording is already in the job. Keep it, or pin what this job had before.',
+    fields: [
+      { key: 'what', label: 'What this job does', type: 'select', value: 'applied',
+        options: [
+          { value: 'applied',  label: 'Take the firm\u2019s new wording' },
+          { value: 'declined', label: 'Keep the wording this job had' },
+        ] },
+      { key: 'reason', label: 'Reason, if keeping the old wording', type: 'textarea',
+        placeholder: 'e.g. issued for tender before the change; the contractor priced the earlier wording' },
+    ],
+    submitText: 'Save',
+  });
+  if (!out) return;
+  if (out.what === 'declined' && !(out.reason || '').trim()) {
+    msg('A declined change needs a reason \u2014 it explains why this document differs from the firm\u2019s.', true);
+    return;
+  }
+  await recordChange(ch, out.what, (out.reason || '').trim() || null);
+}
+
+async function recordChange(ch, verdict, reason) {
+  try {
+    await sb.upsert('sg_change_receipt', [{
+      change_id: ch.id, job_id: state.job.id, state: verdict,
+      reason, acted_by: state.me ? state.me.id : null, acted_at: new Date().toISOString(),
+    }]);
+    /* Declining pins what this job had. The override is what bodyFor() reads —
+       without that read, a decline would be a note with no effect. */
+    if (verdict === 'declined' && ch.target_id && ch.before_text) {
+      const row = state.jobClauses.find(x => x.clause_id === ch.target_id);
+      await sb.upsert('sg_job_clause', [{
+        job_id: state.job.id, clause_id: ch.target_id,
+        struck: row ? !!row.struck : false, body_override: ch.before_text,
+      }]);
+    }
+    await loadJob(state.job.id);
+    render();
+    msg(verdict === 'declined' ? 'This job keeps its own wording.' : 'Taken into this job.');
+  } catch (e) { fail(e); }
+}
+
 /* ── right: what still needs answering, and why the clause says what it says ── */
 function renderRight() {
   const el = $('#right');
@@ -835,7 +948,7 @@ function renderRight() {
   const r = state.clauses.find(c => c.id === state.sel);
 
   if (!r) {
-    el.innerHTML = `<h3>Still to answer${todo.length ? ' \u00b7 ' + todo.length : ''}</h3>
+    el.innerHTML = `${changeBanner()}<h3>Still to answer${todo.length ? ' \u00b7 ' + todo.length : ''}</h3>
       ${todo.length ? `<div class="todo-list">${todo.map(t =>
         `<button data-goto="${t.clause}" data-k="${escapeHtml(t.key)}">${escapeHtml(t.def.label)}
           <span class="mini" style="display:block">${escapeHtml(t.def.prompt || '')}</span></button>`).join('')}</div>`
@@ -845,14 +958,19 @@ function renderRight() {
     return;
   }
 
-  const keys = blanksIn(r.body);
+  const keys = blanksIn(bodyFor(r));
   const focus = state.focusBlank && keys.includes(state.focusBlank) ? state.focusBlank : keys[0];
   const d = focus ? blankDef(focus) : null;
   const used = focus ? (state.usedBefore[focus] || []) : [];
   const typ = focus ? state.typicals.filter(t => t.blank_key === focus) : [];
   const struck = isStruck(r.id);
+  const jc = state.jobClauses.find(x => x.clause_id === r.id);
+  const overridden = !!(jc && jc.body_override);
 
   el.innerHTML = `
+    ${overridden ? `<div class="banner"><span class="chip warn">own wording</span>
+      <span>This job kept its earlier wording for this clause instead of the firm's.
+        ${isLocked() ? '' : '<button class="btn" id="undooverride" style="margin-top:8px">Use the firm\'s wording</button>'}</span></div>` : ''}
     ${d ? `<h3>${escapeHtml(d.label)}</h3>
       ${typ.length ? `<div class="mini" style="margin-bottom:7px">Typical wording. Tap to take one, then change whatever this job needs.</div>
         <div class="used typical">${typ.map(t =>
@@ -883,6 +1001,10 @@ function renderRight() {
 }
 
 function wireRight(el) {
+  const bn = $('#chbanner', el);
+  if (bn) { bn.onclick = openChangeTray; bn.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') openChangeTray(); }; }
+  const ov = $('#undooverride', el);
+  if (ov) ov.onclick = () => clearOverride(state.sel);
   $$('[data-goto]', el).forEach(b => b.onclick = () => {
     state.sel = b.dataset.goto; state.focusBlank = b.dataset.k;
     renderMid(); renderRight();
@@ -895,6 +1017,22 @@ function wireRight(el) {
     : () => saveBlank(state.focusBlank, b.dataset.use));
   const c = $('#cutclause', el); if (c) c.onclick = () => toggleClause(state.sel);
   const p = $('#propose', el); if (p) p.onclick = () => proposeClause(state.sel);
+}
+
+/* Put a clause back on the firm's live wording. The receipt stays — the record
+   that this job once declined the change is history, not a setting. */
+async function clearOverride(clauseId) {
+  const row = state.jobClauses.find(x => x.clause_id === clauseId);
+  if (!row) return;
+  try {
+    await sb.upsert('sg_job_clause', [{
+      job_id: state.job.id, clause_id: clauseId,
+      struck: !!row.struck, body_override: null,
+    }]);
+    await loadJob(state.job.id);
+    render();
+    msg('Back on the firm\u2019s wording.');
+  } catch (e) { fail(e); }
 }
 
 /* ══ job edits ════════════════════════════════════════════════════════════ */
@@ -1238,7 +1376,7 @@ async function finalise() {
   const D = await Dlg();
   const todo = outstanding();
   const blankWarn = todo.length
-    ? `<p style="color:var(--warn);margin:0 0 8px">\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. Each will print in the issued file as its prompt in square brackets, which a contractor will see. Fill them in first unless you mean to issue it incomplete.</p>`
+    ? `\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. Each prints in the issued file as its prompt in square brackets, which a contractor will see. Fill them in first unless you mean to issue it incomplete.\n\n`
     : '';
   const ok = await D.confirmDanger({
     title: 'Issue this specification',
