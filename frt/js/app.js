@@ -3940,9 +3940,12 @@ function boot() {
       // S129: wait on fastPathDone so loadIDBSnapshot has set _lastSeen*
       // before pull() starts (lets pull() do a proper 3-way merge if needed).
       return fastPathDone.then(function() {
-        // Initial load — adopt cloud (S263 gate bypassed; the fast-path IDB
-        // snapshot sets _lastSeen* for the 3-way merge, and on first load there
-        // is no in-progress local edit to protect).
+        // S263 said: initial load adopts cloud, "on first load there is no
+        // in-progress local edit to protect". S729 retires that premise —
+        // the fast path renders a real document BEFORE this pull returns, and
+        // a person can type into it in that window. The mode is decided
+        // below from what the model actually holds. The fast-path IDB
+        // snapshot still sets _lastSeen* so the merge has its base.
         // S608: time-bound. A stalled pull is NOT an empty cloud — the retry
         // loop keeps asking, and new-project creation below is gated off.
         /* S676 — EXCEPT when the fast path found this device's own newer
@@ -3953,13 +3956,31 @@ function boot() {
            entries both survive, field by field. The S626b skeleton concern
            does not apply: the injected model here is a real saved document
            carrying its S646 keystroke stamps, never the default skeleton. */
+        /* S729 — THE GATE IS "DOES THE MODEL HOLD A REAL SAVED DOCUMENT",
+           not "is this boot" and not only "is this device's copy newer".
+           Adopt mode replaces the model wholesale. That is correct exactly
+           when there is nothing real in memory to protect — a cold device
+           with no snapshot. Whenever the fast path has already rendered a
+           saved document (the last cloud agreement, or this device's own
+           newer copy), the pull runs the same per-item entry-time merge the
+           30s heartbeat runs all day: identical outcome when nothing was
+           typed, and anything typed in the second between paint and
+           pull-return survives instead of being wiped. A blank skeleton is
+           not a real document (S626b) and still adopts — that check is the
+           engine's own _isBlankSnapshot, one implementation. */
+        var _heldDoc = (Model && Model.getProject) ? Model.getProject() : null;
+        var _holdsReal = !!(_heldDoc && _heldDoc.id &&
+          !(SyncEngine._isBlankSnapshot && SyncEngine._isBlankSnapshot(_heldDoc)));
+        var _bootPullOpts = (_holdsReal || window._frtBootOwnNewer) ? {} : { allowStaleOverwrite: true };
+        try { console.log('[FRT v2] Boot pull mode: ' + (_bootPullOpts.allowStaleOverwrite ? 'ADOPT (no real document in memory)' : 'MERGE (real document held)')); } catch (_) {}
         return _bootStep('cloud-pull',
           SyncEngine.pull(_projectId, instanceId,
-            /* I-14 EXCEPTION 2 — boot, own-newer detection (S676). Merge mode
-               whenever this device holds provably later work; adopt only when
-               it does not. S698 holds cloud writes if the local copy is
-               unreadable rather than adopting over work it cannot see. */
-            window._frtBootOwnNewer ? {} : { allowStaleOverwrite: true }),
+            /* I-14 EXCEPTION 2 — boot. S676 merged when this device held
+               provably later work; S729 merges whenever it holds a real
+               document at all, and adopts only into an empty model. S698
+               holds cloud writes if the local copy is unreadable rather than
+               adopting over work it cannot see. */
+            _bootPullOpts),
           20000
         ).then(function (r) {
           _bootPullTimedOut = r.timedOut;
