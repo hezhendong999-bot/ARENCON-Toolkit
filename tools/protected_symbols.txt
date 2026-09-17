@@ -1328,3 +1328,8 @@ MPShell
 # the S728 one-shot flag is gone. Removing either symbol reopens the five-row
 # "issued on device, draft in cloud" failure.
 _doIssue
+# ── S729 — one live copy per deficiency id across all lists (Owner-approved via
+# independent review lock, 16 Sep 2026). reassignDeficiency stamps the moved pin;
+# _dedupDeficiencyLists arbitrates at the load funnel (setProject/applyMerged).
+# Removing it re-opens the 7155.34 dual-pin resurrection.
+_dedupDeficiencyLists

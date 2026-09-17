@@ -510,6 +510,64 @@ function _stripBlobUrls(proj) {
   return copy;
 }
 
+// ── S729: Deficiency list invariant — ONE live copy per id across all lists ──
+// A pin lives in exactly one list: a contractor's deficiencies[] or
+// generalDeficiencies[]. reassignDeficiency moves it atomically, but the
+// merge has no such rule: nested per-item LWW runs on each list separately,
+// treats an absence as "not yet seen", and restores a moved pin to the list it
+// left while the destination keeps the live copy. Found in production on
+// 7155.34 #2 and #3 — four pins, each in two lists, renumbered independently.
+//
+// This is the missing rule, applied at the single funnel every load passes
+// through (setProject / applyMerged). For any id present more than once:
+//   • the copy with the newest _ts is kept — reassignDeficiency stamps the
+//     pin it moves, so the destination copy is the newer one;
+//   • an exact tie is NOT decided here. Guessing direction from pin numbers
+//     or list type would be a rule nobody could audit; both copies stay and
+//     the collision is reported loudly so it can be repaired by hand.
+// Pure: no save, no notify. Returns the number of copies removed.
+function _dedupDeficiencyLists(proj) {
+  if (!proj) return 0;
+  var byId = {};
+  function _stampOf(d) { var t = d && d._ts; t = (typeof t === 'string') ? Number(t) : t; return (typeof t === 'number' && isFinite(t)) ? t : 0; }
+  function _visit(owner, key) {
+    var arr = owner && owner[key];
+    if (!Array.isArray(arr)) return;
+    for (var i = 0; i < arr.length; i++) {
+      var d = arr[i];
+      if (!d || !d.id) continue;
+      (byId[d.id] = byId[d.id] || []).push({ owner: owner, key: key, idx: i, ts: _stampOf(d) });
+    }
+  }
+  (proj.contractors || []).forEach(function(c) { _visit(c, 'deficiencies'); });
+  _visit(proj, 'generalDeficiencies');
+
+  var removed = 0, ties = [];
+  Object.keys(byId).forEach(function(id) {
+    var refs = byId[id];
+    if (refs.length < 2) return;
+    var max = -Infinity;
+    refs.forEach(function(r) { if (r.ts > max) max = r.ts; });
+    var newest = refs.filter(function(r) { return r.ts === max; });
+    if (newest.length !== 1) { ties.push(id); return; }     // undecidable — keep all, report
+    refs.forEach(function(r) {
+      if (r === newest[0]) return;
+      r.owner[r.key][r.idx] = null;                          // mark; compact below
+      removed++;
+    });
+  });
+  if (removed > 0) {
+    (proj.contractors || []).forEach(function(c) {
+      if (Array.isArray(c.deficiencies)) c.deficiencies = c.deficiencies.filter(function(d) { return d !== null; });
+    });
+    if (Array.isArray(proj.generalDeficiencies)) proj.generalDeficiencies = proj.generalDeficiencies.filter(function(d) { return d !== null; });
+  }
+  if (ties.length) {
+    try { console.error('[Model S729] DUPLICATE DEFICIENCY — same id in more than one list with identical stamps; cannot decide which is current. Both copies kept. Repair by hand. ids: ' + ties.join(', ')); } catch (_) {}
+  }
+  return removed;
+}
+
 // ── S115: Drawing auto-dedup (ported from v1) ────────────────
 // v1 logic: keep first occurrence, drop later duplicates by name.
 // v2 enhancement: folder-scoped (folder|name) so the same name in
@@ -1231,6 +1289,10 @@ export var Model = {
     if (_dedupRemoved > 0) {
       console.log('[Model] AutoDedup: removed ' + _dedupRemoved + ' duplicate drawing(s) (' + proj.drawings.length + ' remaining)');
     }
+    /* S729 — same funnel, same reason: a pin may exist in exactly one list. */
+    var _dupPins = 0;
+    try { _dupPins = _dedupDeficiencyLists(proj); } catch (_dp) { console.warn('[Model S729] pin dedup skipped', _dp); }
+    if (_dupPins > 0) console.log('[Model S729] Removed ' + _dupPins + ' stale duplicate pin cop' + (_dupPins === 1 ? 'y' : 'ies') + ' left behind by a merge');
 
     _project = proj;
     _dirty = false;
@@ -1293,6 +1355,8 @@ export var Model = {
   applyMerged: function(mergedProj) {
     if (!mergedProj) return null;
     try { _migrateProjectR2Hosts(mergedProj); } catch(_e){ console.warn('[Model] r2 host migrate skipped (merge)', _e); }
+    /* S729 — a merge is exactly where a pin gets restored to the list it left. */
+    try { var _mdp = _dedupDeficiencyLists(mergedProj); if (_mdp > 0) console.log('[Model S729] merge: removed ' + _mdp + ' stale duplicate pin cop' + (_mdp === 1 ? 'y' : 'ies')); } catch (_dm) {}
     _project = mergedProj;
     _dirty = true;
     // S284b: a merge is exactly when stale-client resurrection happens —
@@ -4761,6 +4825,14 @@ export var Model = {
       _project.generalDeficiencies = _project.generalDeficiencies.filter(function(d) { return d.id !== deficId; });
     }
     // Add to new contractor (or general if null)
+    /* S729 — THE MOVE IS AN ENTRY AND IS STAMPED AS ONE. Before this, the pin
+       kept the _ts it had before the move, so a device holding the pre-move
+       copy saw two rows with the same id and the SAME stamp — one in each
+       list — and nothing could say which was current. Every dual pin found in
+       production (7155.34 #2/#3) had identical stamps on both copies for
+       exactly this reason. Stamping here makes the destination copy the
+       newer one, which is what _dedupDeficiencyLists arbitrates on at load. */
+    _entryStamp(defic);
     if (newCtrId) {
       var ctr = _project.contractors.find(function(c) { return c.id === newCtrId; });
       if (!ctr) return false;
