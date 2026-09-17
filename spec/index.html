@@ -564,6 +564,13 @@ async function loadSystemKeys() {
   } catch { SYS_KEYS = []; SYS_NAME = {}; }
 }
 
+/* Repaginating measures every row in the DOM. On the whole master that is a
+   multi-second freeze, and the click that caused it looks like it did nothing.
+   Tagging and insurer filters change NOTHING about this page — the library
+   shows the whole master regardless — so they only repaginate when a review
+   filter is actually selecting on the thing that changed. */
+const repaginateIf = cond => { if (cond) renderPage(); };
+
 async function toggleTag(id, key) {
   if (!canEdit()) return;
   const r = state.clauses.find(c => c.id === id);
@@ -573,7 +580,7 @@ async function toggleTag(id, key) {
   try {
     await sb.update('sg_clause', `id=eq.${id}`, { system_tags: next, updated_at: new Date().toISOString() });
     r.system_tags = next;
-    renderInspector(); renderPage();
+    renderInspector(); repaginateIf(state.revFilter === 'untagged');
   } catch (e) { msg(e.message || 'Could not save the tag.', true); }
 }
 
@@ -587,7 +594,7 @@ async function setJobFlag(id, on) {
     await sb.update('sg_clause', `id=eq.${id}`, { basis: on ? 'job-specific?' : null,
       updated_at: new Date().toISOString() });
     r.basis = on ? 'job-specific?' : null;
-    renderInspector(); renderPage();
+    renderInspector(); repaginateIf(state.revFilter === 'flagged');
     msg(on ? 'Flagged — it will show under the review filter.' : 'Cleared.');
   } catch (e) { msg(e.message || 'Could not save.', true); }
 }
@@ -605,7 +612,7 @@ async function setInsurerReq(id, val) {
     await sb.update('sg_clause', `id=eq.${id}`, { insurer_req: next,
       updated_at: new Date().toISOString() });
     r.insurer_req = next;
-    renderInspector(); renderPage();
+    renderInspector();
     msg(next ? `Insurer filter set to ${next}.` : 'Insurer filter cleared — prints on all jobs.');
   } catch (e) { msg(e.message || 'Could not save.', true); }
 }
@@ -1076,10 +1083,18 @@ $('#railBody').addEventListener('click', e => {
   if (sw) {
     const tag = sw.dataset.tag;
     state.systems[tag] = state.systems[tag] === false;
-    renderRail(); renderPage();
+    renderRail();
+    /* This one really does change the page, so it really does repaginate.
+       Say so first and yield a frame, or the wait reads as a dead click. */
     msg(state.systems[tag] === false
-      ? 'System excluded — its section is out of the document.'
-      : 'System included.');
+      ? 'Removing the system from the document\u2026'
+      : 'Adding the system back\u2026');
+    requestAnimationFrame(() => setTimeout(() => {
+      renderPage();
+      msg(state.systems[tag] === false
+        ? 'System excluded \u2014 its section is out of the document.'
+        : 'System included.');
+    }, 0));
     return;
   }
   const row = e.target.closest('.sec');
