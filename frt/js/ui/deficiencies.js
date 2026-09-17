@@ -4645,6 +4645,35 @@ function _crbtFlushPhotos(comp, deficId, obsIdx, entryId, who) {
     //    the URL) has no R2 — the dataUrl in IDB is the whole record, which is
     //    correct and complete for that mode.
     if (!pid) return;
+
+    /* S729 — ON THE OUTBOX, LIKE EVERY OTHER PHOTO. This path used to PUT
+       straight to R2: a dropped connection in a basement failed once, flagged
+       the record, and never retried — the only photo path in the tool that
+       could lose a photograph to signal. The outbox stores the blob, retries
+       with backoff, patches r2Key/r2Url onto the record when the PUT lands
+       (photoOutbox._findPhotoInProject now walks thread photos), and the next
+       push carries the key. The direct PUT below survives only as the fallback
+       for a build where the outbox is disabled. */
+    if (BinaryOutbox && BinaryOutbox.isEnabled && BinaryOutbox.isEnabled()) {
+      BinaryOutbox.enqueue({
+        photo: ph, projectId: pid, deficId: deficId, obsIdx: obsIdx, type: 'original'
+      }).then(function(rowId) {
+        console.log('[CRB] thread photo enqueued to BinaryOutbox:', rowId, 'photo:', ph.id);
+      }).catch(function(err) {
+        var live0 = Model.findThreadPhoto(deficId, obsIdx, entryId, ph.id);
+        if (live0) {
+          live0._r2UploadFailed = true;
+          live0._r2UploadError = (err && err.message) || String(err);
+          live0._r2UploadFailedAt = new Date().toISOString();
+          try { Model.saveNow(); } catch (_) {}
+        }
+        console.warn('[CRB] thread photo enqueue failed:', err, 'photo:', ph.id);
+        var em0 = (err && err.message) || 'unknown error';
+        if (em0.length > 60) em0 = em0.slice(0, 57) + '\u2026';
+        toast('\u26A0 Photo could not be queued for upload: ' + em0 + ' \u2014 the photo is saved on this device.', 8000);
+      });
+      return;
+    }
     R2.upload(pid, 'original', st.file, 'crb_' + ph.id + '.jpg').then(function(res) {
       // Re-resolve by id — the thread may have re-rendered during the PUT, so a
       // held object reference could be stale (writing to it would write to a

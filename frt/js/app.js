@@ -1143,7 +1143,13 @@ function _updateHeaderForProject() {
   if (pbBadge) {
     var rev = (proj.info && proj.info.revision) || 'A01';
     var parsed = ledgerParse(rev);
-    var st = !parsed ? 'DRAFT' : (parsed.issued ? 'ISSUED' : (parsed.onIssue ? 'REVISION' : 'DRAFT'));
+    /* S729 — ISSUED is decided by _s700IsIssued(), the same predicate that
+       locks the screen and drives the banner, so badge and lock can no longer
+       disagree. Before, the badge parsed the revision letter: a B-revision with
+       status 'draft' read ISSUED while every field was still editable. The
+       letter grammar is still what tells REVISION (B01A02) from DRAFT. */
+    var st = _s700IsIssued() ? 'ISSUED'
+           : (parsed && parsed.onIssue) ? 'REVISION' : 'DRAFT';
     pbBadge.textContent = st;
     var colors = { DRAFT: '#E67E22', ISSUED: '#1A7A4A', REVISION: '#E67E22' };
     pbBadge.style.background = colors[st] || '#E67E22';

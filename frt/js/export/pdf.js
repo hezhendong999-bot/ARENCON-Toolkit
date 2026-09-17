@@ -3267,7 +3267,16 @@ function _captureExportPDF(w,D){
       /* S725: WHAT THIS PDF SAID — issued copies only (§4). The answer is not
          known until the pre-ask above, which is why the record is written here
          and not on the Export tap. A failure here must never cost the export. */
-      try{ if(_issuedCopy) _frtRecordExportSnapshot(); }catch(_snap){try{console.error('[S725 snapshot]',_snap);}catch(_e4){}}
+      /* S729 — AND THE REPORT MUST ACTUALLY BE ISSUED. The pre-ask decides the
+         watermark and the thread soft-lock; it does not make a draft issued.
+         The only export record in production was written for revision B04A01
+         — a draft on top of an issued copy — because someone chose "Issued
+         copy" on a working revision. The record now requires the same
+         predicate that locks the screen (proj.status). The server-side
+         trg_snapshot_on_issue archive in tool_data_history remains the
+         authoritative issued copy; this record is per-print provenance. */
+      var _reallyIssued=false; try{ _reallyIssued=!!(window.FRT_ISSUED_LOCKED&&window.FRT_ISSUED_LOCKED()); }catch(_ri){}
+      try{ if(_issuedCopy&&_reallyIssued) _frtRecordExportSnapshot(); }catch(_snap){try{console.error('[S725 snapshot]',_snap);}catch(_e4){}}
       try{
         if(typeof _expId==='string'&&_expId&&Model.registerExport){
           Model.registerExport(_expId,!!_issuedCopy);
