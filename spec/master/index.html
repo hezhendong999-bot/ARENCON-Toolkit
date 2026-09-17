@@ -318,13 +318,19 @@ async function editStd(s, defaults) {
       { key: 'pkgs', label: 'Rides with these systems — tick none to cite it on every job', type: 'multi',
         value: fresh ? (s.package_id ? [s.package_id] : []) : stdPkgIds(s.id),
         options: state.packages.map(p => ({ value: p.id, label: p.name })) },
+      { key: 'print_section_id', label: 'Prints in this section, under its References article',
+        type: 'select', value: s.print_section_id || '',
+        options: [{ value: '', label: '— 01 41 00 Regulatory Requirements (default)' }]
+          .concat(state.sections.filter(x => x.active !== false)
+            .map(x => ({ value: x.id, label: `${x.code} ${x.title}` }))) },
     ],
     submitText: fresh ? 'Add' : 'Save',
   });
   if (!out) return;
   const row = { designation: out.designation.trim(), edition: (out.edition || '').trim(), title: (out.title || '').trim(),
     source: out.source, province: out.source === 'code' ? (out.province || null) : null,
-    insurer: out.source === 'insurer' ? (out.insurer || null) : null, active: out.active === 'y', updated_at: new Date().toISOString() };
+    insurer: out.source === 'insurer' ? (out.insurer || null) : null, active: out.active === 'y',
+    print_section_id: out.print_section_id || null, updated_at: new Date().toISOString() };
   try {
     let sid = s.id;
     if (fresh) { row.package_id = null; const r = await sb.insert('sg_standard', row); sid = (r && r[0] && r[0].id) || null; }

@@ -166,6 +166,7 @@ h3:first-child{margin-top:0}
    and the dashed gap for a blank. */
 .ln.cut .tx,.ln.cut .num{color:#a6a1af;text-decoration:line-through}
 .ln.pick{cursor:pointer;border-radius:3px}
+.ln.cited{cursor:default}
 .ln.pick:hover{background:rgba(201,71,106,.06);box-shadow:0 0 0 5px rgba(201,71,106,.06)}
 .fx{border-bottom:1.5px dashed #9C2742;padding:0 3px;cursor:text;border-radius:2px;
   background:rgba(156,39,66,.07);white-space:pre-wrap}
@@ -764,6 +765,43 @@ function coRow(c) {
 }
 
 /* ── middle: the document, drawn by the shared engine ──────────────────── */
+/* Standards and closeout requirements are part of the document, not a side
+   panel. They print inside the section they were assigned to, under its
+   References / Closeout Submittals article, and only when a package that cites
+   them is on the job. They are built as rows so derived numbering treats them
+   exactly like any other clause — no separate numbering scheme to drift. */
+function citedRowsFor(sectionId) {
+  const out = [];
+  const anchor = (name) => (state.clauses.find(c =>
+    c.section_id === sectionId && c.kind === 'article' && c.body === name) || {}).id;
+
+  const refId = anchor('References');
+  if (refId) {
+    state.jobStds
+      .filter(s => !s.struck && s.print_section_id === sectionId)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0) ||
+                       String(a.designation).localeCompare(String(b.designation)))
+      .forEach((s, i) => out.push({
+        id: `std:${s.id}`, section_id: sectionId, parent_id: refId,
+        sort_order: (i + 1) * 10, kind: 'clause', system_tags: [], _cited: true,
+        body: [s.designation, s.edition, s.title].filter(Boolean).join(', '),
+      }));
+  }
+
+  const coId = anchor('Closeout Submittals');
+  if (coId) {
+    state.jobCloseouts
+      .filter(c => c.included && !c.struck && c.print_section_id === sectionId)
+      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      .forEach((c, i) => out.push({
+        id: `co:${c.id}`, section_id: sectionId, parent_id: coId,
+        sort_order: (i + 1) * 10, kind: 'clause', system_tags: [], _cited: true,
+        body: c.body,
+      }));
+  }
+  return out;
+}
+
 function docConfig() {
   const ids = jobSectionIds();
   const secs = state.sections
@@ -772,14 +810,15 @@ function docConfig() {
   const j = state.job;
   return {
     sections: secs,
-    rowsFor: id => state.clauses.filter(c => c.section_id === id && clauseOnThisJob(c)),
+    rowsFor: id => state.clauses.filter(c => c.section_id === id && clauseOnThisJob(c))
+      .concat(citedRowsFor(id)),
     header: {
       client: j.client, doc_title: j.doc_title, site: j.site, city: j.city,
       project_no: j.project_no, revision: j.revision, issue_date: j.issue_date,
     },
     logo: LOGO_SRC,
     bodyHtml: paintBody,
-    rowClass: r => ['pick',
+    rowClass: r => [r._cited ? 'cited' : 'pick',
       isStruck(r.id) || isSecStruck(r.section_id) ? 'cut' : '',
       state.sel === r.id ? 'sel' : ''].filter(Boolean).join(' '),
     emptyNote: 'No wording written for this section yet.',
@@ -1111,6 +1150,7 @@ function normStd(s, packageId, i) {
     job_id: state.job.id, standard_id: s.id || null, package_id: packageId || null,
     designation: s.designation, edition: s.edition || '', title: s.title || '',
     source: s.source, struck: false, pinned: false, sort_order: (i + 1) * 10,
+    print_section_id: s.print_section_id || null,
   };
 }
 
@@ -1128,6 +1168,7 @@ async function togglePackage(pkgId) {
       if (cos.length) await sb.insert('sg_job_closeout', cos.map((c, i) => ({
         job_id: state.job.id, closeout_id: c.id, package_id: pkgId, body: c.body,
         included: !!c.default_on, struck: false, pinned: false, sort_order: (i + 1) * 10,
+        print_section_id: c.print_section_id || null,
       })));
       state.open[pkgId] = true;
       msg(`${p.name} added — its sections, standards and closeout items came with it.`);
