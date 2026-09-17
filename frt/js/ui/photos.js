@@ -1819,17 +1819,14 @@ function _doBulkDelete() {
     toDelete.sort(function(a,b){ return b.idx - a.idx; });
     toDelete.forEach(function(d){
       Model.removeSitePhoto(d.idx);
-      // S481: route through the no-orphan-delete guard. User trash IS a
-      // deliberate delete (force:true), but still compute remaining refs so
-      // we never yank a key another live photo still shares, and only drop
-      // local bytes when nothing else references the image.
-      var _refs = (d.r2Key && Model.findPhotosByR2Key) ? Model.findPhotosByR2Key(d.r2Key).filter(function(s){ return s && s.photo; }).length : 0;
-      if (d.r2Key && R2 && R2.delPhotoGuarded) {
-        R2.delPhotoGuarded(d.r2Key, { force: (_refs === 0), refCount: _refs, photoId: d.id }).catch(function(){});
-      } else if (d.r2Key && R2 && R2.del && _refs === 0) {
-        R2.del(d.r2Key).catch(function(){});
-      }
-      if (d.id && _refs === 0) IDB.del('photoBlobs', d.id).catch(function(){});
+      /* S729 — TRASH TOUCHES NO BYTES. removeSitePhoto is a soft delete and
+         Restore (S265) brings the record back, so deleting the R2 object and
+         the local blob here left Restore returning a photo with nothing behind
+         it. It also fed the inverted R2 guard a count that included the row
+         just trashed, so a site original a pin still shared could lose its
+         bytes. The record goes to Recently Deleted; the bytes stay where they
+         are until the permanent delete / retention purge reclaims them — the
+         decided policy, and the only place a byte delete belongs. */
     });
     _toggleSelectMode(false);
     initPhotos.render();
