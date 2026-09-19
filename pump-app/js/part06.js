@@ -84,6 +84,193 @@ const S5 = [
 // ══════════════════════════════════════════════════
 const clState = {};  // { id: { status, comment, photos[], customText } }
 
+/* ── THE PUMPS IN THIS ROOM ──────────────────────────────────────────────
+   The roster is declared once, before any checklist is shown, and it is
+   what makes drive type a property of the MACHINE rather than of the tool.
+
+   Each entry is { id, name, type } where type is 'dsl' or 'ele'.
+
+   id is minted at creation and never reused or renumbered. A checklist
+   answer is filed against this id, so an id that moved would move somebody
+   else's answer with it — silently, onto a machine nobody looked at.
+   Removing pump 2 therefore leaves pump 3 as pump 3.
+
+   name is what the inspector reads off the placard, not our numbering. It
+   is seeded as Pump 1, Pump 2 and so on only so the row is never nameless.
+
+   activePumpId is which machine the screen is currently about. Everything
+   typed lands on it. It is a report value, not a device preference, so it
+   saves with the report. */
+var pumpRoster = [];
+var activePumpId = '';
+
+/* A new id. Time plus a random tail, because two tablets can add a pump to
+   the same report in the same second while offline, and two pumps sharing
+   an id is two machines sharing one set of answers. */
+function _pumpNewId(){
+  return 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+/* The active machine, or null. Callers must handle null: a roster is empty
+   until the start screen is answered, and inventing a default diesel here
+   is how an electric pump gets asked the diesel questions. */
+function activePump(){
+  for (var i = 0; i < pumpRoster.length; i++){
+    if (pumpRoster[i].id === activePumpId) return pumpRoster[i];
+  }
+  return null;
+}
+
+/* 'dsl' | 'ele' | ''. Empty means no machine is active yet — the checklist
+   renderer treats that as "ask nothing type-specific" rather than guessing. */
+function activePumpType(){
+  var p = activePump();
+  return p ? (p.type || '') : '';
+}
+
+/* Is this room a diesel room at all? Used where a check belongs to the
+   room but only exists because a diesel is in it. */
+function rosterHasDiesel(){
+  return pumpRoster.some(function(p){ return p.type === 'dsl'; });
+}
+
+/* ── THE START SCREEN ────────────────────────────────────────────────────
+   The first thing the tool asks, before any checklist is on screen: what
+   pumps are in this room, and what drives each one.
+
+   WHY IT IS FIRST AND NOT A TAB. The drive type decides which questions
+   get asked at all. Asked later, the questions would change under an
+   inspector who is already working through them — items appearing and
+   disappearing around a half-answered list. Asked first, every question
+   after it is the right one from the start. Owner ruling.
+
+   ONE TAP SETS THE TYPE. A pump in front of you is visibly diesel or
+   visibly electric; it is not an ambiguous choice and it is not
+   destructive, so it does not get a confirm. Removing a pump does, per
+   the universal rule.
+
+   IT IS A FIXED OVERLAY ON BODY, never a swap of the main wrap's
+   contents — the main wrap holds the whole report, and replacing it is
+   how a report gets emptied by a screen that was only meant to sit on
+   top of it. */
+
+function _pumpsSeedName(){
+  return 'Pump ' + (pumpRoster.length + 1);
+}
+
+/* Add a machine with no type chosen. Typeless is the honest starting
+   state: a default nobody picked is a decision nobody made, and it would
+   be collected into the report as though somebody had. */
+function pumpsAdd(){
+  pumpRoster.push({ id: _pumpNewId(), name: _pumpsSeedName(), type: '' });
+  pumpsRenderStart();
+}
+
+function pumpsSetType(id, type){
+  for (var i = 0; i < pumpRoster.length; i++){
+    if (pumpRoster[i].id === id){ pumpRoster[i].type = type; break; }
+  }
+  pumpsRenderStart();
+}
+
+function pumpsSetName(id, name){
+  for (var i = 0; i < pumpRoster.length; i++){
+    if (pumpRoster[i].id === id){ pumpRoster[i].name = name; break; }
+  }
+  /* No re-render on every keystroke — it would take the caret with it. */
+}
+
+function pumpsRemove(id){
+  var p = null;
+  for (var i = 0; i < pumpRoster.length; i++){ if (pumpRoster[i].id === id) p = pumpRoster[i]; }
+  if (!p) return;
+  _aConfirm('Remove ' + (p.name || 'this pump') + ' from this room?', function(){
+    pumpRoster = pumpRoster.filter(function(x){ return x.id !== id; });
+    if (activePumpId === id) activePumpId = pumpRoster.length ? pumpRoster[0].id : '';
+    pumpsRenderStart();
+  }, 'Remove');
+}
+
+/* Every pump needs a type before the checklist can be shaped. */
+function pumpsStartReady(){
+  return pumpRoster.length > 0 && pumpRoster.every(function(p){ return p.type === 'dsl' || p.type === 'ele'; });
+}
+
+function _pumpsEsc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function pumpsRenderStart(){
+  var host = document.getElementById('pumps-start-list');
+  if (!host) return;
+  var many = pumpRoster.length > 1;
+  host.innerHTML = pumpRoster.map(function(p){
+    return '<div class="pumps-row" data-pump="' + _pumpsEsc(p.id) + '">'
+      + '<input class="pumps-name" type="text" value="' + _pumpsEsc(p.name) + '"'
+      + ' aria-label="Pump name"'
+      + ' oninput="pumpsSetName(\'' + _pumpsEsc(p.id) + '\', this.value)">'
+      + '<div class="pumps-type">'
+      +   '<button type="button" class="pumps-tbtn' + (p.type === 'dsl' ? ' on' : '') + '"'
+      +   ' aria-pressed="' + (p.type === 'dsl' ? 'true' : 'false') + '"'
+      +   ' onclick="pumpsSetType(\'' + _pumpsEsc(p.id) + '\',\'dsl\')">DIESEL</button>'
+      +   '<button type="button" class="pumps-tbtn' + (p.type === 'ele' ? ' on' : '') + '"'
+      +   ' aria-pressed="' + (p.type === 'ele' ? 'true' : 'false') + '"'
+      +   ' onclick="pumpsSetType(\'' + _pumpsEsc(p.id) + '\',\'ele\')">ELECTRIC</button>'
+      + '</div>'
+      + (many ? '<button type="button" class="pumps-rm" aria-label="Remove this pump"'
+                + ' onclick="pumpsRemove(\'' + _pumpsEsc(p.id) + '\')">&times;</button>'
+              : '<span class="pumps-rm-gap"></span>')
+      + '</div>';
+  }).join('');
+  var go = document.getElementById('pumps-start-go');
+  if (go){
+    var ready = pumpsStartReady();
+    go.disabled = !ready;
+    go.classList.toggle('is-off', !ready);
+  }
+  var hint = document.getElementById('pumps-start-hint');
+  if (hint){
+    var un = pumpRoster.filter(function(p){ return !p.type; }).length;
+    hint.textContent = un ? (un === 1 ? 'One pump still needs a drive type.'
+                                      : un + ' pumps still need a drive type.')
+                          : '';
+  }
+}
+
+/* Leaving the start screen. The first pump becomes the active one, so the
+   checklist that appears is already about a named machine rather than
+   about nothing. */
+function pumpsStartDone(){
+  if (!pumpsStartReady()) return;
+  if (!activePumpId && pumpRoster.length) activePumpId = pumpRoster[0].id;
+  var ov = document.getElementById('pumps-start');
+  if (ov) ov.style.display = 'none';
+  document.body.classList.remove('pumps-start-open');
+  if (typeof renderChecklists === 'function') { try { renderChecklists(); } catch(e){} }
+  if (typeof updateProgress === 'function') { try { updateProgress(); } catch(e){} }
+  if (typeof debounceAutosave === 'function') { try { debounceAutosave(); } catch(e){} }
+}
+
+/* Shown at boot when the report has no roster yet. A report that already
+   names its pumps never sees this screen again — reopening a half-done
+   report must not re-ask a question that has been answered. */
+function pumpsStartMaybeShow(){
+  var ov = document.getElementById('pumps-start');
+  if (!ov) return;
+  if (pumpRoster.length){
+    ov.style.display = 'none';
+    document.body.classList.remove('pumps-start-open');
+    if (!activePumpId) activePumpId = pumpRoster[0].id;
+    return;
+  }
+  pumpRoster = [{ id: _pumpNewId(), name: 'Pump 1', type: '' }];
+  ov.style.display = 'flex';
+  document.body.classList.add('pumps-start-open');
+  pumpsRenderStart();
+}
+
 // ── Defic response-timeline photo handlers → lib/ui/deficiencies.js (S500) ──
 
 

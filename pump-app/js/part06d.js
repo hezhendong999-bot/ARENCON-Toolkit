@@ -1656,6 +1656,12 @@ window.addEventListener('load', () => {
   /* S596 — if this launch was an update swap, put the inspector back on the
      panel and scroll position they were on. No-op on a normal launch. */
   try { setTimeout(function(){ if(typeof _arcRestoreAfterUpdate==='function') _arcRestoreAfterUpdate(); }, 600); } catch(_) {}
+  /* The room's pumps are asked for once, and only when this report has
+     never been told. It runs AFTER the restore above so that reopening a
+     half-finished report does not re-ask a question already answered —
+     a second answer would mint new machine ids and orphan every answer
+     already filed against the first ones. */
+  try { setTimeout(function(){ if(typeof pumpsStartMaybeShow==='function') pumpsStartMaybeShow(); }, 700); } catch(_) {}
 });
 
 updateProgress();

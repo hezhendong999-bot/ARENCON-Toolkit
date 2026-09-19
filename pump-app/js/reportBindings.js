@@ -86,6 +86,12 @@ function dieselStateEnv(opts) {
            points at the discarded one. This file's own rule, caught by the
            round-trip probe rather than by reading it. */
         case 'appendixExcl':     return (typeof _appendixExcl !== 'undefined') ? _appendixExcl : new Set();
+        /* The pumps in this room, and which one the screen is about. Both are
+           REASSIGNED — removing a pump rebuilds the list — so they belong on
+           this side rather than in refs, where a captured reference would go
+           on pointing at the list from before the removal. */
+        case 'pumpRoster':       return (typeof pumpRoster !== 'undefined') ? pumpRoster : [];
+        case 'activePumpId':     return (typeof activePumpId !== 'undefined') ? activePumpId : '';
       }
       return undefined;
     },
@@ -96,6 +102,8 @@ function dieselStateEnv(opts) {
         case 'formRevision':     formRevision = v; return;
         case 'formDateModified': formDateModified = v; return;
         case 'contractorTrades': contractorTrades = v; return;
+        case 'pumpRoster':       if (Array.isArray(v)) pumpRoster = v; return;
+        case 'activePumpId':     activePumpId = v || ''; return;
       }
     },
 

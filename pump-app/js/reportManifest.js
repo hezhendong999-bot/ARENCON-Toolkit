@@ -138,6 +138,16 @@ var KEYS = [
     apply:   { kind: 'custom', fn: 'applyNoop' },
     note: 'Read by applyClState to decide the migration; declared so the key is accounted for.' },
 
+  { key: 'pumpRoster',
+    collect: { kind: 'deepCopy', ref: 'pumpRoster' },
+    apply:   { kind: 'scalar', ref: 'pumpRoster' },
+    note: 'The machines in this room, each { id, name, type }. Drive type is a property of the MACHINE, which is what lets one report cover a mixed room. Ids are minted once and never reused: a checklist answer is filed against an id, so a renumbered id moves somebody else\u2019s answer onto a machine nobody looked at. Applied as a scalar because removing a pump rebuilds the list rather than mutating it.' },
+
+  { key: 'activePumpId',
+    collect: { kind: 'scalar', ref: 'activePumpId' },
+    apply:   { kind: 'scalar', ref: 'activePumpId' },
+    note: 'Which machine the screen is currently about. A report value, not a device preference \u2014 reopening on another tablet should land on the same machine.' },
+
   { key: 'customItems',
     collect: { kind: 'deepCopy', ref: 'customItems' },
     apply:   { kind: 'objectMerge', ref: 'customItems' } },

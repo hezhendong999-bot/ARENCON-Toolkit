@@ -549,3 +549,121 @@ body[data-ptype="pld"] #perf-pld .fp-head .pt small{
   white-space:nowrap;
 }
 body.dark-mode #cloud-status #last-sync-text.is-stale{ color:#E0A36A; }
+
+/* ══ START SCREEN — WHAT PUMPS ARE IN THIS ROOM ══════════════════════════
+   A fixed overlay on body. Touch targets are sized for gloves; nothing
+   here depends on hover. Burgundy is the primary action only. */
+.pumps-start{
+  position:fixed; inset:0; z-index:10060;
+  display:none; align-items:center; justify-content:center;
+  background:#0b0a0d;
+  padding:24px 18px;
+  overflow-y:auto;
+  font-family:Calibri,sans-serif;
+}
+body.pumps-start-open{ overflow:hidden; }
+.pumps-start-card{
+  width:100%; max-width:560px;
+  background:#16151a;
+  border:1px solid rgba(255,255,255,.10);
+  border-radius:16px;
+  padding:30px 26px 26px;
+  box-shadow:0 18px 50px rgba(0,0,0,.55);
+}
+.pumps-start-card h1{
+  margin:0 0 6px;
+  font-family:Calibri,sans-serif;
+  font-size:calc(23px + var(--ts,0px));
+  font-weight:700;
+  color:#f4f3f6;
+  letter-spacing:.2px;
+}
+.pumps-start-sub{
+  margin:0 0 22px;
+  font-size:calc(14px + var(--ts,0px));
+  color:#a09aa8;
+  line-height:1.45;
+}
+.pumps-row{
+  display:flex; align-items:center; gap:10px;
+  margin-bottom:12px;
+}
+.pumps-name{
+  flex:1 1 auto; min-width:0;
+  height:52px;
+  padding:0 13px;
+  background:#0f0e12;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:9px;
+  color:#f4f3f6;
+  font-family:Calibri,sans-serif;
+  font-size:calc(15px + var(--ts,0px));
+}
+.pumps-name:focus{ outline:none; border-color:#C9476A; }
+.pumps-type{ display:flex; gap:7px; flex:0 0 auto; }
+.pumps-tbtn{
+  height:52px; min-width:94px;
+  padding:0 12px;
+  background:#0f0e12;
+  border:1px solid rgba(255,255,255,.14);
+  border-radius:9px;
+  color:#a09aa8;
+  font-family:Calibri,sans-serif;
+  font-size:calc(13px + var(--ts,0px));
+  font-weight:700;
+  letter-spacing:.6px;
+  cursor:pointer;
+  transition:background .15s, color .15s, border-color .15s;
+}
+.pumps-tbtn.on{
+  background:rgba(201,71,106,.16);
+  border-color:#C9476A;
+  color:#f4f3f6;
+}
+.pumps-rm{
+  flex:0 0 auto;
+  width:42px; height:52px;
+  background:transparent;
+  border:1px solid rgba(255,255,255,.12);
+  border-radius:9px;
+  color:#6b6674;
+  font-size:22px; line-height:1;
+  cursor:pointer;
+}
+.pumps-rm:hover{ color:#E26076; border-color:#E26076; }
+.pumps-rm-gap{ flex:0 0 auto; width:42px; }
+.pumps-add{
+  display:block; width:100%;
+  height:48px; margin-top:4px;
+  background:transparent;
+  border:1px dashed rgba(255,255,255,.20);
+  border-radius:9px;
+  color:#a09aa8;
+  font-family:Calibri,sans-serif;
+  font-size:calc(14px + var(--ts,0px));
+  font-weight:600;
+  cursor:pointer;
+}
+.pumps-add:hover{ color:#f4f3f6; border-color:rgba(255,255,255,.34); }
+.pumps-start-hint{
+  min-height:20px; margin:14px 0 4px;
+  font-size:calc(13px + var(--ts,0px));
+  color:#E0A36A;
+}
+.pumps-go{
+  width:100%; height:54px;
+  justify-content:center;
+  font-size:calc(15.5px + var(--ts,0px));
+  border-radius:9px;
+}
+.pumps-go.is-off{
+  background:rgba(255,255,255,.07)!important;
+  color:#6b6674!important;
+  cursor:not-allowed;
+}
+@media (max-width:520px){
+  .pumps-row{ flex-wrap:wrap; }
+  .pumps-name{ flex:1 1 100%; }
+  .pumps-type{ flex:1 1 auto; }
+  .pumps-tbtn{ flex:1 1 0; min-width:0; }
+}
