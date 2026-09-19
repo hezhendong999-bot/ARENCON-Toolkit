@@ -80,7 +80,48 @@ export var initJSONExport = {
           delete proj.signatures.sigInspectorData;
         }
 
+        /* S730 — A FILE IS NOT THE PROJECT. Before this, any JSON dropped on
+           a tablet became the live document in IndexedDB with no check that
+           it was even the same job, and the next merge treated it as this
+           device's work. Two gates in Hub mode (the same ?project= test
+           app.js uses), none of them a schema validator:
+           1. The document id in the file must be the document id the live
+              model carries (proj.id — what the model itself mints and
+              notifies with; live bodies carry no other identity). An export
+              of THIS report from any device passes; another job, or an old
+              export from before the row was recreated, does not.
+           2. The project number must match, so the refusal can say two
+              numbers a person recognises.
+           3. An issued report is never replaced from a file — the same
+              predicate that locks the screen decides.
+           Standalone may load anything, as before. After any load the model
+           is marked dirty: setProject clears the flag, and a replaced
+           document that the cloud has not seen is unsent work by definition. */
+        var _hubPid = null;
+        try { _hubPid = new URLSearchParams(window.location.search).get('project'); } catch (_) {}
+        if (_hubPid) {
+          var _live = Model.getProject();
+          var _liveNum = (_live && _live.info && _live.info.projectNumber) || '';
+          var _fileNum = (proj.info && proj.info.projectNumber) || '';
+          var _issued = false;
+          try { _issued = !!(window.FRT_ISSUED_LOCKED && window.FRT_ISSUED_LOCKED()); } catch (_) {}
+          if (_issued) {
+            toast('This report is issued. An issued report is not replaced from a file \u2014 use Issue \u2192 Revise. Nothing was loaded.', 8000);
+            return;
+          }
+          if (!_live || !_live.id || !proj.id || proj.id !== _live.id) {
+            toast('That file is not this report. File: ' + (_fileNum || 'unknown project') +
+                  ' \u2014 open: ' + (_liveNum || 'unknown project') + '. Nothing was loaded.', 9000);
+            return;
+          }
+          if (_fileNum && _liveNum && _fileNum !== _liveNum) {
+            toast('Project number differs. File: ' + _fileNum + ' \u2014 open: ' + _liveNum + '. Nothing was loaded.', 9000);
+            return;
+          }
+        }
+
         Model.setProject(proj);
+        try { if (Model.touch) Model.touch(); } catch (_) {}   /* S730: a loaded file is unsent work */
         Model.saveNow();
         toast('Loaded: ' + Model.getSmartFilename());
 

@@ -2150,6 +2150,11 @@ function _showRemoteUpdateBanner(remoteTs){
 
 function _pushToCloud() {
   if (!_hubMode || !_projectId) return;
+  /* S730 — the auth server has refused a token refresh: no push can succeed
+     until the person signs in again. Say so where every other sync error is
+     said, and hold. _pushDirty is preserved; the work is on this device and
+     goes up after the next sign-in. Never sign out here, never clear anything. */
+  if (window._authSessionExpired) { _setCloudStatus('error', 'Session expired \u2014 sign in again'); return; }
   /* S676 — nothing pushes before the report exists on screen. _pushDirty is
      preserved; the barrier lift's stamp flush and the S155 safety push send
      held work with honest stamps once boot completes. */
@@ -2207,6 +2212,8 @@ function _pushToCloudNow() {
   /* S676 — same barrier as _pushToCloud; this is the door the heartbeat
      flush and the banner use, so it must hold on its own. */
   if (SyncEngine.bootApplied && !SyncEngine.bootApplied()) return;
+  /* S730 — dead session: same message, same hold, at this door too. */
+  if (window._authSessionExpired) { _setCloudStatus('error', 'Session expired \u2014 sign in again'); return; }
   /* S698 (F) — the local copy could not be read at boot, so this device does
      not know whether it is holding unsent work. Local saves continue to disk;
      cloud writes are HELD until a human resolves it. Pushing here could
@@ -3404,8 +3411,57 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S726b';
+var FRT_BUILD = 'S730';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
+
+/* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════
+   Until now a tablet that threw in a basement logged to a console nobody was
+   watching. Both global doors — a thrown error and an unhandled promise
+   rejection — now write one row to sync_diag through the SAME writer every
+   other diagnostic uses (_frtSyncDiag, hoisted from above), as
+   event 'client_error'. No new table, no new endpoint, no observation text,
+   no photo bytes, no tokens: message, stack, build, url, when. A crash loop
+   is throttled — an identical message repeats at most once per 30 s and the
+   page sends at most 20 rows per load — so a render error cannot flood the
+   table. Nothing here can throw into the page: every step is wrapped. */
+(function _frtErrorDoor() {
+  var _seen = {}, _sent = 0, _MAX = 20, _WINDOW = 30000;
+  function _report(kind, message, stack, extra) {
+    try {
+      if (_sent >= _MAX) return;
+      var msg = String(message || 'unknown').slice(0, 500);
+      var now = Date.now();
+      if (_seen[msg] && (now - _seen[msg]) < _WINDOW) return;
+      _seen[msg] = now; _sent++;
+      var detail = {
+        kind: kind, message: msg,
+        stack: String(stack || '').slice(0, 2000),
+        build: FRT_BUILD,
+        url: (function () { try { return location.pathname + location.search; } catch (_) { return ''; } })(),
+        at: new Date().toISOString()
+      };
+      if (extra) { for (var k in extra) { if (extra.hasOwnProperty(k)) detail[k] = extra[k]; } }
+      try { console.error('[FRT-ERROR]', kind, msg); } catch (_) {}
+      if (typeof _frtSyncDiag === 'function') _frtSyncDiag('client_error', detail);
+    } catch (_) {}
+  }
+  try {
+    window.addEventListener('error', function (ev) {
+      try {
+        var e = ev && ev.error;
+        _report('error', (e && e.message) || (ev && ev.message) || 'error',
+                e && e.stack, { source: ev && ev.filename, line: ev && ev.lineno, col: ev && ev.colno });
+      } catch (_) {}
+    });
+    window.addEventListener('unhandledrejection', function (ev) {
+      try {
+        var r = ev && ev.reason;
+        _report('unhandledrejection', (r && r.message) || String(r || 'rejection'), r && r.stack,
+                { code: (r && r.code) || undefined, status: (r && r.status) || undefined });
+      } catch (_) {}
+    });
+  } catch (_) {}
+})();
 /* ═══════════════════════════════════════════════════════════════════════
    S524 (Mark) — the drawing-viewer chrome buttons are ONE shared button.
 
@@ -4410,7 +4466,14 @@ function _doIssue(newRev) {
   /* Not on a re-issue. The date of issue PRINTS, so restamping it would move
      the words — and the next press would then mint a number after all,
      defeating the rule this branch exists to honour. */
-  if (!_reIssue) proj.info.dateOfIssue = new Date().toISOString().substring(0, 10);
+  /* S730 — THE TORONTO DATE, NOT THE UTC ONE. toISOString() is UTC; after
+     8 pm Eastern that is tomorrow's date on a client document, and the PDF
+     header stamps its own date in local time, so cover and title block could
+     disagree. ARENCON operates in Eastern time; the date of issue is the
+     calendar date in Mississauga when Issue was pressed. en-CA with 2-digit
+     parts yields YYYY-MM-DD, the shape every reader of this field expects. */
+  if (!_reIssue) proj.info.dateOfIssue = new Date().toLocaleDateString('en-CA',
+    { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' });
   proj.status = 'issued';
   _recordVersionMove(proj, newRev, true);   /* S724 — rides the same write */
 
