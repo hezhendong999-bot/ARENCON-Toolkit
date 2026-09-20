@@ -510,6 +510,80 @@ function _stripBlobUrls(proj) {
   return copy;
 }
 
+// ── S730: DELETE TOMBSTONES — a delete is a recorded act, not an absence ──
+// The merge treats contractors, both deficiency lists and observations as
+// keyed lists and never deletes on absence (that is doctrine, and it is what
+// keeps a photo from vanishing because one tablet had not seen it yet). The
+// cost was that a pin, an observation or a contractor DELETED on one tablet
+// came back when a second tablet that still held it next synced. Photos and
+// drawings already soft-delete and are immune; these three lists spliced.
+//
+// The ledger: proj.tombstones = [{ id:'kind:target', kind, target, delAt, _ts }].
+// It is a keyed list in _LWW_SPECS.frt and in _GUARDED_ARRAY_FIELDS, so it
+// unions across devices like every other id-keyed array and a shorter cloud
+// copy cannot drop it. Nothing is ever removed from it except by Undo.
+//
+// The sweep runs at the load funnel (setProject / applyMerged) — after the
+// merge, before any reader — and removes every list item whose id the
+// ledger names. Readers never see a tombstone and never had to learn to skip
+// one: ~110 walk sites are untouched. Convergence: a stale device that pushes
+// the item back also pulls the ledger back on its next sync, sweeps, and
+// pushes clean. A pin's last observation is never swept (the model already
+// refuses to remove it), so a pin cannot be left with no words.
+function _tombstoneAdd(proj, kind, target) {
+  if (!proj || !kind || !target) return;
+  if (!Array.isArray(proj.tombstones)) proj.tombstones = [];
+  var key = kind + ':' + target;
+  for (var i = 0; i < proj.tombstones.length; i++) {
+    if (proj.tombstones[i] && proj.tombstones[i].id === key) return;   // already recorded
+  }
+  var t = { id: key, kind: kind, target: String(target), delAt: new Date().toISOString() };
+  _entryStamp(t);
+  proj.tombstones.push(t);
+}
+function _tombstoneRemove(proj, kind, target) {
+  if (!proj || !Array.isArray(proj.tombstones)) return;
+  var key = kind + ':' + target;
+  proj.tombstones = proj.tombstones.filter(function(t) { return !(t && t.id === key); });
+}
+function _sweepTombstones(proj) {
+  var ts = proj && proj.tombstones;
+  if (!Array.isArray(ts) || !ts.length) return 0;
+  var defIds = {}, obsIds = {}, ctrIds = {};
+  ts.forEach(function(t) {
+    if (!t || !t.target) return;
+    if (t.kind === 'defic') defIds[t.target] = 1;
+    else if (t.kind === 'obs') obsIds[t.target] = 1;
+    else if (t.kind === 'ctr') ctrIds[t.target] = 1;
+  });
+  var removed = 0;
+  var anyObs = Object.keys(obsIds).length > 0;
+  if (Array.isArray(proj.contractors) && Object.keys(ctrIds).length) {
+    var cb = proj.contractors.length;
+    proj.contractors = proj.contractors.filter(function(c) { return !(c && ctrIds[c.id]); });
+    removed += cb - proj.contractors.length;
+  }
+  function sweepList(owner, key) {
+    var arr = owner && owner[key];
+    if (!Array.isArray(arr)) return;
+    var b = arr.length;
+    var out = arr.filter(function(d) { return !(d && defIds[d.id]); });
+    if (out.length !== b) { owner[key] = out; removed += b - out.length; }
+    if (!anyObs) return;
+    out.forEach(function(d) {
+      if (!d || !Array.isArray(d.observations)) return;
+      var ob = d.observations.length;
+      var o2 = d.observations.filter(function(o) { return !(o && obsIds[o.id]); });
+      if (o2.length === ob) return;
+      if (o2.length === 0) return;               // never sweep a pin's last observation
+      d.observations = o2; removed += ob - o2.length;
+    });
+  }
+  (proj.contractors || []).forEach(function(c) { sweepList(c, 'deficiencies'); });
+  sweepList(proj, 'generalDeficiencies');
+  return removed;
+}
+
 // ── S729: Deficiency list invariant — ONE live copy per id across all lists ──
 // A pin lives in exactly one list: a contractor's deficiencies[] or
 // generalDeficiencies[]. reassignDeficiency moves it atomically, but the
@@ -1293,6 +1367,10 @@ export var Model = {
     var _dupPins = 0;
     try { _dupPins = _dedupDeficiencyLists(proj); } catch (_dp) { console.warn('[Model S729] pin dedup skipped', _dp); }
     if (_dupPins > 0) console.log('[Model S729] Removed ' + _dupPins + ' stale duplicate pin cop' + (_dupPins === 1 ? 'y' : 'ies') + ' left behind by a merge');
+    /* S730 — anything this report's tombstone ledger names is gone before any reader looks. */
+    var _swept = 0;
+    try { _swept = _sweepTombstones(proj); } catch (_sw) { console.warn('[Model S730] tombstone sweep skipped', _sw); }
+    if (_swept > 0) console.log('[Model S730] Swept ' + _swept + ' tombstoned item' + (_swept === 1 ? '' : 's') + ' a merge had restored');
 
     _project = proj;
     _dirty = false;
@@ -1357,6 +1435,7 @@ export var Model = {
     try { _migrateProjectR2Hosts(mergedProj); } catch(_e){ console.warn('[Model] r2 host migrate skipped (merge)', _e); }
     /* S729 — a merge is exactly where a pin gets restored to the list it left. */
     try { var _mdp = _dedupDeficiencyLists(mergedProj); if (_mdp > 0) console.log('[Model S729] merge: removed ' + _mdp + ' stale duplicate pin cop' + (_mdp === 1 ? 'y' : 'ies')); } catch (_dm) {}
+    try { var _msw = _sweepTombstones(mergedProj); if (_msw > 0) console.log('[Model S730] merge: swept ' + _msw + ' tombstoned item' + (_msw === 1 ? '' : 's')); } catch (_ds) {}
     _project = mergedProj;
     _dirty = true;
     // S284b: a merge is exactly when stale-client resurrection happens —
@@ -1426,6 +1505,7 @@ export var Model = {
     var idx = _project.contractors.findIndex(function(c) { return c.id === ctrId; });
     if (idx >= 0) {
       this.declareIntentionalClear('contractor deleted');   /* S524e */
+      _tombstoneAdd(_project, 'ctr', ctrId);   /* S730 */
       _project.contractors.splice(idx, 1);
       _dirty = true;
       _queueSave();
@@ -1462,7 +1542,8 @@ export var Model = {
     var ctr = _project.contractors[idx];
     var moved = (ctr.deficiencies || []).slice(); // shallow copy
     if (!_project.generalDeficiencies) _project.generalDeficiencies = [];
-    moved.forEach(function(d) { _project.generalDeficiencies.push(d); });
+    moved.forEach(function(d) { _entryStamp(d); _project.generalDeficiencies.push(d); });   /* S730: a move is stamped, as in reassignDeficiency */
+    _tombstoneAdd(_project, 'ctr', ctrId);   /* S730 — the contractor is deleted; its pins are moved, not deleted */
     _project.contractors.splice(idx, 1);
     _dirty = true;
     _queueSave();
@@ -1725,6 +1806,7 @@ export var Model = {
     var obs = f.defic.observations || [];
     if (obs.length <= 1) return; // Never remove the last observation
     if (obsIdx < 0 || obsIdx >= obs.length) return;
+    if (obs[obsIdx] && obs[obsIdx].id) _tombstoneAdd(_project, 'obs', obs[obsIdx].id);   /* S730 */
     obs.splice(obsIdx, 1);
     _dirty = true;
     _queueSave();
@@ -4594,6 +4676,7 @@ export var Model = {
       contractorId: f.contractor ? f.contractor.id : null
     });
     if (_undoStack.length > 20) _undoStack.shift();
+    _tombstoneAdd(_project, 'defic', deficId);   /* S730 — a delete is a record, not an absence */
     f.arr.splice(f.idx, 1);
     _dirty = true;
     _queueSave();
@@ -4611,6 +4694,7 @@ export var Model = {
     if (!_undoStack.length || !_project) return null;
     var entry = _undoStack.pop();
     if (entry.type === 'deleteDefic') {
+      _tombstoneRemove(_project, 'defic', entry.defic && entry.defic.id);   /* S730 — undo is the one thing that lifts a tombstone */
       if (entry.contractorId) {
         var ctr = (_project.contractors || []).find(function(c) { return c.id === entry.contractorId; });
         if (ctr) {

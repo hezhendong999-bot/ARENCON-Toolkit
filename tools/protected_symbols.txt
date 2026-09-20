@@ -1333,3 +1333,8 @@ _doIssue
 # _dedupDeficiencyLists arbitrates at the load funnel (setProject/applyMerged).
 # Removing it re-opens the 7155.34 dual-pin resurrection.
 _dedupDeficiencyLists
+# ── S730 — delete tombstones (Owner-approved via independent review lock, 19 Sep
+# 2026). A delete on one tablet must not resurrect on another. Ledger at
+# proj.tombstones, swept at the load funnel. Removing these reopens the class.
+_tombstoneAdd
+_sweepTombstones
