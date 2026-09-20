@@ -399,6 +399,43 @@ function outstanding() {
   return out;
 }
 
+/* Pre-issue gate (S14). Everything that would go out wrong if the Word file
+   were built right now, as sentences a spec writer can act on. finalise()
+   refuses to issue while this list is non-empty. It reads only what the job
+   already stores — no second tagging system, no new columns. Four checks:
+     1. a blank that will print has no answer (and is not optional)
+     2. a section on the job would print with nothing in it
+     3. a standard that will print has no edition
+     4. a standard or closeout points at a print section that is not on the job
+        (or at nothing) — it would print nowhere and nobody would notice */
+function issueBlockers() {
+  const out = [];
+  const cfg = docConfig();
+  const live = cfg.sections.filter(s => !isSecStruck(s.id));
+  const on = new Set(live.map(s => s.id));
+  const name = id => { const s = state.sections.find(x => x.id === id); return s ? `${s.code} ${s.title}` : 'a section'; };
+  for (const b of outstanding()) {
+    out.push(`Blank \u201c${b.def.label || b.def.prompt || b.key}\u201d has no answer. It would print as a prompt in square brackets.`);
+  }
+  for (const s of live) {
+    const rows = state.clauses.filter(c => c.section_id === s.id && clauseOnThisJob(c) && !isStruck(c.id));
+    if (!rows.length) out.push(`${s.code} ${s.title} is on the job with no wording in it. Take it out, or write it.`);
+  }
+  for (const s of state.jobStds) {
+    if (s.struck) continue;
+    if (!String(s.edition || '').trim()) out.push(`${s.designation} has no edition. The reference list would cite it undated.`);
+    if (!s.print_section_id) out.push(`${s.designation} has no section to print in.`);
+    else if (!on.has(s.print_section_id)) out.push(`${s.designation} prints in ${name(s.print_section_id)}, which is not on this job, so it would print nowhere.`);
+  }
+  for (const c of state.jobCloseouts) {
+    if (!c.included || c.struck) continue;
+    const t = String(c.body || 'A closeout item').slice(0, 60);
+    if (!c.print_section_id) out.push(`Closeout \u201c${t}\u201d has no section to print in.`);
+    else if (!on.has(c.print_section_id)) out.push(`Closeout \u201c${t}\u201d prints in ${name(c.print_section_id)}, which is not on this job, so it would print nowhere.`);
+  }
+  return out;
+}
+
 const isStruck = id => !!(state.jobClauses.find(c => c.clause_id === id) || {}).struck;
 
 /* FAIL OPEN. A clause with no system tag prints wherever its section prints —
@@ -1415,14 +1452,23 @@ function buildIssueSet() {
 
 async function finalise() {
   const D = await Dlg();
-  const todo = outstanding();
-  const blankWarn = todo.length
-    ? `\u26a0\ufe0f ${todo.length} blank${todo.length === 1 ? '' : 's'} still unanswered. Each prints in the issued file as its prompt in square brackets, which a contractor will see. Fill them in first unless you mean to issue it incomplete.\n\n`
-    : '';
+  /* The gate. Nothing issues with a red item on it. The list is the fix list;
+     the button comes back on its own when the list is empty. */
+  const stop = issueBlockers();
+  if (stop.length) {
+    const shown = stop.slice(0, 12).map(s => '\u2022 ' + s);
+    if (stop.length > 12) shown.push(`\u2026and ${stop.length - 12} more.`);
+    await D.alert({
+      title: 'Not ready to issue', icon: '\u26a0', accent: 'fail',
+      message: `${stop.length} thing${stop.length === 1 ? '' : 's'} would go out wrong in the Word file. Fix ${stop.length === 1 ? 'it' : 'them'} and issue again.\n\n` + shown.join('\n'),
+      okText: 'Back to the job',
+    });
+    return;
+  }
   const ok = await D.confirmDanger({
     title: 'Issue this specification',
     message: `Issue ${state.job.project_no}${state.job.revision ? ' ' + state.job.revision : ''}?`,
-    detail: blankWarn + 'A copy of the wording as it stands right now is stored against this revision. Later changes to the firm\u2019s wording will not alter what this revision says. Struck clauses and struck sections are not in the file.',
+    detail: 'A copy of the wording as it stands right now is stored against this revision. Later changes to the firm\u2019s wording will not alter what this revision says. Struck clauses and struck sections are not in the file.',
     undoNote: 'A principal can reopen the draft. The stored copy of this issue is kept either way.',
     confirmText: 'Issue',
   });
