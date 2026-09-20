@@ -136,6 +136,24 @@ async function main() {
   }
   console.log(`[r2-reclaim] ${current.length} current rows → ${referenced.size} referenced filenames`);
 
+  /* S730 — ISSUED SNAPSHOTS ARE LEGAL COPIES AND HOLD THEIR KEYS.
+     trg_snapshot_on_issue archives the full body to tool_data_history with
+     snapshot_reason='issued' the moment a report is issued. That archive is
+     the record of what left the firm. If the live report is later revised
+     and a photograph removed from it, the live body no longer references the
+     key — but the issued copy still does, and the PDF that went to the client
+     shows it. Until this block, such a key would be listed as reclaimable.
+     Every key an issued snapshot references is added to the reference set,
+     so it can never appear as a candidate while that snapshot exists. */
+  console.log('[r2-reclaim] adding legal hold: every key referenced by an ISSUED snapshot in tool_data_history…');
+  const issuedSnaps = await rest('tool_data_history?snapshot_reason=eq.issued&select=hist_id,row_id,project_id,tool_key,instance_number,data');
+  const beforeHold = referenced.size;
+  for (const s of issuedSnaps) {
+    try { harvest(s.data, referenced); }
+    catch (e) { console.warn('[r2-reclaim] issued-snapshot harvest skip', s.hist_id, e && e.message); }
+  }
+  console.log(`[r2-reclaim] ${issuedSnaps.length} issued snapshots → +${referenced.size - beforeHold} keys under legal hold (${referenced.size} referenced total)`);
+
   console.log('[r2-reclaim] reading tombstone list (delete snapshots in tool_data_history)…');
   const snaps = await rest('tool_data_history?snapshot_reason=eq.delete&select=hist_id,row_id,project_id,tool_key,instance_number,snapshot_at,data&order=snapshot_at.asc');
 
