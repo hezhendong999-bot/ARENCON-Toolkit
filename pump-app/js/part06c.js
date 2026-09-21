@@ -1493,6 +1493,43 @@ const SAVE_KEY = 'arencon_pump_v10';
 // Revision system
 let formRevision = 'R00';
 let formDateModified = '';
+
+/* ── THE LEDGER (S732 — versioning port, step 2) ─────────────────────────────
+   Every version this report has had, oldest first. The current number is
+   DERIVED from this list by the shared engine, never read from a counter —
+   which is what makes a hole or a skip impossible rather than discouraged.
+   formRevision above stays for now as the legacy single field; step 4 of the
+   port makes every displayed version come from here (ruling §10).
+
+   reportStatus is 'draft' or 'issued' and travels INSIDE the body, as FRT's
+   does, because the single-write issue function reads it from the body. The
+   database column is the lock; this is what the tool says about itself.
+
+   A report that predates the ledger is seeded from whatever revision it
+   carries and marked INFERRED: the history before that entry is not known
+   and is not invented. The pump tools' legacy seed 'R00' is not in the
+   grammar, so it becomes A01 — correct, because no pump report has ever been
+   issued (live database, S731 audit: 27 rows, all draft). */
+var reportVersions = [];
+var reportStatus = 'draft';
+
+function _pumpLedger(){
+  if (!Array.isArray(reportVersions) || !reportVersions.length){
+    var VS = window.VersionSeq;
+    if (VS && typeof VS.seedLedger === 'function'){
+      /* The legacy pump seed is 'R00'. In the shared grammar the letters B..Z
+         are ISSUED series, so 'R00' would seed as an issued copy with R01
+         next — a report that was never issued would boot locked. Proved in
+         the S732 build proof, not guessed. No pump report has ever been
+         issued (live database, S731 audit), so any R-series label on a pump
+         report is the legacy seed and means "first draft": A01. */
+      var legacy = String(formRevision || '').trim();
+      var seedFrom = /^R\d+$/i.test(legacy) ? 'A01' : (legacy || 'A01');
+      reportVersions = VS.seedLedger(seedFrom);
+    }
+  }
+  return reportVersions;
+}
 function addContractorField() {
   const container = document.getElementById('contractor-fields');
   if(!container) return;

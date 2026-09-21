@@ -25,6 +25,13 @@
     import { toast as _libToast } from '/lib/shared/toast.js';
     import { lockScroll as _libLock, unlockScroll as _libUnlock } from '/lib/shared/scrollLock.js';
     import { ARENCON_LOGO } from '/lib/assets/logo.js';
+    /* S732 — THE VERSIONING ENGINE. The same numbering grammar FRT runs
+       (A01 → B01 → B01A01 → B02), from the one shared implementation in
+       lib/. Published whole so the classic scripts can call it; nothing here
+       re-implements a rule. Per LOCKED_REPORT_VERSIONING.md every displayed
+       version comes from the ledger, never from a stored counter. */
+    import * as _VersionSeq from '/lib/data/versionSeq.js';
+    window.VersionSeq = _VersionSeq;
     window.ArenconDlg = Dlg;
     window.ArenconDlgDef = function(family){ return dialogDefaults('diesel', family); };
     /* S505: shared Help engine + Diesel's own help cards. The engine is locked

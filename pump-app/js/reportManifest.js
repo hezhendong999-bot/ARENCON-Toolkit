@@ -148,6 +148,16 @@ var KEYS = [
     apply:   { kind: 'scalar', ref: 'activePumpId' },
     note: 'Which machine the screen is currently about. A report value, not a device preference \u2014 reopening on another tablet should land on the same machine.' },
 
+  { key: 'versions',
+    collect: { kind: 'deepCopy', ref: 'versions' },
+    apply:   { kind: 'scalar', ref: 'versions' },
+    note: 'S732 \u2014 the version ledger: every A and B this report has had, oldest first, per LOCKED_REPORT_VERSIONING.md. The current number is derived from this list by lib/data/versionSeq.js, never stored as a counter. Applied as a scalar because the engine returns new arrays. The pull-path stale-copy guard protects this key by name (lib/data/sync.js _GUARDED_ARRAY_FIELDS), so a shorter cloud copy can never delete an issue from the record.' },
+
+  { key: 'status',
+    collect: { kind: 'scalar', ref: 'status' },
+    apply:   { kind: 'scalar', ref: 'status' },
+    note: 'S732 \u2014 draft | issued, carried INSIDE the body as FRT carries it, because the single-write issue function reads status from the body and writes the database column in the same stroke. The column is the lock; this is the report\u2019s own account of itself and the two must never disagree for longer than one request.' },
+
   { key: 'customItems',
     collect: { kind: 'deepCopy', ref: 'customItems' },
     apply:   { kind: 'objectMerge', ref: 'customItems' } },

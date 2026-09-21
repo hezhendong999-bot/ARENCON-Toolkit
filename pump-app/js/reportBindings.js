@@ -92,6 +92,12 @@ function dieselStateEnv(opts) {
            on pointing at the list from before the removal. */
         case 'pumpRoster':       return (typeof pumpRoster !== 'undefined') ? pumpRoster : [];
         case 'activePumpId':     return (typeof activePumpId !== 'undefined') ? activePumpId : '';
+        /* S732 — the ledger is REASSIGNED by every engine call (pure functions
+           return new arrays), so it lives here, not in refs. Seeded on read so
+           a report never reports an empty history: an empty ledger would make
+           the engine mint A01 as though nothing had ever existed. */
+        case 'versions':         return (typeof _pumpLedger === 'function') ? _pumpLedger() : [];
+        case 'status':           return (typeof reportStatus !== 'undefined' && reportStatus) ? reportStatus : 'draft';
       }
       return undefined;
     },
@@ -104,6 +110,12 @@ function dieselStateEnv(opts) {
         case 'contractorTrades': contractorTrades = v; return;
         case 'pumpRoster':       if (Array.isArray(v)) pumpRoster = v; return;
         case 'activePumpId':     activePumpId = v || ''; return;
+        /* S732 — an incoming ledger replaces the live one only if it is a real,
+           non-empty list. An empty or missing one must not blank the history
+           (the stale-copy guard in lib/data/sync.js also protects 'versions',
+           by name, on the pull path). */
+        case 'versions':         if (Array.isArray(v) && v.length) reportVersions = v; return;
+        case 'status':           reportStatus = (v === 'issued') ? 'issued' : 'draft'; return;
       }
     },
 
