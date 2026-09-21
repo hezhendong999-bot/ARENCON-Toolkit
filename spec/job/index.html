@@ -384,11 +384,18 @@ function plainBody(r) {
   });
 }
 
-/* Everything still unanswered on this job, in document order. */
+/* Everything still unanswered on this job, in document order.
+   ONLY blanks that will actually print. state.clauses holds every clause in
+   every section the job carries, which on a wet-only job still includes the
+   diesel-tagged rows of 21 05 00 — those never reach the page and must never
+   block an issue. Three skips, matching what buildIssueSet() puts in the file:
+   a clause the job's systems/insurer filter out, a struck clause, and any
+   clause inside a struck section (the whole section is dropped on export). */
 function outstanding() {
   const seen = new Set(), out = [];
   for (const r of state.clauses) {
-    if (isStruck(r.id)) continue;
+    if (!clauseOnThisJob(r)) continue;
+    if (isStruck(r.id) || isSecStruck(r.section_id)) continue;
     for (const k of blanksIn(bodyFor(r))) {
       if (seen.has(k)) continue;
       seen.add(k);
@@ -574,8 +581,18 @@ function renderChrome() {
   $('#finalise').hidden = !inJob || issued;
   $('#issuedbadge').hidden = !issued;
   $('#reopen').hidden = !issued || !isPrincipal();
+  /* The button says what the gate will say. Staff could previously read "0 to
+     answer" and still be refused by an empty edition or an orphan print
+     section. It stays ENABLED when dirty — the refusal dialog is the fix list,
+     so pressing it is how you find out what is wrong. */
   const n = outstanding().length;
   $('#bdg').textContent = n;
+  if (inJob && !issued) {
+    const stop = issueBlockers().length;
+    $('#finalise').innerHTML = stop
+      ? `Issue \u2014 ${stop} thing${stop === 1 ? '' : 's'} left`
+      : 'Finalise&hellip;';
+  }
 }
 
 /* ── the jobs list ─────────────────────────────────────────────────────── */
@@ -1191,6 +1208,42 @@ function normStd(s, packageId, i) {
   };
 }
 
+/* Closeouts on a system tick/untick. Standards get syncPackageStandards; this
+   is the same job for closeout items, and it is the fix for the known defect
+   where unticking a system DELETED its closeouts — including a line a
+   technologist had edited — instead of withdrawing them.
+   Untick withdraws (included:false). Tick brings back what is already there
+   and inserts only what is genuinely missing. `struck` stays the staff action
+   and is never touched here. A job-only line (closeout_id null, pinned true)
+   carries no package_id, so it is invisible to this function and survives. */
+async function syncPackageCloseouts(included) {
+  const derived = state.jobCloseouts.filter(c => c.package_id);
+  /* withdraw: belongs to a package that is no longer on the job */
+  const off = derived.filter(c => !included.has(c.package_id) && c.included);
+  for (const c of off) {
+    await sb.update('sg_job_closeout', `id=eq.${c.id}`, { included: false });
+    c.included = false;
+  }
+  /* restore: already on the job, its package is back, and the staff did not
+     strike it — a withdrawn row comes back rather than being inserted twice */
+  const back = derived.filter(c => included.has(c.package_id) && !c.included && !c.struck && c.pinned);
+  for (const c of back) {
+    await sb.update('sg_job_closeout', `id=eq.${c.id}`, { included: true });
+    c.included = true;
+  }
+  /* insert: a firm closeout for an included package with no row at all yet */
+  const have = new Set(derived.filter(c => c.closeout_id).map(c => c.closeout_id));
+  const add = state.firmCloseouts.filter(c => included.has(c.package_id) && !have.has(c.id));
+  if (add.length) {
+    await sb.insert('sg_job_closeout', add.map((c, i) => ({
+      job_id: state.job.id, closeout_id: c.id, package_id: c.package_id, body: c.body,
+      included: !!c.default_on, struck: false, pinned: false,
+      sort_order: (state.jobCloseouts.length + i + 1) * 10,
+      print_section_id: c.print_section_id || null,
+    })));
+  }
+}
+
 /* Ticking a system brings its sections, its standards and its closeout list
    with it — the Owner's bundle ruling. Unticking it puts them back. */
 async function togglePackage(pkgId) {
@@ -1201,12 +1254,7 @@ async function togglePackage(pkgId) {
     if (turningOn) {
       await sb.upsert('sg_job_package', [{ job_id: state.job.id, package_id: pkgId, included: true }]);
       await syncPackageStandards(includedAfter(pkgId, true));
-      const cos = state.firmCloseouts.filter(c => c.package_id === pkgId);
-      if (cos.length) await sb.insert('sg_job_closeout', cos.map((c, i) => ({
-        job_id: state.job.id, closeout_id: c.id, package_id: pkgId, body: c.body,
-        included: !!c.default_on, struck: false, pinned: false, sort_order: (i + 1) * 10,
-        print_section_id: c.print_section_id || null,
-      })));
+      await syncPackageCloseouts(includedAfter(pkgId, true));
       state.open[pkgId] = true;
       msg(`${p.name} added — its sections, standards and closeout items came with it.`);
     } else {
@@ -1215,13 +1263,13 @@ async function togglePackage(pkgId) {
         title: 'Take this system out',
         message: `Take ${p.name} out of this job?`,
         detail: 'Its sections leave the document, and the standards and closeout items it brought go with them.',
-        undoNote: 'Tick it again to bring the whole bundle back. Anything you typed into its blanks is kept and reappears.',
+        undoNote: 'Tick it again to bring the whole bundle back. Anything you typed into its blanks is kept, and a closeout item you edited or added by hand comes back with your wording.',
         confirmText: 'Take out',
       });
       if (!ok) return;
       await sb.del('sg_job_package', `job_id=eq.${state.job.id}&package_id=eq.${pkgId}`);
       await syncPackageStandards(includedAfter(pkgId, false));
-      await sb.del('sg_job_closeout', `job_id=eq.${state.job.id}&package_id=eq.${pkgId}`);
+      await syncPackageCloseouts(includedAfter(pkgId, false));
       delete state.open[pkgId];
       msg(`${p.name} taken out.`);
     }
@@ -1249,7 +1297,7 @@ async function toggleClause(clauseId) {
     if (row) row.struck = next;
     else state.jobClauses.push({ job_id: state.job.id, clause_id: clauseId, struck: next, body_override: null });
     render();
-    msg(next ? 'Struck through. It still prints until you finalise.' : 'Brought back.');
+    msg(next ? 'Taken out of this job. It stays on the page so you can see it. It is not in the Word file.' : 'Brought back. It will print again.');
   } catch (e) { fail(e); }
 }
 
@@ -1461,6 +1509,20 @@ async function finalise() {
     await D.alert({
       title: 'Not ready to issue', icon: '\u26a0', accent: 'fail',
       message: `${stop.length} thing${stop.length === 1 ? '' : 's'} would go out wrong in the Word file. Fix ${stop.length === 1 ? 'it' : 'them'} and issue again.\n\n` + shown.join('\n'),
+      okText: 'Back to the job',
+    });
+    return;
+  }
+  /* Two Word files must never both say B01. reopen() keeps every stored copy
+     on purpose, so re-issuing without changing the letter would leave two
+     different documents claiming to be the same revision — and a contractor
+     with no way to tell which one is current. The tool refuses the collision;
+     the principal types the next letter. No auto-bump, no third scheme. */
+  const rev = String(state.job.revision || '').trim();
+  if ((state.snapshots || []).some(s => String(s.revision || '').trim() === rev)) {
+    await D.alert({
+      title: 'That revision is already issued', icon: '\u26a0', accent: 'fail',
+      message: `${state.job.project_no}${rev ? ' ' + rev : ''} has already been issued and a copy of it is stored. Issuing again under the same ${rev ? 'letter' : 'blank revision'} would leave two different documents saying the same thing, and a contractor could not tell which is current.\n\nChange the revision in the job details, then issue again. The copy already stored is kept.`,
       okText: 'Back to the job',
     });
     return;
