@@ -535,23 +535,41 @@ function _tombstoneAdd(proj, kind, target) {
   if (!Array.isArray(proj.tombstones)) proj.tombstones = [];
   var key = kind + ':' + target;
   for (var i = 0; i < proj.tombstones.length; i++) {
-    if (proj.tombstones[i] && proj.tombstones[i].id === key) return;   // already recorded
+    var ex = proj.tombstones[i];
+    if (ex && ex.id === key) {
+      /* S730d — a row that was lifted by Undo and is now deleted again is
+         REVIVED in place: clear the lift, restamp. Same id, newer stamp wins
+         everywhere. Never a second row for the same target. */
+      if (ex.lifted) { delete ex.lifted; ex.delAt = new Date().toISOString(); _entryStamp(ex); }
+      return;
+    }
   }
   var t = { id: key, kind: kind, target: String(target), delAt: new Date().toISOString() };
   _entryStamp(t);
   proj.tombstones.push(t);
 }
-function _tombstoneRemove(proj, kind, target) {
+/* S730d — UNDO IS AN EVENT THE MERGE CAN SEE, NOT AN ABSENCE.
+   The first cut spliced the ledger row on Undo. Absence never deletes: a
+   second device that had already received `defic:Y` unioned it straight back
+   and swept Y off the device that had just restored it — the undo was lost.
+   Now the row stays and is marked lifted with a newer stamp. Per-item LWW
+   keys on id and the newer stamp wins on every device, so the lift travels
+   like any other edit; the sweep ignores lifted rows; a later delete of the
+   same target revives the same row. One array, one grammar. */
+function _tombstoneLift(proj, kind, target) {
   if (!proj || !Array.isArray(proj.tombstones)) return;
   var key = kind + ':' + target;
-  proj.tombstones = proj.tombstones.filter(function(t) { return !(t && t.id === key); });
+  for (var i = 0; i < proj.tombstones.length; i++) {
+    var t = proj.tombstones[i];
+    if (t && t.id === key) { t.lifted = true; t.liftedAt = new Date().toISOString(); _entryStamp(t); return; }
+  }
 }
 function _sweepTombstones(proj) {
   var ts = proj && proj.tombstones;
   if (!Array.isArray(ts) || !ts.length) return 0;
   var defIds = {}, obsIds = {}, ctrIds = {};
   ts.forEach(function(t) {
-    if (!t || !t.target) return;
+    if (!t || !t.target || t.lifted === true) return;   /* S730d — a lifted row deletes nothing */
     if (t.kind === 'defic') defIds[t.target] = 1;
     else if (t.kind === 'obs') obsIds[t.target] = 1;
     else if (t.kind === 'ctr') ctrIds[t.target] = 1;
@@ -1371,6 +1389,10 @@ export var Model = {
     var _swept = 0;
     try { _swept = _sweepTombstones(proj); } catch (_sw) { console.warn('[Model S730] tombstone sweep skipped', _sw); }
     if (_swept > 0) console.log('[Model S730] Swept ' + _swept + ' tombstoned item' + (_swept === 1 ? '' : 's') + ' a merge had restored');
+    /* S730d — a load that removed something has changed the document: mark
+       it dirty and queue the save, exactly as the drawing dedup below does.
+       Otherwise the removal lived only in memory and the next load repeated it. */
+    if (_swept > 0 || _dupPins > 0) { _dirty = true; _queueSave(); }
 
     _project = proj;
     _dirty = false;
@@ -4694,7 +4716,7 @@ export var Model = {
     if (!_undoStack.length || !_project) return null;
     var entry = _undoStack.pop();
     if (entry.type === 'deleteDefic') {
-      _tombstoneRemove(_project, 'defic', entry.defic && entry.defic.id);   /* S730 — undo is the one thing that lifts a tombstone */
+      _tombstoneLift(_project, 'defic', entry.defic && entry.defic.id);   /* S730d — undo is a stamped lift the merge can see */
       if (entry.contractorId) {
         var ctr = (_project.contractors || []).find(function(c) { return c.id === entry.contractorId; });
         if (ctr) {
