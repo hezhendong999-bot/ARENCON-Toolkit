@@ -1782,6 +1782,14 @@ document.addEventListener('keydown', function (e) {
    instance. Field tablets run as an installed app where the person cannot
    type a URL; navigating programmatically is the only way in. */
 function _s700OpenInstance(instanceId) {
+  /* S731 — SAVE BEFORE LEAVING. This is a full navigation: the page dies and
+     anything typed since the last autosave dies with it, and autosave is on a
+     15-second cycle. Start-next is offered on an issued report, which the
+     gesture gate has already frozen, so this is usually a no-op — but the same
+     navigation opens a sibling DRAFT from the picker, and there it is the whole
+     window. IDB only; no cloud wait and no leave modal — the next boot merges
+     what this writes. */
+  try { if (Model && Model.saveNow) Model.saveNow(); } catch (_s) {}
   try {
     var params = new URLSearchParams(window.location.search);
     params.set('instance', instanceId);
@@ -3411,7 +3419,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S730';
+var FRT_BUILD = 'S731';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 
 /* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════

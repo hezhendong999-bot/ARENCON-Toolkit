@@ -305,7 +305,16 @@ var AUTO_SAVE_MS = 15000;
 // but readable and grep-friendly. Format: prefix_<ms>_<counter>_<rand8>.
 var _uidCounter = 0;
 // S461: shared today-string helper (module previously inlined this per call site).
-function _todayStr() { return new Date().toISOString().split('T')[0]; }
+/* S731 — THE TORONTO CALENDAR DATE. This was toISOString().split('T')[0] — the
+   UTC date — so a pin noted at 9pm Eastern recorded tomorrow as the day it was
+   observed, and that date prints on the report. Same class of bug dateOfIssue
+   left in S730; ARENCON works in Eastern time. Feeds notedDate, addressedDate
+   and closedDate. Load-time backfills of historical empties are left alone —
+   they are not a claim about when a visit happened. */
+function _todayStr() {
+  return new Date().toLocaleDateString('en-CA',
+    { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' });
+}
 
 function _uid(prefix) {
   _uidCounter = (_uidCounter + 1) & 0xFFFFFF;
@@ -1668,7 +1677,7 @@ export var Model = {
     // If closing, record closure metadata
     if ((newStatus === 'closed' || newStatus === 'Addressed & Closed') &&
         oldStatus !== 'closed' && oldStatus !== 'Addressed & Closed') {
-      f.defic.closedDate = new Date().toISOString().split('T')[0];
+      f.defic.closedDate = _todayStr();   /* S731 — Toronto date, not UTC */
       f.defic.closedOnInstance = (_project && _project.currentFrtInstance) || 1;
     }
     // If reopening, clear closure metadata
@@ -5011,7 +5020,7 @@ export var Model = {
     newDefic.id = _uid('def');
     newDefic.num = num;
     newDefic.notedOnInstance = inst;
-    newDefic.notedDate = new Date().toISOString().split('T')[0];
+    newDefic.notedDate = _todayStr();   /* S731 — Toronto date, not UTC */
     newDefic.status = 'open';
     newDefic.closedDate = null;
     newDefic.closedOnInstance = null;
