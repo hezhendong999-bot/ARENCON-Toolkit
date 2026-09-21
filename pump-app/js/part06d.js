@@ -897,10 +897,16 @@ function loadAutosave() {
     }
     if(val) _applyLoadedState(val);
     updateIDBStorageBar();
+    /* S732 — the version strip is drawn from what the restore brought back,
+       here, when the restore has actually finished — not on a timer that
+       guesses when that might be. Runs whether or not anything was found:
+       a fresh report shows its A01 too. */
+    try { if(typeof window._pumpVersionNavRefresh==='function') window._pumpVersionNavRefresh(); } catch(_v){}
   }).catch(function(){
     // IDB unavailable — localStorage only
     var val=localStorage.getItem(key)||localStorage.getItem('arencon_pump_v10');
     if(val)_applyLoadedState(val);
+    try { if(typeof window._pumpVersionNavRefresh==='function') window._pumpVersionNavRefresh(); } catch(_v){}
   });
 }
 function _assignRowPreservePhotos(target, src){
@@ -1382,6 +1388,12 @@ window.addEventListener('load', () => {
        when the Owner is present at a tablet and rules on how this lane's
        records are to be stored — never as a quiet re-enable. */
     _pfNoCloudBanner();
+    /* S732 — the fork never restored its own records: the S730 early return
+       sat ABOVE the standalone loadAutosave(), so every reload began blank
+       (found by the boot proof, not by reading). Local-only was always the
+       lane's design; this is the load half of it. Key is pumpfork_, cloud
+       stays off, nothing live is touched. */
+    loadAutosave();
     updateProgress();
     return;
     /* eslint-disable no-unreachable */

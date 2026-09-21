@@ -240,6 +240,9 @@ window.addEventListener('load', function () {
   <!-- S488 Wave 2: Diesel's inline header replaced by the SEALED shared header
        engine (same engine FRT + Electric run, Mark's approved drawer). -->
   <div id="hdr-mount"></div>
+  <!-- S732 — version navigator (shared strip, same as FRT). Rendered by
+       lib/ui/versionNav.js from the report ledger; display only. -->
+  <div class="version-nav" id="version-nav" style="display:none;"></div>
   <script type="module" src="js/part02.js?v=202609202145"></script>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
   <!-- S267(C) v2: fullscreen chart overlay. Only the chart canvas wrapper is moved into .fig-fs-stage

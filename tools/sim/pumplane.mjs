@@ -57,7 +57,12 @@ const p06d = read('pump-app/js/part06d.js');
 const ci = p06d.indexOf('function _cloudSyncInit(){');
 const head = ci >= 0 ? p06d.slice(ci, ci + 1200) : '';
 const bodyStart = head.indexOf('_pfNoCloudBanner();');
-const returnsBefore = bodyStart >= 0 && /_pfNoCloudBanner\(\);\s*updateProgress\(\);\s*return;/.test(head);
+/* S732: the device-local restore (loadAutosave) may sit between the banner and
+   the return -- it reads the pumpfork_ key only. Anything ELSE there fails. */
+const returnsBefore = bodyStart >= 0 && /_pfNoCloudBanner\(\);\s*(?:\/\*[\s\S]*?\*\/\s*)?(?:loadAutosave\(\);\s*)?updateProgress\(\);\s*return;/.test(head);
+const betweenBannerAndReturn = head.slice(bodyStart, head.indexOf('return;', bodyStart));
+if (bodyStart >= 0 && !/CloudSync|R2Photos|fetch\(|supabase/i.test(betweenBannerAndReturn)) ok('nothing between the banner and the return reaches the cloud');
+else fail('something between the banner and the return can reach the cloud');
 if (returnsBefore) ok('_cloudSyncInit returns before any cloud call — sync cannot start in this lane');
 else fail('_cloudSyncInit does not return before the cloud path');
 /* the return must come before the first mention of CloudSync, or it is decoration */
