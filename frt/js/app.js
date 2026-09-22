@@ -3419,7 +3419,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S731';
+var FRT_BUILD = 'S732';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 
 /* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════
@@ -4547,34 +4547,80 @@ function _doRevise(newRev) {
   var proj = Model.getProject();
   if (!proj) return;
   if (!proj.info) proj.info = {};
+
+  /* S732 — REVISE IS ONE SERVER WRITE, AND IT NEVER LIES.
+     S693 set the revision and the status here first and let the local save
+     proceed even when the server flip failed, on the reasoning that the
+     refused push was "the honest state". It was not honest on screen: the
+     device moved to a draft letter while the row stayed issued, the report
+     could never push the correction (an issued row refuses writes), and a
+     later per-field merge took the letter from the device and the status from
+     the cloud — 1490.04 FRT #1 read "issued as A02" for weeks against a cloud
+     that always said B01. Now the server decides first: frt_reopen_report
+     writes body + status in one statement, and nothing moves here unless that
+     row comes back. On refusal everything is put back exactly as it was. */
+  var _undo = {
+    revision: proj.info.revision,
+    status:   proj.status,
+    versions: proj.versions
+  };
+  function _revert() {
+    try {
+      proj.info.revision = _undo.revision;
+      proj.status        = _undo.status;
+      proj.versions      = _undo.versions;
+    } catch (_r) {}
+  }
+
   proj.info.revision = newRev;
   proj.status = 'draft';
-  _recordVersionMove(proj, newRev, false);   /* S724 */
-  _updateHeaderForProject();
-  var revEl = document.querySelector('[data-field="revision"]');
-  if (revEl) revEl.value = newRev;
-  /* S693 — UNLOCK IS ROW-STATUS-FIRST. The server refuses content changes to
-     an issued row (trg_tool_data_issued_lock) and the data PATCH carries no
-     status — so the row must be flipped BEFORE the first content save, or the
-     unlock's own save is refused. On a failed flip (offline, expired login)
-     the save still runs: locally it lands as always, and the cloud push is
-     refused-and-held — which is the honest state, because the unlock did not
-     take and the report IS still issued. */
-  var _after = function(){ try { Model.saveNow(); } catch (_) {} };
-  /* S700a — the server-refusal flag is cleared ONLY when the row flip really
-     took. If the flip failed (offline, expired login) the report is still
-     issued at the database, so the banner and the read-only state must stay
-     exactly as they were: telling someone they are unlocked when the server
-     will still refuse them is the dishonest state we are removing. */
-  _syncIssueStatus('revision').then(function(){
+  _recordVersionMove(proj, newRev, false);   /* S724 — rides the same write */
+
+  function _paint() {
+    _updateHeaderForProject();
+    var revEl = document.querySelector('[data-field="revision"]');
+    if (revEl) revEl.value = (proj.info && proj.info.revision) || '';
+    try { _s700Refresh(); } catch (_e700) {}
+  }
+  function _commit(row) {
     _s700ServerLocked = false;
-    _after();
-    try { _s700Refresh(); } catch (_e700) {}
-  }, function(){
-    _after();
-    try { _s700Refresh(); } catch (_e700) {}
-  });
-  toast('Revision started: ' + newRev);
+    _pushDirty = false;
+    if (row && row.updated_at) _lastPulledUpdatedAt = row.updated_at;
+    try { Model.saveNow(); } catch (_) {}
+    if (_hubMode) _setCloudStatus('synced', 'Reopened \u2014 saved to cloud');
+    _paint();
+    toast('Revision started: ' + newRev);
+  }
+  function _fail(err) {
+    _revert();
+    _paint();
+    _setCloudStatus('error', 'Still issued');
+    var st = (err && err.status) || 0, code = (err && err.code) || '';
+    var msg;
+    if (code === 'ISSUE_OFFLINE') {
+      msg = 'No signal. Reopening an issued report has to reach the cloud, or this device and the cloud would disagree about what was sent. Get to signal and try again. Nothing changed.';
+    } else if (st === 403) {
+      msg = 'Only a principal can reopen an issued report. Ask Mark or Shaun to reopen it. Nothing changed.';
+    } else if (st === 409) {
+      msg = 'This report is not issued, so there is nothing to reopen. Nothing changed.';
+    } else if (st === 412 || code === 'ISSUE_NO_BASELINE' || st === 428) {
+      msg = 'Another device saved this report after you last synced. Let the sync catch up, then try again. Nothing changed.';
+    } else if (code === 'ISSUE_PHOTOS_PENDING') {
+      msg = 'Photographs are still uploading. Wait for the cloud indicator to turn green, then try again. Nothing changed.';
+    } else {
+      msg = 'The reopen did not reach the cloud (' + ((err && err.message) || 'unknown error') + '). The report is still issued and nothing changed.';
+    }
+    try { showAlert('Still issued', msg); } catch (_) { try { toast(msg); } catch (_t) {} }
+    console.error('[Revise S732] refused:', code || st, err);
+  }
+
+  /* Standalone has no cloud row and never did — commit locally, as before. */
+  if (!_hubMode) { try { Model.saveNow(); } catch (_) {} _s700ServerLocked = false; _paint(); toast('Revision started: ' + newRev); return; }
+  _setCloudStatus('saving', 'Reopening\u2026');
+  var p;
+  try { p = SyncEngine.reopen(_projectId); } catch (_e) { p = Promise.reject(_e); }
+  if (!p || typeof p.then !== 'function') p = Promise.reject(new Error('REOPEN_NO_ENGINE'));
+  p.then(_commit, _fail);
 }
 
 function _doRevertDraft(newRev) {

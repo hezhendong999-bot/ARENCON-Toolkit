@@ -1338,3 +1338,9 @@ _dedupDeficiencyLists
 # proj.tombstones, swept at the load funnel. Removing these reopens the class.
 _tombstoneAdd
 _sweepTombstones
+# ── S732 — Reopen is one server write (Owner-approved 22 Sep 2026). Revise/reopen
+# moves body + status together via frt_reopen_report and commits nothing locally
+# unless the row returns. Removing these restores the S693 half-state that made
+# 1490.04 FRT #1 read "issued as A02" against a cloud that always said B01.
+reopen
+_atomicLifecycle
