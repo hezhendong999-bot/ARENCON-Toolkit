@@ -4633,6 +4633,15 @@ function _doRevertDraft(newRev) {
      next sync. A report from before the ledger has nothing behind it, so it
      falls back to the pre-ledger behaviour and records the draft it lands on. */
   var _led = _frtLedger(proj);
+  /* S732b — snapshot BEFORE the ledger is edited: ledgerRemove tombstones an
+     entry and the revision moves with it, so a refusal must put all three
+     back. Taken here, not after, or the "before" is already the after. */
+  var _rvUndo = {
+    revision:     proj.info.revision,
+    status:       proj.status,
+    versions:     proj.versions,
+    lastDraftNum: proj.info._lastDraftNum
+  };
   var _plan = ledgerRevertPlan(_led, false, proj.info._lastDraftNum || 0);
   if (_plan.mode === 'delete') {
     proj.versions = ledgerRemove(_led, _plan.version, false, new Date().toISOString()).ledger;
@@ -4650,25 +4659,89 @@ function _doRevertDraft(newRev) {
   var _landedIssued = !!((ledgerParse(newRev) || {}).issued);
   var _newStatus = _landedIssued ? 'issued' : 'draft';
   proj.status = _newStatus;
-  _updateHeaderForProject();
-  var revEl = document.querySelector('[data-field="revision"]');
-  if (revEl) revEl.value = newRev;
-  /* S693 — row-status-first, same law as _doRevise above. */
-  var _after = function(){ try { Model.saveNow(); } catch (_) {} };
-  /* S700a — same rule as _doRevise: the read-only state lifts only when the
-     database has actually accepted the flip. */
-  _syncIssueStatus(_newStatus).then(function(){
+
+  /* S732b — ONE SERVER WRITE, SAME LAW AS REVISE.
+     The ledger edit and the revision live in the body; the status used to go
+     out as a separate PATCH, so either half could land alone — and when the
+     row was still issued the body push was refused outright while the status
+     write went through. Now frt_revert_report writes them together and DERIVES
+     the status from the revision letter, so "issued as A02" cannot be stored
+     however this client asks. Nothing moves here unless the row comes back. */
+  function _paint() {
+    _updateHeaderForProject();
+    var revEl = document.querySelector('[data-field="revision"]');
+    if (revEl) revEl.value = (proj.info && proj.info.revision) || '';
+    try { _s700Refresh(); } catch (_e700) {}
+  }
+  function _commitRv(row) {
     _s700ServerLocked = (_newStatus === 'issued');
-    _after();
-    try { _s700Refresh(); } catch (_e700) {}
-  }, function(){
-    _after();
-    try { _s700Refresh(); } catch (_e700) {}
-  });
-  toast(_landedIssued ? ('Back to issued ' + newRev) : ('Reverted to draft: ' + newRev));
+    _pushDirty = false;
+    if (row && row.updated_at) _lastPulledUpdatedAt = row.updated_at;
+    try { Model.saveNow(); } catch (_) {}
+    if (_hubMode) _setCloudStatus('synced', _landedIssued ? 'Back to issued \u2014 saved' : 'Reverted \u2014 saved to cloud');
+    _paint();
+    toast(_landedIssued ? ('Back to issued ' + newRev) : ('Reverted to draft: ' + newRev));
+  }
+  function _failRv(err) {
+    try {
+      proj.info.revision = _rvUndo.revision;
+      proj.status        = _rvUndo.status;
+      proj.versions      = _rvUndo.versions;
+      if (_rvUndo.lastDraftNum === undefined) delete proj.info._lastDraftNum;
+      else proj.info._lastDraftNum = _rvUndo.lastDraftNum;
+    } catch (_r) {}
+    _paint();
+    _setCloudStatus('error', 'Not reverted');
+    var st = (err && err.status) || 0, code = (err && err.code) || '';
+    var msg;
+    if (code === 'ISSUE_OFFLINE') {
+      msg = 'No signal. Reverting a revision has to reach the cloud, or this device and the cloud would disagree about which revisions exist. Get to signal and try again. Nothing changed.';
+    } else if (st === 403) {
+      msg = 'Only a principal can revert a revision. Ask Mark or Shaun. Nothing changed.';
+    } else if (st === 412 || code === 'ISSUE_NO_BASELINE' || st === 428) {
+      msg = 'Another device saved this report after you last synced. Let the sync catch up, then try again. Nothing changed.';
+    } else if (code === 'ISSUE_PHOTOS_PENDING') {
+      msg = 'Photographs are still uploading. Wait for the cloud indicator to turn green, then try again. Nothing changed.';
+    } else {
+      msg = 'The revert did not reach the cloud (' + ((err && err.message) || 'unknown error') + '). Nothing changed.';
+    }
+    try { showAlert('Not reverted', msg); } catch (_) { try { toast(msg); } catch (_t) {} }
+    console.error('[Revert S732b] refused:', code || st, err);
+  }
+
+  if (!_hubMode) { try { Model.saveNow(); } catch (_) {} _s700ServerLocked = (_newStatus === 'issued'); _paint();
+    toast(_landedIssued ? ('Back to issued ' + newRev) : ('Reverted to draft: ' + newRev)); return; }
+  _setCloudStatus('saving', 'Reverting\u2026');
+  var pr;
+  try { pr = SyncEngine.revert(_projectId); } catch (_e) { pr = Promise.reject(_e); }
+  if (!pr || typeof pr.then !== 'function') pr = Promise.reject(new Error('REVERT_NO_ENGINE'));
+  pr.then(_commitRv, _failRv);
 }
 
 function _syncIssueStatus(status) {
+  /* ═══ S732b — RETIRED. DO NOT CALL THIS AGAIN. ═══════════════════════════
+     This wrote the status column ALONE, with the body going out as a separate
+     push. That split is the bug behind every "the screen and the cloud
+     disagree" report in this tool's history: on an issued row the body push
+     was refused outright while this write went through, and a later per-field
+     merge took the revision from one side and the status from the other.
+     1490.04 FRT #1 read "issued as A02" on a device for weeks against a cloud
+     that always said B01.
+
+     All three lifecycle moves now go through one server function that writes
+     body and status in a single statement — frt_issue_report (S729),
+     frt_reopen_report and frt_revert_report (S732/S732b) — reached via
+     SyncEngine.issue / .reopen / .revert. There is no longer any caller here.
+
+     The symbol is on tools/protected_symbols.txt, so it stays defined rather
+     than being deleted without Owner sign-off; it is inert. If you are about
+     to wire something to it, you want SyncEngine._atomicLifecycle instead. */
+  console.warn('[S732b] _syncIssueStatus is retired — status must move with the body. Use SyncEngine.issue/reopen/revert. Ignoring.');
+  return Promise.resolve();
+}
+
+/* The original implementation, kept for reference only and unreachable. */
+function _syncIssueStatusLegacy(status) {
   /* S693 — now RETURNS its promise. The unlock flow must flip the ROW's
      status before the first content save (the data PATCH carries no status,
      so a content save against a still-issued row is refused by

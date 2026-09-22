@@ -1344,3 +1344,7 @@ _sweepTombstones
 # 1490.04 FRT #1 read "issued as A02" against a cloud that always said B01.
 reopen
 _atomicLifecycle
+# ── S732b — Revert is one server write; the status is DERIVED from the revision
+# letter server-side (frt_revert_report), never declared by the client. Removing
+# this restores the split that let "issued as A02" be stored.
+revert
