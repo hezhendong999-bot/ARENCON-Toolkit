@@ -426,11 +426,17 @@ function issueBlockers() {
   }
   for (const s of live) {
     const rows = state.clauses.filter(c => c.section_id === s.id && clauseOnThisJob(c) && !isStruck(c.id));
+    /* Part and Article lines are headings, not wording. A section holding only
+       headings prints as a page of numbered titles with nothing underneath —
+       which is worse than an absent section, because it looks deliberate.
+       Counting every row let that through; count only what a contractor reads. */
+    const said = rows.filter(c => c.kind !== 'part' && c.kind !== 'article');
     if (!rows.length) out.push(`${s.code} ${s.title} is on the job with no wording in it. Take it out, or write it.`);
+    else if (!said.length) out.push(`${s.code} ${s.title} has its Part and Article headings but no wording under any of them. It would print as a page of empty headings.`);
   }
   for (const s of state.jobStds) {
     if (s.struck) continue;
-    if (!String(s.edition || '').trim()) out.push(`${s.designation} has no edition. The reference list would cite it undated.`);
+    if (!String(s.edition || '').trim() && s.source !== 'code') out.push(`${s.designation} has no edition. The reference list would cite it undated.`);
     if (!s.print_section_id) out.push(`${s.designation} has no section to print in.`);
     else if (!on.has(s.print_section_id)) out.push(`${s.designation} prints in ${name(s.print_section_id)}, which is not on this job, so it would print nowhere.`);
   }
