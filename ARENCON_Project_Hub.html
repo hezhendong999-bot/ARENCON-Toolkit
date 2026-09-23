@@ -2336,6 +2336,7 @@ async function doLogin() {
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Signing in...';
+  window._hubLoginInFlight = true;   /* S733 — the update engine must not reload over this */
 
   try {
     const data = await _sb.auth.signInWithPassword(email, pass);
@@ -2352,6 +2353,7 @@ async function doLogin() {
       _profile = null;
       errEl.textContent = 'Your account has been deactivated. Contact your administrator.';
       errEl.classList.add('show');
+      window._hubLoginInFlight = false;   /* S733 */
       btn.disabled = false;
       btn.textContent = 'Sign In';
       return;
@@ -2362,6 +2364,7 @@ async function doLogin() {
     errEl.textContent = e.message || 'Login failed. Check your credentials.';
     errEl.classList.add('show');
   }
+  window._hubLoginInFlight = false;   /* S733 */
   btn.disabled = false;
   btn.textContent = 'Sign In';
 }
@@ -10686,6 +10689,19 @@ initLiveUpdate({
     try {
       if (document.querySelector('.modal.open, dialog[open]')) return true;
       if (window._hubSaving) return true;
+      /* S733 — THE LOGIN SCREEN IS BUSY. On a cold start the service worker
+         stages the new build within the boot window and the engine applies it
+         at once because "nothing has been typed yet". Except someone is on the
+         sign-in screen: password half-entered, or Sign In just tapped and the
+         request in flight. The reload landed there, the form came back empty,
+         and the person was asked to sign in again — Nasim, Mark, others,
+         "very often, the first time". A visible sign-in form, or a sign-in
+         request that has not returned, is the definition of busy. */
+      if (window._hubLoginInFlight) return true;
+      var lf = document.getElementById('login-form');
+      if (lf && lf.offsetParent !== null && getComputedStyle(lf).display !== 'none') return true;
+      var ls = document.getElementById('login-screen');
+      if (ls && ls.offsetParent !== null && getComputedStyle(ls).display !== 'none') return true;
     } catch (e) {}
     return false;
   },

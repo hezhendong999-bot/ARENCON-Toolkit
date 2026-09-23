@@ -611,11 +611,8 @@ function _calcFitScale() {
 
 // Recalculate on viewport resize (fixes DevTools open/close, orientation change, etc.)
 var _resizeTimer = null;
-window.addEventListener('resize', function() {
-  var overlay = document.getElementById('drawing-viewer-overlay');
-  if (!overlay || !overlay.classList.contains('open')) return;
-  clearTimeout(_resizeTimer);
-  _resizeTimer = setTimeout(function() {
+var _resizeDeferredUnderCamera = false;
+function _dvRefitNow() {
     // S720: decide BEFORE recomputing the fit (which overwrites _fitAreaW).
     // On a phone the text tool's on-screen keyboard shrinks the window
     // height only; that used to be treated as a rotation and snapped the
@@ -643,7 +640,28 @@ window.addEventListener('resize', function() {
     _applyTransform();
     _renderPins();
     if (typeof Markup !== 'undefined' && Markup.resize) Markup.resize();
-  }, 200);
+}
+window.addEventListener('resize', function() {
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  /* S733 — NOT WHILE THE CAMERA IS UP. The pin editor's camera sits on top of
+     this viewer, which stays open underneath. Rotating the tablet used to run
+     the full refit here — every pin, both markup canvases, all strokes, and
+     the PDF tiles at the new scale — behind a live video the person is trying
+     to frame, freezing the camera for several seconds on every turn (Nasim,
+     22 Sep). Nobody can see the viewer while the camera is open, so the refit
+     waits; the camera announces its close and the refit runs once, then. */
+  if (document.getElementById('cam-burst-overlay')) { _resizeDeferredUnderCamera = true; return; }
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(_dvRefitNow, 200);
+});
+window.addEventListener('arc-camera-closed', function () {
+  if (!_resizeDeferredUnderCamera) return;
+  _resizeDeferredUnderCamera = false;
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  if (!overlay || !overlay.classList.contains('open')) return;
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(_dvRefitNow, 50);
 });
 
 function _showDrawing(idx) {

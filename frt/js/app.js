@@ -2071,8 +2071,12 @@ async function _frtHeartbeatTick() {
       _outcome = 'no-change';
     } else {
       _outcome = 'pulled';
+      /* S733 — same rule as boot: on an issued report the cloud is
+         authoritative, because there can be no local edits to protect. */
+      var _hbIssued = false;
+      try { var _hbp = Model.getProject(); _hbIssued = !!(_hbp && _hbp.status === 'issued'); } catch (_) {}
       var data = await _frtWithTimeout(
-        SyncEngine.pull(_projectId, SyncEngine.instanceId),
+        SyncEngine.pull(_projectId, SyncEngine.instanceId, _hbIssued ? { allowStaleOverwrite: true } : undefined),
         TICK_NET_TIMEOUT_MS, 'pull');
       if (data) {
         _lastPulledUpdatedAt = remote;
@@ -3419,7 +3423,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S732';
+var FRT_BUILD = 'S733';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 
 /* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════
@@ -4035,8 +4039,18 @@ function boot() {
         var _heldDoc = (Model && Model.getProject) ? Model.getProject() : null;
         var _holdsReal = !!(_heldDoc && _heldDoc.id &&
           !(SyncEngine._isBlankSnapshot && SyncEngine._isBlankSnapshot(_heldDoc)));
-        var _bootPullOpts = (_holdsReal || window._frtBootOwnNewer) ? {} : { allowStaleOverwrite: true };
-        try { console.log('[FRT v2] Boot pull mode: ' + (_bootPullOpts.allowStaleOverwrite ? 'ADOPT (no real document in memory)' : 'MERGE (real document held)')); } catch (_) {}
+        /* S733 — AN ISSUED REPORT HAS NOTHING LOCAL TO PROTECT. The merge exists
+           to keep a person's typing; on an issued report the gesture gate has
+           already stopped all typing, and the row refuses pushes. So a device
+           whose copy disagrees with the cloud on an issued report can never
+           correct itself: it cannot push (locked) and the merge will not let
+           the cloud overwrite it (newer local stamp). 1490.04 FRT #1 sat at
+           "issued as A02" on one PC for weeks against a cloud that said B01,
+           surviving two rounds of manual IndexedDB surgery, for exactly this
+           reason. Rule: if the held document is issued, adopt the cloud. */
+        var _heldIssued = !!(_heldDoc && _heldDoc.status === 'issued');
+        var _bootPullOpts = ((_holdsReal || window._frtBootOwnNewer) && !_heldIssued) ? {} : { allowStaleOverwrite: true };
+        try { console.log('[FRT v2] Boot pull mode: ' + (_bootPullOpts.allowStaleOverwrite ? ('ADOPT (' + (_heldIssued ? 'held document is issued — cloud is authoritative' : 'no real document in memory') + ')') : 'MERGE (real document held)')); } catch (_) {}
         return _bootStep('cloud-pull',
           SyncEngine.pull(_projectId, instanceId,
             /* I-14 EXCEPTION 2 — boot. S676 merged when this device held
@@ -4906,6 +4920,12 @@ initLiveUpdate({
          now destroys the input element before its File arrives: the photograph
          is lost at the moment it was taken. Wait. */
       if (window._arcNativeCamBusy) return true;
+      /* S733 — the in-page burst camera (pin editor, thread photos, site
+         photos) is a different surface from the native input above and was
+         never declared busy. A cold-start build swap could fire while it was
+         opening: the camera "crashed", the page reloaded, and the person came
+         back at the first screen (Nasim, 22 Sep). A live camera is busy. */
+      if (document.getElementById('cam-burst-overlay')) return true;
       // Mid-markup: the drawing viewer overlay is open.
       /* S627 — THIS GUARD HAD NEVER FIRED ONCE. The old test was
          `dv.offsetParent !== null`, and offsetParent is ALWAYS null for a
