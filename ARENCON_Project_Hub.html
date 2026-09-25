@@ -2186,7 +2186,15 @@ document.addEventListener('DOMContentLoaded', async () => {
   _sb = createSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   setupConnDot();
   setupKeyboardShortcuts();
-  await tryRestoreSession();
+  /* S734 — CHECKING A SAVED SESSION IS BUSY. The sign-in form is hidden while
+     this runs (up to two network round-trips), so every visibility test saw
+     "nobody here" and a staged build could reload over it — the person then
+     lands on an empty form and is asked again. `finally`, so a crash inside
+     can never leave the flag stuck and silence every future update. */
+  window._hubRestoreInFlight = true;
+  try { await tryRestoreSession(); }
+  finally { window._hubRestoreInFlight = false; }
+  if (_user) _hubFreshArrival('session restored');
 });
 
 // ── Connection dot ──
@@ -2320,6 +2328,41 @@ async function tryRestoreSession() {
 }
 
 // ── Login ──
+/* S734 — ONE ANSWER TO "IS SOMEONE SIGNING IN RIGHT NOW?"
+   Two things reload this page on their own: the update engine, and the
+   bypass-recovery reload when Wi-Fi returns. Both must ask the SAME question, or the one that asks a narrower question is
+   the one that wipes a half-typed password. Busy means any of:
+     - a saved session is still being checked at boot (the form is hidden then,
+       so a visibility test alone sees "nobody here" — the S734 gap);
+     - a sign-in request has been sent and not returned (S733);
+     - the sign-in form is on screen (S733).
+   Classic-script global so the update engine's config and the recovery reload
+   further down both call this one function. */
+window._hubSignInBusy = function () {
+  try {
+    if (window._hubRestoreInFlight) return true;
+    if (window._hubLoginInFlight) return true;
+    var lf = document.getElementById('login-form');
+    if (lf && lf.offsetParent !== null && getComputedStyle(lf).display !== 'none') return true;
+    var ls = document.getElementById('login-screen');
+    if (ls && ls.offsetParent !== null && getComputedStyle(ls).display !== 'none') return true;
+  } catch (e) {}
+  return false;
+};
+/* S734 — THE MOMENT AFTER SIGN-IN IS A SAFE MOMENT. A tablet parked on the
+   sign-in form correctly never updates, so by the time someone signs in the
+   engine's 20 s arrival window is long gone and a waiting build sat until idle.
+   The dashboard that just appeared has nothing to lose, and the sign-in is on
+   disk, so a reload lands the person back where they are. Called only AFTER the
+   busy flags have cleared. The focused password box is hidden by then but can
+   keep focus, which the engine reads as "typing" — release it first. */
+function _hubFreshArrival(why) {
+  try {
+    var a = document.activeElement;
+    if (a && a.closest && a.closest('#login-screen') && a.blur) a.blur();
+  } catch (e) {}
+  try { if (window._hubMarkFreshArrival) window._hubMarkFreshArrival(why); } catch (e) {}
+}
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
   const pass = document.getElementById('login-pass').value;
@@ -2337,6 +2380,7 @@ async function doLogin() {
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span> Signing in...';
   window._hubLoginInFlight = true;   /* S733 — the update engine must not reload over this */
+  var _arrived = false;              /* S734 — true only once showApp() has run */
 
   try {
     const data = await _sb.auth.signInWithPassword(email, pass);
@@ -2360,6 +2404,7 @@ async function doLogin() {
     }
 
     showApp();
+    _arrived = true;   /* S734 */
   } catch (e) {
     errEl.textContent = e.message || 'Login failed. Check your credentials.';
     errEl.classList.add('show');
@@ -2367,6 +2412,7 @@ async function doLogin() {
   window._hubLoginInFlight = false;   /* S733 */
   btn.disabled = false;
   btn.textContent = 'Sign In';
+  if (_arrived) _hubFreshArrival('signed in');   /* S734 — after the flag, never before */
 }
 
 // ── Forgot password ──
@@ -10197,14 +10243,37 @@ function _pgEscHtml(s) {
         try{ fetch(PAGE,{cache:'reload'}).catch(function(){}); }catch(e){}
       };
       if(navigator.onLine!==false) repair();
-      window.addEventListener('online',function(){
-        repair();
+      /* S734 — THIS RELOAD MUST NOT LAND ON SOMEONE SIGNING IN. It bypassed the
+         update engine entirely, so S733's guard never saw it: Wi-Fi returns on
+         an uncontrolled page (first launch, cleared site data, relaunch after
+         the app was killed) — exactly when a person is at the sign-in form —
+         and 1.5 s later the form was wiped. It now asks the same question as
+         the engine, at the moment it would FIRE, not when it was scheduled.
+         If someone is signing in it waits, and goes once they are through.
+         Still one-shot per tab; the recovery purpose is unchanged. */
+      var _bypassWait=null;
+      var bypassReload=function(){
         try{
           if(!navigator.serviceWorker || navigator.serviceWorker.controller) return;
           if(sessionStorage.getItem('arencon-bypass-reload')) return;
+          if(window._hubSignInBusy && window._hubSignInBusy()){
+            if(!_bypassWait){
+              var t0=Date.now();
+              _bypassWait=setInterval(function(){
+                if(Date.now()-t0>600000){ clearInterval(_bypassWait); _bypassWait=null; return; }
+                if(window._hubSignInBusy && window._hubSignInBusy()) return;
+                clearInterval(_bypassWait); _bypassWait=null; bypassReload();
+              },1500);
+            }
+            return;
+          }
           sessionStorage.setItem('arencon-bypass-reload','1');
-          setTimeout(function(){ location.reload(); }, 1500);
+          location.reload();
         }catch(e){}
+      };
+      window.addEventListener('online',function(){
+        repair();
+        setTimeout(bypassReload, 1500);
       });
     }catch(e){}
   })();
@@ -10346,6 +10415,13 @@ import { downloadProjectBundle, TOOL_SOURCES } from '/lib/export/projectDocsSour
    parse; openHelp only ever fires on a user click, long after this line. */
 import { mountHelp, hasUnseen, markSeen } from '/lib/ui/helpEngine.js';
 import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /* S588 */
+/* S734 — namespace import, not a named one: if a device ever pairs this page
+   with an older cached engine that lacks markFreshArrival, a named import would
+   fail to link and take this whole module down. This way it is simply absent. */
+import * as _LU734 from '/lib/ui/liveUpdate.js';
+window._hubMarkFreshArrival = function (why) {
+  try { if (typeof _LU734.markFreshArrival === 'function') _LU734.markFreshArrival(why); } catch (e) {}
+};
 
 /* S589 — build stamp, SUPPORT ONLY (Mark's rule: the tool may report its build,
    but reading it must never be a step in anyone's workflow). Bottom-left, tiny,
@@ -10696,12 +10772,11 @@ initLiveUpdate({
          request in flight. The reload landed there, the form came back empty,
          and the person was asked to sign in again — Nasim, Mark, others,
          "very often, the first time". A visible sign-in form, or a sign-in
-         request that has not returned, is the definition of busy. */
-      if (window._hubLoginInFlight) return true;
-      var lf = document.getElementById('login-form');
-      if (lf && lf.offsetParent !== null && getComputedStyle(lf).display !== 'none') return true;
-      var ls = document.getElementById('login-screen');
-      if (ls && ls.offsetParent !== null && getComputedStyle(ls).display !== 'none') return true;
+         request that has not returned, is the definition of busy.
+         S734 — the test itself now lives in ONE place, _hubSignInBusy(), and
+         also covers the boot-time session check. The bypass-recovery reload
+         asks the same function; two copies of this rule is how one drifts. */
+      if (window._hubSignInBusy && window._hubSignInBusy()) return true;
     } catch (e) {}
     return false;
   },
