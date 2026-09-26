@@ -1926,22 +1926,117 @@ function _frtWithTimeout(p, ms, label) {
    forget; never blocks or fails a sync. */
 function _frtSyncDiag(event, detail) {
   try {
-    var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
-    if (!tok) return;
-    fetch(Auth.SUPABASE_URL + '/rest/v1/sync_diag', {
-      method: 'POST',
-      headers: { 'apikey': Auth.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
-                 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-      body: JSON.stringify({
-        device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
-        tool: 'frt',
-        project_id: _projectId || null,
-        instance_id: (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) || null,
-        event: event, detail: detail || null
-      })
-    }).catch(function () {});
+    var row = {
+      device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
+      tool: 'frt',
+      project_id: _projectId || null,
+      instance_id: (typeof SyncEngine !== 'undefined' && SyncEngine.instanceId) || null,
+      event: event, detail: detail || null,
+      at: new Date().toISOString()
+    };
+    if (!navigator.onLine) { _frtDiagQueue(row); return; }
+    _frtDiagPost([row]).catch(function () { _frtDiagQueue(row); });
   } catch (_) {}
 }
+/* ═══ S735d — DIAGNOSTICS THAT SURVIVE A BASEMENT ═════════════════════════════
+   Every row used to be one fire-and-forget request: no signal, no row, and
+   an offline crash left nothing behind (Franz, 22 Sep, invisible). Rows that
+   cannot be sent wait in localStorage (cap 200, oldest dropped) and go up
+   when the connection returns or at the next boot, carrying the time they
+   were written, not the time they arrived. */
+var _FRT_DIAG_Q = 'arencon-frt-diag-queue';
+function _frtDiagPost(rows) {
+  var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
+  if (!tok) return Promise.reject(new Error('no token'));
+  return fetch(Auth.SUPABASE_URL + '/rest/v1/sync_diag', {
+    method: 'POST',
+    headers: { 'apikey': Auth.SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + tok,
+               'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
+    body: JSON.stringify(rows)
+  }).then(function (r) { if (!r.ok) throw new Error('diag ' + r.status); });
+}
+function _frtDiagQueue(row) {
+  try {
+    var q = JSON.parse(localStorage.getItem(_FRT_DIAG_Q) || '[]');
+    q.push(row);
+    while (q.length > 200) q.shift();
+    localStorage.setItem(_FRT_DIAG_Q, JSON.stringify(q));
+  } catch (_) {}
+}
+var _frtDiagFlushing = false;
+function _frtDiagFlush(why) {
+  if (_frtDiagFlushing || !navigator.onLine) return;
+  var q = [];
+  try { q = JSON.parse(localStorage.getItem(_FRT_DIAG_Q) || '[]'); } catch (_) { q = []; }
+  if (!q.length) return;
+  _frtDiagFlushing = true;
+  _frtDiagPost(q).then(function () {
+    try { localStorage.removeItem(_FRT_DIAG_Q); } catch (_) {}
+    try { console.info('[FRT diag] flushed ' + q.length + ' queued row(s) (' + (why || '') + ')'); } catch (_) {}
+  }).catch(function () {}).then(function () { _frtDiagFlushing = false; });
+}
+try { window.addEventListener('online', function () { setTimeout(function () { _frtDiagFlush('online'); }, 3000); }); } catch (_) {}
+try { setTimeout(function () { _frtDiagFlush('boot'); }, 15000); } catch (_) {}
+
+/* ═══ S735d — WAS THE LAST SESSION KILLED? ════════════════════════════════════
+   A renderer death ("Aw, Snap") or Android reclaiming the app fires no event
+   in the page, so nothing ever recorded it. Every 5 s while visible the tool
+   notes what is open — camera, drawing, pin, shot strip size, heap — and a
+   clean unload (reload, navigation, update swap) clears the note. A note
+   still present at boot means the previous session died; it goes up as one
+   'unclean_restart' row (queued if offline) with the last state inside it. */
+var _FRT_ALIVE = 'arencon-frt-alive';
+function _frtAliveNote() {
+  try {
+    if (document.visibilityState === 'hidden') return;
+    var n = { at: Date.now(), build: (typeof FRT_BUILD !== 'undefined' ? FRT_BUILD : null),
+      camera: !!document.getElementById('cam-burst-overlay'),
+      nativeCam: !!window._arcNativeCamBusy,
+      viewer: !!(document.getElementById('drawing-viewer-overlay') && document.getElementById('drawing-viewer-overlay').classList.contains('open')),
+      pin: (function () { var pe = document.getElementById('pin-editor-overlay'); return !!(pe && pe.style.display && pe.style.display !== 'none'); })(),
+      heapMB: (function () { try { return performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null; } catch (_) { return null; } })(),
+      heapLimitMB: (function () { try { return performance.memory ? Math.round(performance.memory.jsHeapSizeLimit / 1048576) : null; } catch (_) { return null; } })(),
+      project: _projectId || null,
+      tab: _currentTab || null };
+    localStorage.setItem(_FRT_ALIVE, JSON.stringify(n));
+  } catch (_) {}
+}
+function _frtAliveClear() { try { localStorage.removeItem(_FRT_ALIVE); } catch (_) {} }
+try {
+  var _prevAlive = null;
+  try { _prevAlive = JSON.parse(localStorage.getItem(_FRT_ALIVE) || 'null'); } catch (_) { _prevAlive = null; }
+  if (_prevAlive && _prevAlive.at && (Date.now() - _prevAlive.at) < 7 * 24 * 3600 * 1000) {
+    _prevAlive.agoSec = Math.round((Date.now() - _prevAlive.at) / 1000);
+    _prevAlive.deviceMemoryGB = (typeof navigator.deviceMemory === 'number') ? navigator.deviceMemory : null;
+    setTimeout(function () { _frtSyncDiag('unclean_restart', _prevAlive); }, 4000);
+    try { console.warn('[FRT S735d] previous session ended without a clean unload ' + _prevAlive.agoSec + 's ago:', _prevAlive); } catch (_) {}
+  }
+  _frtAliveClear();
+  setInterval(_frtAliveNote, 5000);
+  window.addEventListener('pagehide', _frtAliveClear);
+  window.addEventListener('beforeunload', _frtAliveClear);
+} catch (_) {}
+
+/* ═══ S735d — THE PHOTO STORE MUST NOT BE EVICTABLE ═══════════════════════════
+   "IDB is a permanent backup" was never asked of the browser. Without
+   persistent storage, Android may clear this origin's data under storage
+   pressure, silently. Ask once per boot; record the answer once per device. */
+try {
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persisted().then(function (already) {
+      if (already) return true;
+      return navigator.storage.persist();
+    }).then(function (granted) {
+      var prev = null; try { prev = localStorage.getItem('arencon-frt-persist'); } catch (_) {}
+      var now = granted ? 'granted' : 'denied';
+      if (prev !== now) {
+        try { localStorage.setItem('arencon-frt-persist', now); } catch (_) {}
+        setTimeout(function () { _frtSyncDiag('storage_persist', { result: now }); }, 6000);
+      }
+      if (!granted) { try { console.warn('[FRT S735d] persistent storage DENIED — the browser may evict local photos under storage pressure'); } catch (_) {} }
+    }).catch(function () {});
+  }
+} catch (_) {}
 /* S672: exposed at module load because the engine shim (frt/js/data/sync.js)
    wires SyncEngine.onDiag to this writer late-bound through window. Left
    module-private, that wire would be a silent no-op forever — a helper
@@ -3426,7 +3521,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S733';
+var FRT_BUILD = 'S735d';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 
 /* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════
