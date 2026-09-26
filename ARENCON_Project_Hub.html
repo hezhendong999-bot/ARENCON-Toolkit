@@ -2399,7 +2399,9 @@ function _hubFreshArrival(why) {
     var a = document.activeElement;
     if (a && a.closest && a.closest('#login-screen') && a.blur) a.blur();
   } catch (e) {}
-  try { if (window._hubMarkFreshArrival) window._hubMarkFreshArrival(why); } catch (e) {}
+  /* S736 — one check, right now: a waiting update loads here and lands on the
+     page just arrived at. No window, no retry timer. */
+  try { if (window._hubApplyIfStaged) window._hubApplyIfStaged(why); } catch (e) {}
 }
 /* S734d — THE DOUBLE LOG-IN MUST BE PROVABLE, NOT ANECDOTAL.
    The boot log says when the Hub started but never whether the sign-in form
@@ -10433,29 +10435,14 @@ function _pgEscHtml(s) {
          the engine, at the moment it would FIRE, not when it was scheduled.
          If someone is signing in it waits, and goes once they are through.
          Still one-shot per tab; the recovery purpose is unchanged. */
-      var _bypassWait=null;
-      var bypassReload=function(){
-        try{
-          if(!navigator.serviceWorker || navigator.serviceWorker.controller) return;
-          if(sessionStorage.getItem('arencon-bypass-reload')) return;
-          if(window._hubSignInBusy && window._hubSignInBusy()){
-            if(!_bypassWait){
-              var t0=Date.now();
-              _bypassWait=setInterval(function(){
-                if(Date.now()-t0>600000){ clearInterval(_bypassWait); _bypassWait=null; return; }
-                if(window._hubSignInBusy && window._hubSignInBusy()) return;
-                clearInterval(_bypassWait); _bypassWait=null; bypassReload();
-              },1500);
-            }
-            return;
-          }
-          sessionStorage.setItem('arencon-bypass-reload','1');
-          location.reload();
-        }catch(e){}
-      };
+      /* S736 — THE WI-FI-RETURN RELOAD IS REMOVED (Mark: the update behaviour
+         is "not commercial grade"). It reloaded the page by itself when the
+         radio came back, to escape an iPhone disk-cache fossil. iOS is
+         abandoned, and nothing reloads a page someone is using any more: the
+         cache repair below still runs, and the next real page load serves the
+         current build. */
       window.addEventListener('online',function(){
         repair();
-        setTimeout(bypassReload, 1500);
       });
     }catch(e){}
   })();
@@ -10601,8 +10588,11 @@ import { initLiveUpdate, restoreAfterUpdate } from '/lib/ui/liveUpdate.js';   /*
    with an older cached engine that lacks markFreshArrival, a named import would
    fail to link and take this whole module down. This way it is simply absent. */
 import * as _LU734 from '/lib/ui/liveUpdate.js';
-window._hubMarkFreshArrival = function (why) {
-  try { if (typeof _LU734.markFreshArrival === 'function') _LU734.markFreshArrival(why); } catch (e) {}
+/* S736 — the engine's markFreshArrival (a 20 s retry timer) is replaced by
+   applyIfStaged: one check at the moment of navigation or sign-in. */
+window._hubApplyIfStaged = function (why) {
+  try { if (typeof _LU734.applyIfStaged === 'function') return !!_LU734.applyIfStaged(why); } catch (e) {}
+  return false;
 };
 
 /* S589 — build stamp, SUPPORT ONLY (Mark's rule: the tool may report its build,
