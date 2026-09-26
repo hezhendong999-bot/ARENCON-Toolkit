@@ -15,7 +15,7 @@
 // owns alone — the Field Review Tool moved to 'arencon-fieldreview-'. Purging is
 // scoped to this prefix, so this worker no longer deletes another tool's offline
 // files. One intended side effect: it sweeps FRT's pre-S547 caches once.
-var CACHE_NAME = 'arencon-frt-202609261450';
+var CACHE_NAME = 'arencon-frt-202609261451';
 var CACHE_PREFIX = 'arencon-frt-';
 // S96 Fix #3: separate long-lived cache for drawing tiles. Survives app-cache
 // bumps. Never purged on activate. Cleared explicitly by the Hub "Clear offline
@@ -285,7 +285,15 @@ var APP_FILES = [
 var CDN_ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js',
+  /* S732 — Chart.js draws the pump flow-test curves in Diesel, Electric and
+     the pump fork. It was only runtime-cached after the first ONLINE visit of
+     each cache generation, so a tablet updated and then taken straight
+     underground had no Chart.js — and because the pump tools touch Chart
+     inside their window 'load' handler, the ReferenceError aborted the rest
+     of that handler: no restore, no start screen, not just no chart.
+     S731 audit F26, upgraded after the S732 boot proof reproduced it. */
+  'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js'
 ];
 
 // Install — precache app shell + CDN assets
