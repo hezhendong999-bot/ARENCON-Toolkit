@@ -210,7 +210,7 @@ body::after  { top: -30vmax; right: -30vmax; background: radial-gradient(circle,
    describe the change, Claude hardcodes it here and bumps CFG_VER; no admin
    panel, ever).
    ═══════════════════════════════════════════════════════════════════════════ */
-var CFG_VER = 23;
+var CFG_VER = 24;
 
 var DEF_CATS = [
   { key: 'pm',     num: '01', title: 'Project Management' },
@@ -253,10 +253,11 @@ var DEF_TOOLS = [
     color: '#a09aa8', lcolor: '#5E5B68', icon: 'P',
     desc: 'Company-wide scheduling and Gantt planning.',
     tags: [{ t: 'Admin', c: '#E0A36A' }] },
-  { cat: 'office', name: 'Intranet Portal', file: 'ARENCON_Intranet_Portal.html',
-    color: '#a09aa8', lcolor: '#5E5B68', icon: 'A',
-    desc: 'Company intranet — notices, links and internal resources.',
-    tags: [] },
+  /* S734 (Mark, 25 Sep 2026): Intranet Portal RETIRED from the portal. Its
+     announcements, calendar and activity were hardcoded demo content shown as
+     if real, its sign-in ignored the password and let anyone pick a role, and
+     its quick links pointed at dead files. The file stays in the repo, unlinked
+     — do not re-list it without Owner's word. */
   /* SPEC S1 (Mark, 4 Sep 2026): Specification Generator — master clause database,
      job = decision set, Word = one-way publication of the NMS template.
      S13 (Mark, 13 Sep 2026): repointed from the single-file tool to spec/. The
