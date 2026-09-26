@@ -513,7 +513,7 @@ function _realExportPDF() {
     // The on-screen hint is staff guidance and is deliberately NOT printed.
     const scopeTag = (item && (item.scope==='visit'||item.scope==='room'))
       ? `<div style="font-size:6.5pt;font-weight:700;letter-spacing:.5px;color:#8A8F98;margin-top:2px;">${item.scope.toUpperCase()}</div>` : '';
-    const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${cm}</div>` : '';
+    const cmHtml = cm ? `<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:3px;">${_escHtml(cm)}</div>` : '';
     const photosRow = photos.length ? `<tr class="ph-keep ${sc==='no'?'no-detail':''}"><td></td><td colspan="2" style="padding:2px 8px 7px;"><div class="nd-photos">${photos.map(p=>`${_lnk(p, `<img src="${_phSrc(p)}" style="width:170px;height:128px;object-fit:cover;border:1px solid #ddd;border-radius:4px;">`)}`).join('')}</div></td></tr>` : '';
     return `<tr${rowCls}>
       <td class="ctr" style="font-weight:600;color:#666;white-space:nowrap;font-size:9pt;width:34px;">${item.num}${scopeTag}</td>
@@ -696,15 +696,15 @@ function _realExportPDF() {
     <div class="title-block">
       <div class="tb-line1">Fire Protection Engineering</div>
       <div class="tb-line2">Electric Fire Pump Commissioning Report #${_pdfInstNum}</div>
-      <div class="tb-line4">${(proj.client||'—').replace(/</g,'&lt;')}${proj.addr?' - '+(proj.addr).replace(/</g,'&lt;'):''}</div>
-      ${proj.projname?`<div class="tb-line4">${(proj.projname).replace(/</g,'&lt;')}</div>`:''}
+      <div class="tb-line4">${_escHtml(proj.client||'—')}${proj.addr?' - '+_escHtml(proj.addr):''}</div>
+      ${proj.projname?`<div class="tb-line4">${_escHtml(proj.projname)}</div>`:''}
     </div>
     <div class="pi-list">
       <div class="pi-row"><span class="pi-label">Date of Issue:</span><span class="pi-value">${new Date().toLocaleDateString('en-CA')}</span></div>
       <div class="pi-row"><span class="pi-label">Date of Test:</span><span class="pi-value">${proj.date||'—'}</span></div>
-      <div class="pi-row"><span class="pi-label">Distribution:</span><span class="pi-value">${((distribution&&distribution.length)?distribution.join(', '):(proj.contractor||'—')).replace(/</g,'&lt;')}</span></div>
-      <div class="pi-row"><span class="pi-label">Prepared By:</span><span class="pi-value">${(proj.prepby||'—').replace(/</g,'&lt;')}</span></div>
-      <div class="pi-row"><span class="pi-label">Project No.:</span><span class="pi-value">${proj.projno||'—'}</span></div>
+      <div class="pi-row"><span class="pi-label">Distribution:</span><span class="pi-value">${_escHtml((distribution&&distribution.length)?distribution.join(', '):(proj.contractor||'—'))}</span></div>
+      <div class="pi-row"><span class="pi-label">Prepared By:</span><span class="pi-value">${_escHtml(proj.prepby||'—')}</span></div>
+      <div class="pi-row"><span class="pi-label">Project No.:</span><span class="pi-value">${_escHtml(proj.projno||'—')}</span></div>
     </div>
     ${_ovHtml}
   </div>
@@ -766,7 +766,7 @@ function _realExportPDF() {
       var body='';
       rows.forEach(function(r){
         var el=document.getElementById(r[1]+sfx);
-        var v=(el&&el.value)?(''+el.value).replace(/</g,'&lt;'):'';
+        var v=(el&&el.value)?_escHtml(''+el.value):'';
         if(v) body+='<tr><td style="text-align:left">'+r[0]+'</td><td>'+v+'</td></tr>';
       });
       if(body) out+='<table class="dt" style="max-width:400px;margin-top:12px;"><thead><tr><th class="left" style="text-align:left">Pump Nameplate Data</th><th>Value</th></tr></thead><tbody>'+body+'</tbody></table>';
@@ -858,7 +858,7 @@ out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:whit
         out += '<div class="defic" style="border-top:1px solid #eee;">';
         var iarLabel = d.iarStatus ? '<span class="iat">IMMEDIATE ACTION REQUIRED</span> ' : '';
         out += '<div class="defic-lbl">#'+(i+1)+' '+iarLabel+' <span style="color:'+scCol+'">'+sc.toUpperCase()+'</span></div>';
-        out += '<div style="font-size:9pt;margin-top:3px;font-weight:600;">'+(d.description||'(No description)')+'</div>';
+        out += '<div style="font-size:9pt;margin-top:3px;font-weight:600;">'+_escHtml(d.description||'(No description)')+'</div>';
         out += '<div style="font-size:8pt;color:#555;margin-top:2px;">Date: '+(d.date||'---')+'</div>';
         if (d.photos && d.photos.length) {
           out += '<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;">';
@@ -878,7 +878,7 @@ out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:whit
             out += '<div style="margin-top:8px;padding:8px;background:'+bgC+';border:1px solid '+bdC+';border-left:3px solid '+acCol+';border-radius:4px;page-break-inside:avoid;">';
             out += '<div style="font-size:7.5pt;font-weight:700;color:'+acCol+';margin-bottom:5px;">'+lbl+' RESPONSE #'+(ci+1)+'</div>';
             if(cr.date) out += '<div style="font-size:7pt;color:#888;margin-bottom:3px;">Date: '+cr.date+' | Status: '+(cr.status||'open').toUpperCase()+'</div>';
-            out += '<div style="font-size:8.5pt;padding:5px;background:white;border:1px solid #EEE;border-radius:3px;">'+(cr.comment||'(No comment)')+'</div>';
+            out += '<div style="font-size:8.5pt;padding:5px;background:white;border:1px solid #EEE;border-radius:3px;">'+_escHtml(cr.comment||'(No comment)')+'</div>';
             if (cr.photos && cr.photos.length) {
               out += '<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:4px;">';
               cr.photos.forEach(function(p){ out += _lnk(p, '<img src="'+(_phSrc(p)||p)+'" style="width:220px;height:165px;object-fit:contain;background:#F7F7F7;border:1px solid #DDD;border-radius:3px;">'); });
@@ -1137,12 +1137,12 @@ out+='<div style="font-size:9.5pt;font-weight:bold;background:#4A5568;color:whit
           const skSrc = sk ? sk.toDataURL() : '';
           const mcSrc = mc ? mc.toDataURL() : '';
           skHtml += '<div style="margin-bottom:14px;padding:12px;border:1px solid #ddd;border-radius:6px;page-break-inside:avoid;">';
-          skHtml += '<div style="font-weight:700;font-size:9pt;margin-bottom:6px;">Sketch '+(dispIdx+1)+(entry.comment?': '+entry.comment.slice(0,60):'')+'</div>';
+          skHtml += '<div style="font-weight:700;font-size:9pt;margin-bottom:6px;">Sketch '+(dispIdx+1)+(entry.comment?': '+_escHtml(entry.comment.slice(0,60)):'')+'</div>';
           skHtml += '<div style="display:flex;gap:10px;flex-wrap:wrap;">';
           if (skSrc) skHtml += '<div><div style="font-size:8pt;color:#666;margin-bottom:2px;">Freehand Sketch</div><img src="'+skSrc+'" style="max-width:280px;max-height:180px;border:1px solid #eee;border-radius:3px;"></div>';
           if (mcSrc && bi) skHtml += '<div><div style="font-size:8pt;color:#666;margin-bottom:2px;">Marked-up Photo</div><div style="position:relative;display:inline-block;"><img src="'+bi.src+'" style="max-width:280px;max-height:180px;display:block;"><img src="'+mcSrc+'" style="position:absolute;top:0;left:0;width:100%;height:100%;"></div></div>';
           skHtml += '</div>';
-          if (entry.comment) skHtml += '<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:6px;">'+entry.comment+'</div>';
+          if (entry.comment) skHtml += '<div style="font-size:8.5pt;font-style:italic;color:#555;margin-top:6px;">'+_escHtml(entry.comment)+'</div>';
           skHtml += '</div>';
         });
         skPrint.innerHTML = skHtml;
