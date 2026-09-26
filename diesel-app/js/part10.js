@@ -50,7 +50,15 @@ var R2Outbox=(function(){'use strict';
     // This R2 Worker does not implement HEAD (returns 404 for HEAD even when the
     // object exists), and every HEAD attempt floods the console with 404s. Use a
     // direct GET — unauthenticated on the Worker and authoritative: 200 = present.
-    return fetch(url,{method:'GET'}).then(function(g){return g.ok;}).catch(function(){return false;});
+    /* S732 (Lane C 7c) — a full GET pulled the ENTIRE photo (1-3 MB) after every
+       upload just to read a 200. The status arrives with the headers; the body is
+       cancelled the moment we have it, so the download stops there. A Range header
+       rides along: ignored by a worker that does not honour it, cheaper if it does. */
+    return fetch(url,{method:'GET',headers:{'Range':'bytes=0-0'}}).then(function(g){
+      var ok = g.ok || g.status===206;
+      try{ if(g.body && g.body.cancel) g.body.cancel(); }catch(_){ }
+      return ok;
+    }).catch(function(){return false;});
   }
 
   // Upload + verify every pending entry. One bad entry never stalls the rest.
