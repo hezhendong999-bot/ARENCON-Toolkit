@@ -2764,6 +2764,14 @@ function showDashboard() {
     var sel = document.getElementById('dash-sort');
     if (sel) sel.value = savedSort;
   }
+  /* S734f — SWITCHING PAGES IS A SAFE MOMENT TO UPDATE (Mark: "I thought when I
+     switch page it will update quietly"). The Dashboard and the Hub page are one
+     web page, so switching between them never counted as leaving, and a waiting
+     build sat behind the pill. Now every switch marks a fresh arrival: the page
+     just changed, nothing is typed, and the address bar already says where you
+     are, so the reload lands on the page you switched TO. Same engine, same
+     rules: an open dialog, a save in flight or a focused field still block. */
+  try { _hubFreshArrival('switched to Dashboard'); } catch (e) {}
 }
 
 function showAdmin() {
@@ -3878,6 +3886,7 @@ function openProject(projectId) {
   _loadAndRenderDeletedInstances(proj);
   pgLoad(proj.id);
   r2RefreshStatus();
+  try { _hubFreshArrival('opened a project'); } catch (e) {}   /* S734f — see showDashboard */
 
   // Update archive button label
   var archBtn = document.getElementById('btn-archive-proj');
