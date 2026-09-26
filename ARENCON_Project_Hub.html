@@ -766,6 +766,14 @@ body.dark-mode .np-note-warn{color:#E0A36A;background:rgba(224,163,106,.10);bord
 .role-inspector{background:#FEF3C7;color:#92400E}
 .role-viewer{background:var(--na-bg);color:var(--na)}
 .role-deactivated{background:#FEE2E2;color:#991B1B;text-decoration:line-through}
+/* S734 — the role pills had NO dark-mode variant: pale fills stayed pale on the dark
+   panel. Bold chip pattern (accent text on a low-alpha fill of the same accent, tinted
+   border). Super/Admin text colours are the header engine's colourDark values, so a
+   role is the same colour on its pill as on the avatar badge. */
+body.dark-mode .role-super{background:rgba(124,58,237,.22);color:#C4B5FD;box-shadow:inset 0 0 0 1px rgba(196,181,253,.30)}
+body.dark-mode .role-admin{background:rgba(29,78,216,.25);color:#93C5FD;box-shadow:inset 0 0 0 1px rgba(147,197,253,.30)}
+body.dark-mode .role-inspector{background:rgba(224,163,106,.16);color:#E0A36A;box-shadow:inset 0 0 0 1px rgba(224,163,106,.30)}
+body.dark-mode .role-deactivated{background:rgba(226,96,118,.16);color:#E26076;box-shadow:inset 0 0 0 1px rgba(226,96,118,.30)}
 .admin-actions{display:flex;gap:6px}
 .admin-act-btn{padding:5px 12px;border:1.5px solid var(--border);border-radius:6px;font-weight:500;font-size:calc(12px + var(--ts));font-family:Calibri,'Segoe UI',system-ui,sans-serif;cursor:pointer;background:var(--bg);color:var(--steel);transition:all .2s}
 .admin-act-btn:hover{border-color:var(--arencon);color:var(--arencon)}
@@ -1994,12 +2002,35 @@ function createSupabaseClient(url, key) {
     return h;
   };
 
+  /* S734 — AN EXPIRED SIGN-IN IS RENEWED, NOT SHOWN AS A FAILURE.
+     The only renewal was a 30-minute timer, and a sleeping tablet freezes
+     timers. Wake it after an hour and the sign-in has lapsed: every save from
+     the Hub — new report, star, project edit — failed with the raw text "JWT
+     expired" until the next tick happened to fire. A 401 now renews once and
+     retries once. One renewal at a time: a board load fires several requests
+     together, and each must not spend the same refresh token separately.
+     If renewal fails, the original error stands — nothing is hidden. */
+  let _renewing = null;
+  function _renewOnce() {
+    if (!_renewing) {
+      _renewing = Promise.resolve()
+        .then(function () { return (_sb && _sb.auth) ? _sb.auth.refreshSession() : null; })
+        .catch(function () { return null; })
+        .finally(function () { _renewing = null; });
+    }
+    return _renewing;
+  }
   async function request(path, opts = {}) {
-    const res = await fetch(url + path, {
+    const send = () => fetch(url + path, {
       method: opts.method || 'GET',
       headers: { ...headers(), ...(opts.headers || {}) },
       body: opts.body ? JSON.stringify(opts.body) : undefined
     });
+    let res = await send();
+    if (res.status === 401 && localStorage.getItem('sb-refresh-token')) {
+      const renewed = await _renewOnce();
+      if (renewed) res = await send();   /* headers() re-reads the new token */
+    }
     if (!res.ok) {
       const err = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(err.message || err.msg || err.error_description || res.statusText);
@@ -4353,6 +4384,17 @@ async function createNewReport(key) {
     return;
   }
   try {
+    /* S734 — the seeder talks to the database directly with the token it is
+       handed, so it cannot renew. Hand it one that is valid for the next two
+       minutes: renew first if it expires sooner (or cannot be read). */
+    var _tok = localStorage.getItem('sb-access-token');
+    try {
+      var _exp = _tok ? JSON.parse(atob(_tok.split('.')[1].replace(/-/g,'+').replace(/_/g,'/'))).exp : 0;
+      if (!_exp || (_exp * 1000 - Date.now()) < 120000) {
+        var _r = await _sb.auth.refreshSession();
+        if (_r && _r.access_token) _tok = _r.access_token;
+      }
+    } catch (_e) {}
     var _seeded = await window.ReportSeed.createReport({
       projectId: proj.id,
       toolKey: key,
@@ -4360,7 +4402,7 @@ async function createNewReport(key) {
          hands its own credentials over rather than letting the seeder guess. */
       url: SUPABASE_URL,
       anonKey: SUPABASE_ANON_KEY,
-      token: localStorage.getItem('sb-access-token'),
+      token: _tok,
       userId: _user ? _user.id : null
     });
     if (_seeded && _seeded.row && _seeded.row.id) {
@@ -4371,7 +4413,21 @@ async function createNewReport(key) {
       toast('Failed to create report', 'error');
     }
   } catch(e) {
-    toast('Failed to create report: ' + (e && e.message ? e.message : e), 'error');
+    /* S734 — an inspector gets words they can act on, never the database's
+       own text. The raw message still goes to the console for support. */
+    var _raw = (e && e.message) ? String(e.message) : String(e);
+    console.error('[Hub] createNewReport failed:', _raw);
+    var _say;
+    if (navigator.onLine === false || /failed to fetch|networkerror|load failed|network request failed/i.test(_raw)) {
+      _say = 'No connection — the report was not created. Try again once you are back online.';
+    } else if (/jwt|expired|signed out|401/i.test(_raw)) {
+      _say = 'Your sign-in has expired — sign in again, then create the report.';
+    } else if (/^Another report was created|^This page did not supply/.test(_raw)) {
+      _say = _raw;   /* the seeder's own plain-language messages */
+    } else {
+      _say = 'The report was not created. Try again — if it keeps failing, contact your administrator.';
+    }
+    toast(_say, 'error');
   }
 }
 
