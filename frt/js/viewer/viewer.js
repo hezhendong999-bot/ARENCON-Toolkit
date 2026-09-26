@@ -670,18 +670,41 @@ window.addEventListener('arc-camera-closed', function () {
    hardware allocates; the tiles are released (the drawing stays open, pins
    and markup untouched) and repainted when the camera closes. */
 var _tilesHeldForCamera = false;
+var _markupHeldForCamera = null;   // S735e — drawing id whose markup layer was torn down under the camera
 window.addEventListener('arc-camera-opening', function () {
   try { _frtPlaceNote({}); } catch (_) {}   // freshen the place record (§ below)
   try {
     var overlay = document.getElementById('drawing-viewer-overlay');
     if (!overlay || !overlay.classList.contains('open')) return;
     if (TiledPdf.isActive() && TiledPdf.releaseForCamera()) _tilesHeldForCamera = true;
+    /* S735e — THE MARKUP LAYER TOO. Two full-drawing canvases (phone budget
+       8 MP each, ~32 MB apiece) plus the GPU renderer's textures sit under the
+       camera for nothing. Markup.destroy() is the path next/prev already run
+       on every drawing change: it saves any unsaved strokes first, then frees
+       everything. Undo history does not survive it — the same as changing
+       drawings, and the camera opens from the pin editor, not mid-stroke. */
+    var cd = initViewer.getCurrentDrawing();
+    if (cd && cd.id && TiledPdf.isActive()) { Markup.destroy(); _markupHeldForCamera = cd.id; }
   } catch (e) { console.warn('[Viewer] camera memory release skipped:', e); }
 });
 window.addEventListener('arc-camera-closed', function () {
-  if (!_tilesHeldForCamera) return;
-  _tilesHeldForCamera = false;
-  try { if (TiledPdf.isActive()) TiledPdf.resume(); } catch (e) {}
+  var overlay = document.getElementById('drawing-viewer-overlay');
+  var open = !!(overlay && overlay.classList.contains('open'));
+  if (_tilesHeldForCamera) {
+    _tilesHeldForCamera = false;
+    try { if (TiledPdf.isActive()) TiledPdf.resume(); } catch (e) {}
+  }
+  if (_markupHeldForCamera) {
+    var mid = _markupHeldForCamera; _markupHeldForCamera = null;
+    var cd2 = initViewer.getCurrentDrawing();
+    if (open && cd2 && cd2.id === mid && TiledPdf.isActive()) {
+      try {
+        Markup.init(mid);        // same call _showDrawing makes once tiles are open
+        _applyTransform();       // re-sends the current zoom to the fresh layer
+        _renderPins();
+      } catch (e) { console.warn('[Viewer] markup rebuild after camera failed:', e); }
+    }
+  }
 });
 
 /* S735 — WHERE THE INSPECTOR WAS, SURVIVING PROCESS DEATH.

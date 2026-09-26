@@ -3521,7 +3521,7 @@ window._frtPhotoAttention = function(n) {
    stamp MUST move in the same push, alongside the exact-line CACHE_NAME bump.
    A shipped change nobody can see is indistinguishable from a change that never
    shipped, and the person holding the tablet pays for the difference. */
-var FRT_BUILD = 'S735d';
+var FRT_BUILD = 'S735e';
 try { window.FRT_BUILD = FRT_BUILD; } catch (e) {}
 
 /* ═══ S730 — ERRORS HAVE SOMEWHERE TO GO. ═══════════════════════════════════
