@@ -1348,3 +1348,17 @@ _atomicLifecycle
 # letter server-side (frt_revert_report), never declared by the client. Removing
 # this restores the split that let "issued as A02" be stored.
 revert
+
+@ S736 (Mark, Lane B: "not commercial grade" — update engine redesigned to the
+@ standard pattern). Updates go live on the next real page load, on a host
+@ navigation (applyIfStaged), in a page's first moments, or on a tap; nothing
+@ reloads a page someone is using. MINIMUM SAVE FORMAT: every database request
+@ carries "arencon-gen/<SAVE_GEN>"; the tool_data guard (trg_arencon_save_gen_guard,
+@ table app_min_save_gen) refuses saves below min_gen with HTTP 426 and the page
+@ asks for a reload. min_gen 0 = OFF. Raise SAVE_GEN in the push that changes how
+@ reports save, and min_gen only once that push is live. Remove these and an
+@ out-of-date page can save a report in the wrong shape with nothing to stop it.
+applyIfStaged
+SAVE_GEN
+_installSaveLabel
+_showOutdated
