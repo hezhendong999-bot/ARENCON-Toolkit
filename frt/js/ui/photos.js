@@ -9,7 +9,7 @@ import { toast } from '../shared/toast.js';
 import { showConfirm, showAlert } from '../shared/dialogs.js';
 import { Auth } from '../shared/auth.js';
 import { R2 } from '../data/r2.js';
-import { proveBurstShot, runSerial, uploadFromStore } from '../data/photoIngest.js'; // S716: ONE intake shared with deficiencies
+import { proveBurstShot, runSerial, uploadFromStore, _dataUrlToBlob } from '../data/photoIngest.js'; // S716: ONE intake shared with deficiencies; S735c: + _dataUrlToBlob
 import { IDB } from '../data/idb.js';
 import { ImageWorkerHost } from '../workers/imageWorkerHost.js';
 import { openCameraBurst } from './cameraBurst.js'; // S284: continuous in-app camera (Mark) — also sets window.openCameraBurst for the engine (S479e)
@@ -370,6 +370,7 @@ export var initPhotos = {
   render: function() {
     var container = document.getElementById('photos-container');
     if (!container) return;
+    try { setTimeout(function () { _retryPendingSiteUploads('photos-tab'); }, 1500); } catch (_) {}   /* S735c — once per boot, whichever fires first */
     // S479e: the upload zone is THE shared engine — rendered once, mounted
     // once (delegated handlers survive re-renders). gallery:false — this IS
     // the gallery. onFiles routes into the SAME _handleSitePhotoFiles path
@@ -1684,7 +1685,7 @@ function _handleSitePhotoFiles(files) {
   try { Model.holdSaves(true); } catch (_) {}
   toast('Adding ' + list.length + ' photo' + (list.length === 1 ? '' : 's') + '\u2026', 2500);
   runSerial(list, function (f) {
-    if (!f._burstK) { return _addSitePhotoSerial(f); }
+    if (!f._burstK) { return _addForeignSitePhotoSerial(f, uploadRecs, function () { added++; }); }   /* S735c */
     return proveBurstShot(f, 'sph').then(function (p) {
       var photo = {
         id: p.id,
@@ -1717,7 +1718,9 @@ function _handleSitePhotoFiles(files) {
 
 /* S716: a foreign file (picker / drag-drop) through the original path, but as
    a promise so runSerial can wait for it. The body is _addSitePhoto's,
-   unchanged, minus the per-photo save and redraw the batch now owns. */
+   unchanged, minus the per-photo save and redraw the batch now owns.
+   S735c: NO LONGER CALLED. Kept in place pending Owner's --kill; the batch
+   routes picked files through _addForeignSitePhotoSerial below. */
 function _addSitePhotoSerial(file) {
   return new Promise(function (resolve) {
     _readExifCaptureDate(file).then(function (captureDate) {
@@ -1750,6 +1753,97 @@ function _addSitePhotoSerial(file) {
 }
 
 // S479e: window._handleSitePhotoDrop exposure retired — the inline ondrop that
+
+/* ═══ S735c — A PICKED PHOTO TAKES THE SAME DOOR AS A BURST SHOT ══════════════
+   Franz, 1490.04, 23 Sep 09:02–09:05: three "Aw, Snap" restarts in three
+   minutes, one pinned to importing 18 phone-camera photos from the gallery.
+   That path (_addSitePhotoSerial) never received S713–S716: it wrote the
+   shrunk photograph INTO the report as text (3–5 MB each, 18 at once ≈ 100 MB
+   of report), and fired every full-size upload at the same moment, holding
+   all 18 originals in memory. Nothing retried the uploads the crash killed,
+   so those 23 photos are in the cloud as thumbnails only.
+
+   Now the picked file is shrunk once (same 4096/0.95 as before), the bytes go
+   to photoBlobs through proveBurstShot — written and READ BACK before any
+   record exists — the report gets an id and a thumbnail and no inline image,
+   and the upload happens after the batch, one blob at a time, exactly as a
+   burst shot does. The EXIF capture date is kept (S367). */
+function _addForeignSitePhotoSerial(file, uploadRecs, onAdded) {
+  return _readExifCaptureDate(file).catch(function () { return null; }).then(function (captureDate) {
+    return ImageWorkerHost.compressFile(file, { maxW: 4096, quality: 0.95, thumbMaxW: 200, thumbQuality: 0.7 })
+      .then(function (r) {
+        var thumb = r && r.thumb;
+        return _dataUrlToBlob(r && r.dataUrl).then(function (blob) {
+          r = null;                                              // drop the text copy
+          if (!blob || !blob.size) throw new Error('compress produced no bytes');
+          return proveBurstShot({ file: blob, name: file.name, thumb: thumb }, 'sph');
+        });
+      })
+      .then(function (p) {
+        var photo = {
+          id: p.id,
+          filename: p.filename,
+          dataUrl: null,                                         // bytes live in photoBlobs
+          thumb: p.thumb,
+          caption: '',
+          addedDate: captureDate || new Date().toISOString().split('T')[0]
+        };
+        var rec = Model.addSitePhoto(photo);
+        if (!rec) throw new Error('model refused site photo');
+        uploadRecs.push(rec);
+        if (typeof onAdded === 'function') onAdded();
+      });
+  });
+}
+
+/* ═══ S735c — SITE PHOTOS WITH NO FULL-SIZE COPY UPLOAD THEMSELVES ═════════════
+   A site photo whose upload died with the app (no r2Key, not deleted) used to
+   stay that way forever — nothing in the tool looked again. Once per report
+   per boot, ten seconds after the report is on screen: find them, make sure
+   the bytes are in photoBlobs (a pre-S735c record still carries the shrunk
+   photograph inline; it is moved to photoBlobs, read back, and only then
+   dropped from the record), then upload one at a time through the same
+   uploadFromStore the intake uses. Nothing is written to the cloud copy of the
+   report until a photo has its address. */
+var _s735RetryDone = {};
+function _retryPendingSiteUploads(why) {
+  var pid = null;
+  try { pid = new URLSearchParams(window.location.search).get('project'); } catch (_) {}
+  if (!pid || _s735RetryDone[pid]) return;
+  var proj = Model.getProject();
+  if (!proj || !Array.isArray(proj.photos)) return;
+  _s735RetryDone[pid] = true;
+  var cands = proj.photos.filter(function (p) {
+    return p && p.id && !p.r2Key && !p.deleted && !p.purged && !p._isOrigBackup && !p.sourceR2Key;
+  });
+  if (!cands.length) return;
+  var ready = [];
+  runSerial(cands, function (p) {
+    return Model.resolvePhotoBytes(p).then(function (blob) {
+      if (blob) return true;
+      return _dataUrlToBlob(p.dataUrl).then(function (b) {
+        if (!b || !b.size) return false;
+        var expect = b.size;
+        return IDB.put('photoBlobs', { id: p.id, dataBlob: b })
+          .then(function () { return IDB.get('photoBlobs', p.id); })
+          .then(function (rec) {
+            var stored = rec && rec.dataBlob && rec.dataBlob.size;
+            if (stored !== expect) return false;
+            delete p.dataUrl;                                    // proven on device; leave the report
+            return true;
+          });
+      });
+    }).then(function (ok) { if (ok) ready.push(p); });
+  }, function () {}).then(function () {
+    try { console.info('[Photos S735c] site photos without a full-size copy: ' + cands.length + ', uploadable from this device: ' + ready.length + ' (' + (why || '') + ')'); } catch (_) {}
+    if (!ready.length) return;
+    try { Model.saveNow(); } catch (_) {}
+    uploadFromStore(pid, ready, function () { try { Model.saveNow(); } catch (_) {} });
+  });
+}
+Model.onChange('project', function () {
+  setTimeout(function () { try { _retryPendingSiteUploads('boot'); } catch (e) { console.warn('[Photos S735c] retry skipped:', e); } }, 10000);
+});
 // called it died with the hand-built zone; the engine's delegated drop feeds
 // _handleSitePhotoFiles directly via onFiles.
 

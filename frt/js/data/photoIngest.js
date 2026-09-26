@@ -72,7 +72,7 @@ var THUMB_STORE = 'photoBlobs', THUMB_PREFIX = 'thumb:';
 
 export function thumbStoreKey(id) { return THUMB_PREFIX + id; }
 
-function _dataUrlToBlob(dataUrl) {
+export function _dataUrlToBlob(dataUrl) {   /* S735c — exported; photos.js needs the same one */
   if (!dataUrl || typeof dataUrl !== 'string' || dataUrl.indexOf('data:') !== 0) return Promise.resolve(null);
   return fetch(dataUrl).then(function (r) { return r.blob(); }).catch(function () { return null; });
 }
