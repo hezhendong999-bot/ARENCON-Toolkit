@@ -1028,8 +1028,8 @@ document.addEventListener('drop', function(e) {
 renderStdTable();
 renderPldTable();
 renderPumpCurveTable();
-document.getElementById('pi-date').value = new Date().toISOString().slice(0,10);
-document.getElementById('so-date').value = new Date().toISOString().slice(0,16);
+document.getElementById('pi-date').value = ArcLocalDate.dateISO();      // S732 F1: local calendar, not UTC
+document.getElementById('so-date').value = ArcLocalDate.dateTimeISO();  // S732 F1: local clock, not UTC
 
 // ── PUMP TEST TYPE TOGGLE ──
 let flowTestPhotos = [];

@@ -100,7 +100,7 @@
 <script type="module" src="../lib/ui/photoInput.js"></script>  <!-- S496: THE shared photo surface. lib/ui/checklist.js renders its per-item photo zone through window.PhotoInput and falls back to a "Photo input engine not loaded" hint without it — which is exactly what live Diesel was showing, so checklist photos could not be attached at all. Electric has loaded this since S492; Diesel never did. -->
 <script type="module" src="../diesel-sync.js"></script>  <!-- S492/S496 Phase 2: shared MERGE-BASED sync engine. Publishes window.CloudSync with the same public API the ~40 inline call sites already use; replaces the inline last-write-wins IIFE (removed below). Module scripts are deferred, so _cloudSyncInit waits for window.CloudSync to exist. -->
 <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
-<script src="js/part01.js?v=202609251240"></script>
+<script src="js/part01.js?v=202609261500"></script>
 <!-- S459: shared markup shape definitions (single source of truth across FRT + Diesel lightboxes + drawing viewer). Same-origin ARENCON asset, not a CDN dep. DieselMarkup delegates shape rendering to window.MarkupTools when present; if this fails to load (rare offline first-load), DieselMarkup's own identical shape branches run — markup cannot break. -->
 <!-- S499 CARVE: pump-curve maths extracted from the monolith into a shared
      module. Classic script (not a module) because the delegates read
@@ -118,12 +118,13 @@
 <script src="../lib/export/reportPdf.js"></script>  <!-- S685: unification Phase 4 opens — the shared report-PDF engine. Appendix eligibility as a mechanism (the S316 scope stays Diesel data) and chart print sizing with its restore. -->
 <script src="../lib/data/visionPrep.js"></script>  <!-- S684b: unification Phase 3 — the two ends of every AI photo-scan: an image the vision service will accept (never undecodable bytes), and the JSON answer found inside the model prose, last candidate first. -->
 <script src="../lib/data/photoRetention.js"></script>  <!-- S684: unification Phase 3 — what may be destroyed for good, and the highest-index-first order that makes removal land on the photographs actually selected. -->
+<script src="../lib/shared/localDate.js"></script>  <!-- S732: the date the inspector is standing in (F1) -->
 <script src="../lib/data/photoInventory.js"></script>  <!-- S683: unification Phase 3 — which photographs are visible to a caller. Live-only by default (the PDF appendix depends on it); the trash consumers ask for the full walk. -->
 <script src="../lib/data/photoDate.js"></script>  <!-- S682: unification Phase 3 — when a photograph was taken: the EXIF read, the id fallback that rescues synced photos, and the noon rule that keeps a photo on the right day. -->
 <script src="../lib/data/photoLifecycle.js"></script>  <!-- S681: unification Phase 3 — whether a photo is deleted, how a delete is recorded, and the phantom-delete guard. Shared so Electric inherits it rather than receiving a copy that drifts. -->
 <script src="../lib/data/reportState.js"></script>
-<script src="js/reportManifest.js?v=202609251240"></script>
-<script src="js/reportBindings.js?v=202609251240"></script>
+<script src="js/reportManifest.js?v=202609261500"></script>
+<script src="js/reportBindings.js?v=202609261500"></script>
 <script src="../lib/calc/curveData.js"></script>
 <script src="../lib/ui/markupTools.js"></script>
 <script src="../lib/data/syncCadence.js"></script>  <!-- S618: pause hidden, back off idle -->
@@ -142,7 +143,7 @@
 <script src="../lib/ui/signaturePad.js"></script>
 <script src="../lib/ui/flowPhotoModal.js"></script>  <!-- S500: per-flow-point gauge photo modal, extracted verbatim; globals by design -->
 <script src="../lib/ui/deficiencies.js"></script>  <!-- S500: Deficiencies panel, extracted verbatim; globals by design -->
-<script src="js/pdfExport.js?v=202609251240"></script>  <!-- S503: PDF export + photo appendix + pagination engine, extracted verbatim from part06; globals by design. S511: moved out of lib/ui/ — Diesel is its only consumer. -->
+<script src="js/pdfExport.js?v=202609261500"></script>  <!-- S503: PDF export + photo appendix + pagination engine, extracted verbatim from part06; globals by design. S511: moved out of lib/ui/ — Diesel is its only consumer. -->
 <script type="module">
 /* S503e: bridge the SHARED export chrome (an ES module) onto window so the classic
    export script can call it. Touches no shared or FRT file — FRT keeps importing
@@ -212,7 +213,7 @@ window.addEventListener('load', function () {
 });
 
 </script>
-<link rel="stylesheet" href="css/diesel-01.css?v=202609251240">
+<link rel="stylesheet" href="css/diesel-01.css?v=202609261500">
 <!-- S488 Wave 1: s455-header-override deleted — the sealed v2 engine needs no
      host override blocks (that was the point of Shadow DOM). -->
 </head>
@@ -240,7 +241,7 @@ window.addEventListener('load', function () {
   <!-- S488 Wave 2: Diesel's inline header replaced by the SEALED shared header
        engine (same engine FRT + Electric run, Mark's approved drawer). -->
   <div id="hdr-mount"></div>
-  <script type="module" src="js/part02.js?v=202609251240"></script>
+  <script type="module" src="js/part02.js?v=202609261500"></script>
   <div id="mobile-menu-backdrop" onclick="closeMobileMenu()" style="display:none;position:fixed;inset:0;z-index:10001;background:rgba(0,0,0,.55);"></div>
   <!-- S267(C) v2: fullscreen chart overlay. Only the chart canvas wrapper is moved into .fig-fs-stage
        (reparent pattern); the legend/readout stay in the page beneath. Title bar shows which chart. -->
@@ -251,8 +252,8 @@ window.addEventListener('load', function () {
     </div>
     <div class="fig-fs-stage" id="fig-fs-stage"></div>
   </div>
-  <script src="js/part03.js?v=202609251240"></script>
-  <script src="js/part04.js?v=202609251240"></script>
+  <script src="js/part03.js?v=202609261500"></script>
+  <script src="js/part04.js?v=202609261500"></script>
   <div class="project-bar" id="project-bar">
     <span class="pb-badge" id="pb-badge" onclick="issueReport()" title="Click to change status">DRAFT</span>
     <span class="pb-inst" id="pb-inst" title="Current DFP instance number" style="font-size:calc(10px + var(--ts));font-weight:700;padding:2px 8px;border-radius:4px;color:#fff;background:#2C4A6B;letter-spacing:.3px;flex-shrink:0;white-space:nowrap;">DFP #1</span>
@@ -266,7 +267,7 @@ window.addEventListener('load', function () {
   <div class="section-nav" id="section-nav"></div>
 </header>
 <!-- Phase nav model + renderer -->
-<script src="js/part05.js?v=202609251240"></script>
+<script src="js/part05.js?v=202609261500"></script>
 
 <!-- Offline indicator banner -->
 <div id="offline-banner" style="display:none;background:#E65100;color:white;padding:8px 20px;font-size:13px;font-weight:700;text-align:center;align-items:center;justify-content:center;gap:8px;z-index:99;">
@@ -1033,7 +1034,7 @@ window.addEventListener('load', function () {
 <input type="file" id="global-file-input" accept="image/*,.pdf" multiple style="display:none">
 <input type="file" id="sketch-file-input" accept="image/*,.pdf" style="display:none">
 
-<script src="js/part06.js?v=202609251240"></script>
+<script src="js/part06.js?v=202609261500"></script>
 <!-- S575: the S568 seven-way split is REVERTED. Back to four pieces.
      WHY, so nobody tries it again the same way: part06c.js calls
      setPumpTestType('std') AT LOAD TIME, and that function's body calls
@@ -1045,16 +1046,16 @@ window.addEventListener('load', function () {
      split from the declarations that code depends on. Splitting these files
      further requires proving load-time execution order, not just that each
      piece parses. -->
-<script src="js/part06b.js?v=202609251240"></script>
-<script src="js/part06c.js?v=202609251240"></script>
-<script src="js/part06d.js?v=202609251240"></script>
+<script src="js/part06b.js?v=202609261500"></script>
+<script src="js/part06c.js?v=202609261500"></script>
+<script src="js/part06d.js?v=202609261500"></script>
 
 <!-- ══ BATCH 2: PHOTO SYSTEM MODULE (Session 53) ══ -->
-<script src="js/part07.js?v=202609251240"></script>
+<script src="js/part07.js?v=202609261500"></script>
 
 <script id="embedded-state" type="application/json">{}</script>
 
-<script src="js/part08.js?v=202609251240"></script>
+<script src="js/part08.js?v=202609261500"></script>
 
   <!-- Mobile page navigation (S280: slimmed down — was oversized 12x24 buttons / 16px pad) -->
   <div id="mobile-page-nav" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:100;background:#2C3E50;border-top:2px solid #9C2742;padding:7px 12px;box-shadow:0 -3px 10px rgba(0,0,0,.15);pointer-events:none;">
@@ -1066,7 +1067,7 @@ window.addEventListener('load', function () {
   </div>
 
 <!-- ══ R2 PHOTOS MODULE ══ -->
-<script src="js/part09.js?v=202609251240"></script>
+<script src="js/part09.js?v=202609261500"></script>
 
 <!-- ══ R2 OUTBOX — durable upload queue (Phase 2: 4380.24 protection) ══ -->
 <!--
@@ -1077,22 +1078,22 @@ window.addEventListener('load', function () {
   to a silent or interrupted upload (the 4380.24 failure class).
   Separate IDB database from CloudSync — no interference with its cache store.
 -->
-<script src="js/part10.js?v=202609251240"></script>
+<script src="js/part10.js?v=202609261500"></script>
 
 <!-- ══ CLOUDSYNC — now provided by diesel-sync.js (S496 Phase 2) ══ -->
-<script src="js/part11.js?v=202609251240"></script>
-<script src="js/part12.js?v=202609251240"></script>
+<script src="js/part11.js?v=202609261500"></script>
+<script src="js/part12.js?v=202609261500"></script>
 <!-- ══ END CLOUDSYNC MODULE ══ -->
 
 <!-- ══ SERVICE WORKER ══ Diesel intentionally has no service worker (no offline
      caching). Registration removed: sw-diesel.js never existed, so registering it
      only produced a recurring console 404. Clear any ghost SW from an older build. -->
-<script src="js/part13.js?v=202609251240"></script>
-<script src="js/part14.js?v=202609251240"></script>
-<script src="js/part15.js?v=202609251240"></script>
+<script src="js/part13.js?v=202609261500"></script>
+<script src="js/part14.js?v=202609261500"></script>
+<script src="js/part15.js?v=202609261500"></script>
 
 
-<link rel="stylesheet" href="css/diesel-02.css?v=202609251240" id="arencon-bold-overlay">
-<script src="js/part16.js?v=202609251240"></script>
+<link rel="stylesheet" href="css/diesel-02.css?v=202609261500" id="arencon-bold-overlay">
+<script src="js/part16.js?v=202609261500"></script>
 </body>
 </html>
