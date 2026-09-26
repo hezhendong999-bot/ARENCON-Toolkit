@@ -2318,6 +2318,7 @@ function _showLoginScreen(){
 async function tryRestoreSession() {
   // If user explicitly signed out (from FRT or Hub), don't auto-restore
   if (sessionStorage.getItem('ARENCON_signed_out') === '1') {
+    _hubLoginDiag('hub_login_shown', 'signed_out');   /* S734d */
     _showLoginScreen();
     return;
   }
@@ -2355,6 +2356,8 @@ async function tryRestoreSession() {
     }
   }
   // Show login
+  _hubLoginDiag('hub_login_shown',
+    localStorage.getItem('sb-refresh-token') ? 'restore_failed' : 'no_tokens');   /* S734d */
   _showLoginScreen();
 }
 
@@ -2393,6 +2396,41 @@ function _hubFreshArrival(why) {
     if (a && a.closest && a.closest('#login-screen') && a.blur) a.blur();
   } catch (e) {}
   try { if (window._hubMarkFreshArrival) window._hubMarkFreshArrival(why); } catch (e) {}
+}
+/* S734d — THE DOUBLE LOG-IN MUST BE PROVABLE, NOT ANECDOTAL.
+   The boot log says when the Hub started but never whether the sign-in form
+   came up, so "it asked me twice" could not be told apart from a single normal
+   sign-in. Two events now go on the same queue as the boot log:
+     hub_login_shown — why: signed_out (they signed out), no_tokens (nothing
+                       saved on this device), restore_failed (a sign-in was
+                       saved but could not be confirmed — network or expired);
+                       nav says whether this page was a RELOAD, and msSinceLoad
+                       how soon after opening the form appeared.
+     hub_login_ok    — a sign-in went through.
+   The bug's fingerprint is two _shown on one device within a minute with a
+   reload between, or a _shown with nav=reload and no_tokens right after an _ok.
+   Diagnostic only: changes no behaviour and touches no report data. */
+function _hubLoginDiag(ev, reason) {
+  try {
+    var nav = null;
+    try { var ne = performance.getEntriesByType('navigation')[0]; if (ne) nav = ne.type; } catch (_) {}
+    var rec = {
+      _ev: ev,
+      at: new Date().toISOString(),
+      build: (typeof HUB_BUILD !== 'undefined') ? HUB_BUILD : null,
+      reason: reason || null,
+      nav: nav,
+      msSinceLoad: Math.round((window.performance && performance.now) ? performance.now() : 0),
+      online: (navigator.onLine !== false),
+      controlled: !!(navigator.serviceWorker && navigator.serviceWorker.controller)
+    };
+    var Q = 'arencon-hub-boot-q', q = [];
+    try { q = JSON.parse(localStorage.getItem(Q) || '[]'); } catch (_) { q = []; }
+    q.push(rec);
+    if (q.length > 20) q = q.slice(-20);
+    try { localStorage.setItem(Q, JSON.stringify(q)); } catch (_) {}
+    if (typeof _hubDiagFlush === 'function') _hubDiagFlush();
+  } catch (_) {}
 }
 async function doLogin() {
   const email = document.getElementById('login-email').value.trim().toLowerCase();
@@ -2436,6 +2474,7 @@ async function doLogin() {
 
     showApp();
     _arrived = true;   /* S734 */
+    _hubLoginDiag('hub_login_ok', null);   /* S734d — also flushes anything queued on the form */
   } catch (e) {
     errEl.textContent = e.message || 'Login failed. Check your credentials.';
     errEl.classList.add('show');
@@ -10600,7 +10639,22 @@ function _hubBootDiag(cacheName) {
     q.push(rec);
     if (q.length > 20) q = q.slice(-20);
     try { localStorage.setItem(Q, JSON.stringify(q)); } catch (_) {}
+    _hubDiagFlush();
+  } catch (_) {}
+}
 
+/* S734d — the sender, lifted out of _hubBootDiag unchanged so a sign-in can
+   flush the queue too (records written ON the sign-in screen have no token to
+   travel with, and used to wait for the next page load). One queue, one
+   sender. A record may carry _ev to name its event; unnamed records are
+   hub_boot, as before. On success only the records actually sent are removed,
+   so anything queued while the request was in flight is kept. */
+function _hubDiagFlush() {
+  try {
+    var Q = 'arencon-hub-boot-q';
+    var q = [];
+    try { q = JSON.parse(localStorage.getItem(Q) || '[]'); } catch (_) { q = []; }
+    if (!q.length) return;
     var tok = null; try { tok = localStorage.getItem('sb-access-token'); } catch (_) {}
     if (!tok || navigator.onLine === false) return;   // stays queued for a boot that can send
     var send = q.slice();
@@ -10612,12 +10666,17 @@ function _hubBootDiag(cacheName) {
         return {
           device: (function () { try { return localStorage.getItem('arencon-device-id'); } catch (_) { return null; } })(),
           tool: 'hub',
-          event: 'hub_boot',
+          event: r._ev || 'hub_boot',
           detail: r
         };
       }))
     }).then(function (resp) {
-      if (resp && resp.ok) { try { localStorage.setItem(Q, '[]'); } catch (_) {} }
+      if (resp && resp.ok) {
+        try {
+          var now = JSON.parse(localStorage.getItem(Q) || '[]');
+          localStorage.setItem(Q, JSON.stringify(now.slice(send.length)));
+        } catch (_) {}
+      }
     }).catch(function () {});
   } catch (_) {}
 }
