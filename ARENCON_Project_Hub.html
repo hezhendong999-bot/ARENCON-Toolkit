@@ -1120,6 +1120,7 @@ body.dark-mode .pg-tool-section{border-color:#2a3040;}
 body.dark-mode .pg-tool-header{background:#1a1f2a;color:#d0d8f0;border-bottom-color:#2a3040;}
 body.dark-mode .pg-tool-header:hover{background:#222838;}
 body.dark-mode .pg-tool-body{background:#151920;}
+body.dark-mode .pg-thumb{background:#1f2430;}   /* S734e — unloaded tiles were light grey on the dark page: a bright flash per tile while scrolling */
 .pg-date-group{margin-bottom:18px;}
 .pg-date-label{font-size:calc(12px + var(--ts));font-weight:700;color:var(--fg-muted,#888);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;display:flex;align-items:center;gap:8px;}
 .pg-date-cb{accent-color:#9C2742;width:14px;height:14px;cursor:pointer;}
@@ -2132,7 +2133,7 @@ function createSupabaseClient(url, key) {
     from(table) {
       let _filters = [];
       let _select = '*';
-      let _order = null;
+      let _order = [];   /* S734e — a list: .order(a).order(b) sorts by a, THEN b */
       let _single = false;
       /* S649 — see minimal() below. Declared with the other builder state so a
          builder chain never leaks the flag into the next one. */
@@ -2157,7 +2158,10 @@ function createSupabaseClient(url, key) {
            in a query string decodes as a space, which silently turns the
            filter into a malformed date rather than an error. */
         gt(col, val) { _filters.push(`${col}=gt.${encodeURIComponent(val)}`); return builder; },
-        order(col, opts = {}) { _order = col + (opts.ascending === false ? '.desc' : '.asc'); return builder; },
+        /* S734e — each call ADDS a sort key. It used to REPLACE the previous one,
+           so .order('tool_key').order('instance_number') sorted by number alone:
+           FRT #1, Diesel #1, FRT #2 — reports of one type split apart on the Hub page. */
+        order(col, opts = {}) { _order.push(col + (opts.ascending === false ? '.desc' : '.asc')); return builder; },
         single() { _single = true; return builder; },
         /* S649 — "do the write, don't hand the row back." Callers that don't
            need the updated row back say so with .minimal(). Kept because it is
@@ -2169,7 +2173,7 @@ function createSupabaseClient(url, key) {
         async execute() {
           let path = '/rest/v1/' + table + '?select=' + encodeURIComponent(_select);
           _filters.forEach(f => path += '&' + f);
-          if (_order) path += '&order=' + _order;
+          if (_order.length) path += '&order=' + _order.join(',');
           const h = _single ? { 'Accept': 'application/vnd.pgrst.object+json' } : {};
           return request(path, { headers: h });
         },
@@ -8907,6 +8911,21 @@ function _pgRender() {
     if (!toolGroups[tKey]) { toolGroups[tKey] = []; toolOrder.push(tKey); }
     toolGroups[tKey].push(ph);
   });
+  /* S734e — REPORTS OF ONE TYPE STAY TOGETHER. Groups used to appear in the
+     order their photos arrived, so the sequence was only ever as good as the
+     query's — and the query's was broken (see order() in the client). Sort
+     explicitly: the Hub's own tool order (AVAILABLE_TOOLS, same as every other
+     list on this page), then report number. Unknown tools last. */
+  (function () {
+    var canon = Object.keys(AVAILABLE_TOOLS || {});
+    function rank(k) { var i = canon.indexOf(k); return i < 0 ? 999 : i; }
+    toolOrder.sort(function (a, b) {
+      var pa = toolGroups[a][0] || {}, pb = toolGroups[b][0] || {};
+      var r = rank(pa.toolKey) - rank(pb.toolKey);
+      if (r) return r;
+      return (Number(pa.instanceNum) || 0) - (Number(pb.instanceNum) || 0);
+    });
+  })();
 
   var toolIcons = { frt:'📋', diesel:'🔥', electric:'⚡', ist:'🧪', obc:'📖', dd:'📝' };
 
@@ -8964,7 +8983,7 @@ function _pgRender() {
         html += '<div class="pg-thumb' + (sel ? ' selected' : '') + '" data-pg-id="' + ph.id + '" '
               + 'onclick="pgThumbClick(\'' + ph.id + '\',event)" ondblclick="pgLbOpen(\'' + ph.id + '\')">';
         html += '<input type="checkbox" class="pg-thumb-cb" ' + (sel ? 'checked' : '') + ' onclick="event.stopPropagation();pgToggleOne(\'' + ph.id + '\',event)">';
-        html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" style="background:#ddd;">';
+        html += '<img data-pg-src="' + _pgEsc(ph.src) + '" src="" loading="lazy" decoding="async">';   /* S734e: no light-grey fill — the tile's themed background shows through */
         // S430 Fix-3 (FRT badge parity): a multi-reference photo renders ONE card
         // with a stacked column of category-coloured badges (mirrors FRT's
         // .ph-badges). Recs without a badges[] array (responses, other tools)
@@ -9026,6 +9045,62 @@ function _pgShowMissingTile(img) {
   thumb.appendChild(tile);
 }
 
+/* ═══ S734e — A THUMBNAIL IS A THUMBNAIL ═══════════════════════════════════
+   Every ~100 px tile used to download AND DECODE the full original — 2000+ px,
+   several MB — and keep it. A project with 100+ photos held hundreds of MB of
+   decoded image; the browser coped by discarding off-screen pictures and
+   re-decoding them on the way back, which is the lag and the flashing on
+   scroll. Photos carried into a later report were downloaded a second time.
+   Now: each photo is fetched once, drawn ONCE onto a small canvas (short side
+   256 px — sharp at 2x on a tablet), the big image is released immediately,
+   and the tile shows the small copy. At most four are processed at a time so
+   a fast scroll cannot start a hundred decodes at once. Cached by address, so
+   a repeat (a carried photo, a filter change) is instant.
+   The lightbox and downloads still fetch the full original — untouched. Any
+   failure falls back to the old behaviour (the full image), never a blank. */
+var PG_THUMB_PX = 256, PG_THUMB_MAX = 4;
+var _pgThumbCache = {};                 // src -> Promise<objectURL>
+var _pgThumbQ = [], _pgThumbActive = 0;
+
+function _pgMakeThumb(blob) {
+  if (!blob) return Promise.resolve(null);
+  if (typeof createImageBitmap !== 'function') return Promise.resolve(URL.createObjectURL(blob));
+  return createImageBitmap(blob).then(function (bmp) {
+    var s = PG_THUMB_PX / Math.min(bmp.width, bmp.height);
+    if (!(s < 1)) { if (bmp.close) bmp.close(); return URL.createObjectURL(blob); }
+    var w = Math.max(1, Math.round(bmp.width * s)), h = Math.max(1, Math.round(bmp.height * s));
+    var c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    c.getContext('2d').drawImage(bmp, 0, 0, w, h);
+    if (bmp.close) bmp.close();
+    return new Promise(function (res) {
+      c.toBlob(function (tb) { res(URL.createObjectURL(tb || blob)); }, 'image/jpeg', 0.82);
+    });
+  }).catch(function () { return URL.createObjectURL(blob); });
+}
+
+function _pgThumbPump() {
+  while (_pgThumbActive < PG_THUMB_MAX && _pgThumbQ.length) {
+    var job = _pgThumbQ.shift();
+    _pgThumbActive++;
+    Promise.resolve().then(job.run).then(job.resolve, job.reject).then(function () {
+      _pgThumbActive--;
+      _pgThumbPump();
+    });
+  }
+}
+
+function _pgThumbFor(src, fetchBlob) {
+  if (_pgThumbCache[src]) return _pgThumbCache[src];
+  var p = new Promise(function (resolve, reject) {
+    _pgThumbQ.push({ run: function () { return fetchBlob().then(_pgMakeThumb); }, resolve: resolve, reject: reject });
+    _pgThumbPump();
+  });
+  _pgThumbCache[src] = p;
+  p.catch(function () { delete _pgThumbCache[src]; });   // a failure is retried next render, not remembered
+  return p;
+}
+
 // ── Lazy-load + R2 auth fetch ──
 function _pgObserveThumbs(grid) {
   var imgs = grid.querySelectorAll('img[data-pg-src]');
@@ -9039,7 +9114,9 @@ function _pgObserveThumbs(grid) {
       if (!src) return;
       observer.unobserve(img);
       if (src.indexOf(R2_WORKER) === 0) {
-        fetch(src)
+        /* S734e — the fetch below is unchanged; it now runs inside the thumbnail
+           queue, and the tile receives the small copy instead of the original. */
+        _pgThumbFor(src, function () { return fetch(src)
           .then(function(r) {
             if (!r.ok) {
               // 404 fallback chain (S427): the primary URL now uses the key's
@@ -9071,7 +9148,8 @@ function _pgObserveThumbs(grid) {
             }
             return r.blob();
           })
-          .then(function(blob) { if (blob) img.src = URL.createObjectURL(blob); })
+          ; })
+          .then(function(url) { if (url) img.src = url; })
           .catch(function() {
             // Original not in R2 (never uploaded / link not yet repaired):
             // show an intentional "Photo unavailable" placeholder rather than
