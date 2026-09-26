@@ -298,16 +298,25 @@ function _cacheGet(key) {
   }).catch(function () { return null; });
 }
 function _cachePut(key, val) {
+  /* S732 — THE WRITE NOW SAYS WHETHER IT LANDED. Resolves true when the
+     record is on disk, false on ANY failure: an error, an ABORT (how a full
+     device reports itself — this path never listened for it), a synchronous
+     throw, or a database that would not open. It still never REJECTS, so the
+     callers that ignore the result keep working unchanged; the callers that
+     advance the "saved" marker now read it (see _localWriteFailed). Before
+     this, every failure resolved exactly like success, so a device that
+     could not store the report looked healthy while keeping nothing. */
   return _cacheOpen().then(function (db) {
     return new Promise(function (resolve) {
       try {
         const tx = db.transaction(CACHE_STORE, 'readwrite');
         tx.objectStore(CACHE_STORE).put(val, key);
-        tx.oncomplete = function () { resolve(); };
-        tx.onerror = function () { resolve(); };
-      } catch (_) { resolve(); }
+        tx.oncomplete = function () { resolve(true); };
+        tx.onerror = function () { resolve(false); };
+        tx.onabort = function () { resolve(false); };
+      } catch (_) { resolve(false); }
     });
-  }).catch(function () {});
+  }).catch(function () { return false; });
 }
 
 /* ── The facade ─────────────────────────────────────────────────────────── */
@@ -327,6 +336,29 @@ const CloudSync = (function () {
   let _userId = null;
   let _projectInfo = null;
   let _lastSavedJson = '';
+  /* S732 — THE LOCAL HALF OF THE 110-MINUTE BUG. S524 fixed the cloud half by
+     gating the push on _lastPushedJson, and left the local IDB write deduped
+     on _lastSavedJson "as before". But _lastSavedJson advances BEFORE the
+     write is confirmed, so a failed local write was marked saved and the
+     dedupe then refused to retry it. Online the cloud push still retried, so
+     nothing was lost; OFFLINE with a full device, the only copy failed
+     silently and the pendingPush flag never reached disk — kill the app and
+     the work was gone with nothing on the next launch knowing it existed.
+     _lastSavedJson is deliberately NOT moved: every unsent-work check in this
+     file reads it (saved vs pushed). This flag only forces the retry. */
+  let _localWriteFailed = false;
+  /* The one place a local write's outcome is recorded. Both call sites that
+     advance _lastSavedJson hand their _cachePut result here. A failure is
+     never silent: it forces the next tick to retry, logs, and tells the
+     person — because the only copy of an offline report is the one that just
+     failed to land. Recovery clears the flag quietly; the save flow sets its
+     own status next. */
+  function _noteLocalWrite(ok) {
+    if (ok) { _localWriteFailed = false; return; }
+    _localWriteFailed = true;
+    try { console.error('[ElectricSync] local save FAILED — device storage full or unavailable; will retry'); } catch (_) {}
+    _setStatus('error', 'Not saved on this device — storage may be full. Keep this screen open.');
+  }
   /* S595 — last ACTUAL keystroke (not focus). See the heartbeat gate below. */
   let _lastEditAt = 0;
   try {
@@ -820,7 +852,7 @@ const CloudSync = (function () {
        push on _lastPushedJson, which only advances on a confirmed push. */
     var alreadyPushed = (stateJson === _lastPushedJson);
     if (stateJson === _lastSavedJson && alreadyPushed) return null;
-    if (stateJson !== _lastSavedJson) {
+    if (stateJson !== _lastSavedJson || _localWriteFailed) {   // S732: a failed local write retries
       _lastSavedJson = stateJson;
       _cachePut(_cacheKey(), {
         state: stateJson, projectId: _projectId, toolKey: _toolKey,
@@ -845,7 +877,7 @@ const CloudSync = (function () {
            stored document; delivery happens only through the page paths,
            which collect live state and merge by entry stamp. */
         bgIfMatch: engine.lastSeenUpdatedAt || null
-      });
+      }).then(_noteLocalWrite);
     }
     if (!_netUp()) {
       _setStatus('offline', 'Saved locally (offline)');
@@ -939,7 +971,7 @@ const CloudSync = (function () {
     if (!_collectStateFn || !_projectId) return;
     var stateJson;
     try { stateJson = JSON.stringify(_collectStateFn()); } catch (_) { return; }
-    if (stateJson === _lastSavedJson) return;
+    if (stateJson === _lastSavedJson && !_localWriteFailed) return;  // S732: unless the last write failed
     _lastSavedJson = stateJson;
     _cachePut(_cacheKey(), {
       state: stateJson, projectId: _projectId, toolKey: _toolKey,
@@ -948,7 +980,7 @@ const CloudSync = (function () {
       pendingPush: true,
       pendingSince: _pendingSince || (_pendingSince = new Date().toISOString()),
       bgIfMatch: engine.lastSeenUpdatedAt || null
-    });
+    }).then(_noteLocalWrite);
   }
 
   /* ══════════════════════════════════════════════════════════════════════
