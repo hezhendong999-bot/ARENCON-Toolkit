@@ -139,3 +139,14 @@ lib/data/changeJournal.js
 # all — no local-cache load fallback, no queued saves.
 electric-sync.js
 lib/ui/accountPanel.js   # S639 revert: wiring pulled (Mark), module kept precached pending redesign — protected symbol
+
+# -- Report fonts (S732, Lane C, audit F23) --------------------------------------
+# Referenced from inside the pump exporters' CSS string (a JS template literal),
+# which static analysis cannot follow. Carlito is metric-identical to Calibri;
+# the PDF asks for local('Calibri') first and falls back to these. Subsetted
+# to Latin + report symbols, ~50 KB each. Without these precached, an offline
+# tablet prints the report in Roboto and every line wrap moves.
+lib/assets/fonts/Carlito-Regular.woff2
+lib/assets/fonts/Carlito-Bold.woff2
+lib/assets/fonts/Carlito-Italic.woff2
+lib/assets/fonts/Carlito-BoldItalic.woff2
