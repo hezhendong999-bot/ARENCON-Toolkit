@@ -1077,18 +1077,26 @@ function _applyLoadedState(raw) {
 // RESET FUNCTIONS
 // ══════════════════════════════════════════════════
 function resetAllPages() {
-  /* S582: a full reset is a NEW report — the test type returns to unset so the
-     choice is made again deliberately, not inherited from whatever was there. */
-  try{ _ttChosen=false; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
-  _aTypeConfirm('Reset ALL pages for this project? This permanently clears every entered value, photo reference, and deficiency across all pages. This cannot be undone.', 'reset', function(){
+  /* S732 (audit F18) — IN HUB MODE THIS BUTTON LIED. It made the inspector type
+     'reset', promised a permanent clear, reached an empty branch and reloaded;
+     the reload pulled the untouched cloud row and everything came back. A shared
+     cloud report cannot be wiped from one tablet: the database's wipe guard
+     refuses a content collapse without an explicit flag, and it is right to.
+     Now it says so and points at the two honest paths. Nothing is changed. */
   if(_csHubMode && typeof CloudSync !== 'undefined'){
-    // Cloud mode: will reload which triggers fresh load
-  } else {
+    _aAlert('This report is saved in the cloud and shared with the team, so it cannot be wiped from this device.\n\nTo start over, go back to the Hub and start a new report for this project. To remove this report, ask a principal to delete it from the Hub.');
+    return;
+  }
+  _aTypeConfirm('Reset ALL pages for this project? This permanently clears every entered value, photo reference, and deficiency across all pages. This cannot be undone.', 'reset', function(){
+    /* S582: a full reset is a NEW report — the test type returns to unset so the
+       choice is made again deliberately. S732: moved INSIDE the confirm; it used to
+       run before the dialog opened, so Cancel left the test type blanked on screen
+       while every value beneath it stayed. */
+    try{ _ttChosen=false; if(typeof _ttApplyGate==='function') _ttApplyGate(); }catch(_e){}
     localStorage.removeItem(SAVE_KEY);
     var _rkey=getProjectSaveKey();localStorage.removeItem(_rkey);
     _idbDelete(_rkey).catch(function(){});
-  }
-  location.reload();
+    location.reload();
   },'Reset all pages');
 }
 
