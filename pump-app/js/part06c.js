@@ -1411,6 +1411,8 @@ ADB.put = function(store,data){
       tx.objectStore(store).put(data);
       tx.oncomplete=function(){resolve();};
       tx.onerror=function(e){reject(e);};
+      /* S732 — quota exhaustion surfaces as an ABORT, which nothing listened for. */
+      tx.onabort=function(e){reject((e&&e.target&&e.target.error)||new Error('IDB transaction aborted'));};
     }).catch(reject);
   });
 };
@@ -1681,13 +1683,36 @@ window.addEventListener('beforeunload', function(){ if (_wdTimer) _flushAutosave
 function _mpEmbedded(){
   try { return window.parent !== window && !!window.parent.MPShell; } catch(e){ return false; }
 }
+/* S732 — THE ONE PLACE A LOCAL SAVE'S OUTCOME IS RECORDED (audit F22).
+   A failure is never silent: the header pill says so, and one retry is
+   scheduled so recovery does not depend on the inspector typing something.
+   In Hub mode the cloud pill will repaint on its own next status; if the
+   cloud has the report, "Saved to cloud" is the truth and this yields to it.
+   Offline or standalone, this is the only copy, and this is the only voice. */
+var _localSaveFailed=false, _localSaveRetry=null;
+function _noteLocalSave(ok){
+  var c=window.__dslHeaderCtl;
+  if(ok){
+    if(_localSaveFailed){
+      _localSaveFailed=false;
+      if(c&&!_csHubMode){ try{ c.setCloud({visible:false}); }catch(_e){} }
+    }
+    return;
+  }
+  _localSaveFailed=true;
+  try{ console.error('[Diesel] local save FAILED \u2014 device storage full or unavailable; retrying'); }catch(_e){}
+  if(c){ try{ c.setCloud({visible:true,state:'error',stale:true,text:'Not saved on this device \u2014 storage may be full'}); }catch(_e){} }
+  if(!_localSaveRetry){ _localSaveRetry=setTimeout(function(){ _localSaveRetry=null; try{ saveState(); }catch(_e){} },15000); }
+}
 function saveState(){
   if (_mpEmbedded()) return;   /* S730: the shell owns the record */
   try{
     var key=getProjectSaveKey();
     var _st=collectState();
     var json=JSON.stringify(_st);
-    _idbPut(key,json);
+    /* S732 — the write's outcome is READ (audit F22). Before this the promise was
+       dropped: a full device stopped saving and nothing on screen changed. */
+    _idbPut(key,json).then(function(){ _noteLocalSave(true); }, function(){ _noteLocalSave(false); });
     /* S555: record WHAT this save changed. Records only — it does not block or
        alter the save. Reuses the state already collected above, so it costs one
        object walk and no second serialisation. */
