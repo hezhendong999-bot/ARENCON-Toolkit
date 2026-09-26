@@ -31,7 +31,6 @@ import { seedLedger, record as recordVersion, currentVersion as ledgerTip,
          issueTarget as ledgerIssueTarget, revertPlan as ledgerRevertPlan,
          remove as ledgerRemove, nextDraft as ledgerNextDraft,
          parseVersion as ledgerParse } from './data/versionSeq.js';
-import { renderVersionNav } from './ui/versionNav.js';
 import { wordsDigest } from './data/reportWords.js';
 import { openCrbImport } from './export/crbImport.js'; // S463: CRB 1d return path
 import { Auth } from './shared/auth.js';
@@ -1133,11 +1132,11 @@ function _updateHeaderForProject() {
   if (pb) pb.classList.add('visible');
   var pbFn = document.getElementById('pb-filename');
   if (pbFn) pbFn.textContent = Model.getSmartFilename();
-  /* S726 — the version navigator draws from the same moment the header does.
-     Display only; it reads the ledger and writes nothing. Wrapped because a
-     failure here must never cost the header. */
-  try { renderVersionNav(proj, (proj.info && proj.info.revision) || 'A01'); }
-  catch (_vn) { try { console.warn('[S726 nav]', _vn); } catch (_e) {} }
+  /* S732 — the version navigator strip was REMOVED here by Owner decision
+     ("this is not suitable for us… I don't want it anymore"). It was display
+     only and repeated what the Revision field already shows. The ledger,
+     the numbering engine and the database lifecycle functions it read from
+     are untouched and still do all the work. */
 
   var pbBadge = document.getElementById('pb-badge');
   if (pbBadge) {

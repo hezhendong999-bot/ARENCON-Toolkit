@@ -32,19 +32,6 @@
        version comes from the ledger, never from a stored counter. */
     import * as _VersionSeq from '/lib/data/versionSeq.js';
     window.VersionSeq = _VersionSeq;
-    /* S732 step 5 — the version strip under the header, shared with FRT.
-       Display only: it reads the ledger and draws chips. The classic scripts
-       call _pumpVersionNavRefresh() after load and after any ledger move;
-       it never throws into its caller — the header must render regardless. */
-    import { renderVersionNav as _renderVersionNav } from '/lib/ui/versionNav.js';
-    window._pumpVersionNavRefresh = function(){
-      try {
-        var ledger = (typeof window._pumpLedger === 'function') ? window._pumpLedger()
-                   : (Array.isArray(window.reportVersions) ? window.reportVersions : []);
-        var cur = _VersionSeq.currentVersion(ledger) || 'A01';
-        _renderVersionNav({ versions: ledger, exportRecords: [] }, cur);
-      } catch (e) { /* the strip is a convenience; a report is not */ }
-    };
     window.ArenconDlg = Dlg;
     window.ArenconDlgDef = function(family){ return dialogDefaults('diesel', family); };
     /* S505: shared Help engine + Diesel's own help cards. The engine is locked
