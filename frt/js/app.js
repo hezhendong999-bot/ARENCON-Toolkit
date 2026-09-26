@@ -302,6 +302,10 @@ function _restoreView() {
   if (!tab) {
     try { tab = new URLSearchParams(window.location.search).get('tab'); } catch(_) {}
   }
+  // 4. S735 — an unexpected restart (Android killed the app) reopens the
+  //    drawing and pin the inspector was on. Record lives in viewer.js; it is
+  //    consumed here once, fires 300 ms after the tab below has rendered.
+  try { if (window._frtRestorePlace) window._frtRestorePlace(); } catch(_) {}
   var valid = ['info', 'drawings', 'deficiencies', 'photos'];
   if (!tab || valid.indexOf(tab) < 0) { switchTab('info'); return; }
   switchTab(tab);
@@ -4957,7 +4961,7 @@ initLiveUpdate({
      screen the crew actually lives on. */
   busyReason: function () {
     try {
-      if (window._arcNativeCamBusy) return 'camera in use \u2014 applies when it closes';
+      if (window._arcNativeCamBusy || document.getElementById('cam-burst-overlay')) return 'camera in use \u2014 applies when it closes';   /* S735: + in-page camera */
       var dv = document.getElementById('drawing-viewer-overlay');
       if (dv && _dvOnScreen(dv)) {   /* S627: same dead offsetParent test — see isBusy */
         return 'close the drawing to apply';

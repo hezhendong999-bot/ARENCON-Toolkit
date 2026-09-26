@@ -27,6 +27,7 @@ import { deviceMaxPixels } from '../shared/deviceBudget.js';
 var _cfg = null;
 var _active = false;
 var _paused = false;
+var _cameraHeld = false;   // S735 — set by releaseForCamera(), cleared by resume()
 var _renderTimer = null;
 
 var _drawingId = null;
@@ -715,7 +716,31 @@ function _dbg(msg) { if (typeof window !== 'undefined' && window._FRT_DEBUG) con
 function init(config) { _cfg = config || {}; }
 function isActive() { return _active; }
 function pause() { _paused = true; }
-function resume() { _paused = false; scheduleRender(); }
+function resume() { _paused = false; _cameraHeld = false; scheduleRender(); }
+/* S735 — RELEASE MEMORY WHILE THE CAMERA IS UP, KEEP THE DRAWING OPEN.
+   Frees what _close_internal frees for pixels — every decoded tile and every
+   level-canvas backing store — but keeps the manifest, page, drawing id and
+   the backdrop image, so resume() repaints the visible tiles (from the
+   service worker's tile cache, no network) as if the person had just panned.
+   Pauses first so nothing re-renders underneath the camera. In-flight fetches
+   are left to land (a handful of tiles at most). */
+function releaseForCamera() {
+  if (!_active) return false;
+  _paused = true;
+  _cameraHeld = true;
+  if (_renderTimer) { clearTimeout(_renderTimer); _renderTimer = null; }
+  for (var k in _tiles) {
+    if (!Object.prototype.hasOwnProperty.call(_tiles, k)) continue;
+    var t = _tiles[k];
+    if (t && t.img) { try { if (t.img.parentNode) t.img.parentNode.removeChild(t.img); t.img.src = ''; } catch (_) {} }
+  }
+  _tiles = {};
+  _pending = [];
+  _tileOrder = [];
+  _tileCount = 0;
+  _disposeAllLevelCanvases();
+  return true;
+}
 function getDimensions() {
   if (!_active) return null;
   return { drawW: _drawW, drawH: _drawH, pageW: _nativeW, pageH: _nativeH, baseScale: _baseScale };
@@ -998,6 +1023,10 @@ function _rewindowLevelCanvas(level, lvl, nw) {
 function _getOrCreateLevelCanvas(level, lvl) {
   var entry = _levelCanvases[level];
   if (entry) return entry;
+  /* S735 — a fetch that was in flight when the camera opened must not build a
+     full level canvas underneath it. Both callers already treat null as
+     "discard this tile"; resume() re-enqueues whatever is visible. */
+  if (_cameraHeld) return null;
   var layer = document.getElementById('dv-tiles-layer');
   if (!layer) return null;
 
@@ -1924,6 +1953,7 @@ function _close_internal() {
   _dbgLife('close:begin', { prior_tileCount: _tileCount });
   _active = false;
   _paused = false;
+  _cameraHeld = false;   // S735
   _manifest = null;
   _pageInfo = null;
   var prevDrawing = _drawingId;
@@ -2251,6 +2281,7 @@ export var TiledPdf = {
   scheduleRender: scheduleRender,
   pause: pause,
   resume: resume,
+  releaseForCamera: releaseForCamera,   // S735
   isActive: isActive,
   getLevel: function(){ return isActive() ? _liveLevel : -1; },   // S571
   getDimensions: getDimensions,

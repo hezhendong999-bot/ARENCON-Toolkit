@@ -664,11 +664,87 @@ window.addEventListener('arc-camera-closed', function () {
   _resizeTimer = setTimeout(_dvRefitNow, 50);
 });
 
+/* S735 — GIVE THE CAMERA THE MEMORY. The pin editor's camera opens on top of
+   this viewer, which stays open underneath holding every decoded tile and
+   level canvas. The camera engine announces 'arc-camera-opening' before the
+   hardware allocates; the tiles are released (the drawing stays open, pins
+   and markup untouched) and repainted when the camera closes. */
+var _tilesHeldForCamera = false;
+window.addEventListener('arc-camera-opening', function () {
+  try { _frtPlaceNote({}); } catch (_) {}   // freshen the place record (§ below)
+  try {
+    var overlay = document.getElementById('drawing-viewer-overlay');
+    if (!overlay || !overlay.classList.contains('open')) return;
+    if (TiledPdf.isActive() && TiledPdf.releaseForCamera()) _tilesHeldForCamera = true;
+  } catch (e) { console.warn('[Viewer] camera memory release skipped:', e); }
+});
+window.addEventListener('arc-camera-closed', function () {
+  if (!_tilesHeldForCamera) return;
+  _tilesHeldForCamera = false;
+  try { if (TiledPdf.isActive()) TiledPdf.resume(); } catch (e) {}
+});
+
+/* S735 — WHERE THE INSPECTOR WAS, SURVIVING PROCESS DEATH.
+   Android kills the whole app under memory pressure (Nasim, 22 Sep: the Hub
+   and FRT booted in the same second, no error logged). The update engine's
+   restore lives in sessionStorage, which dies with the process, so she came
+   back at the first screen. This record is in localStorage: written when a
+   drawing or pin editor opens, cleared when they close, consumed once on boot
+   by window._frtRestorePlace() (called from app.js _restoreView). Only in Hub
+   mode, only for the same report, only if fresh; a restore that crashes again
+   is not retried for 2 minutes, so a bad sheet can never boot-loop the app.
+   Nothing is written to the report — reopening a viewer changes no data, and
+   an issued report opens read-only as it always does. */
+var _PLACE_KEY = 'arencon-frt-place-v1';
+var _PLACE_RESTORED_KEY = 'arencon-frt-place-restored-at';
+var _PLACE_MAX_AGE_MS = 30 * 60 * 1000;
+function _frtPlaceIds() {
+  var q = new URLSearchParams(window.location.search);
+  return { pid: q.get('project') || null, inst: q.get('instance') || null };
+}
+function _frtPlaceNote(patch) {
+  var ids = _frtPlaceIds();
+  if (!ids.pid) return;
+  var rec = null;
+  try { rec = JSON.parse(localStorage.getItem(_PLACE_KEY) || 'null'); } catch (_) { rec = null; }
+  if (!rec || rec.pid !== ids.pid || rec.inst !== ids.inst) rec = { pid: ids.pid, inst: ids.inst, drawingId: null, pinId: null };
+  for (var k in patch) if (Object.prototype.hasOwnProperty.call(patch, k)) rec[k] = patch[k];
+  if (!rec.drawingId && !rec.pinId) { try { localStorage.removeItem(_PLACE_KEY); } catch (_) {} return; }
+  rec.at = Date.now();
+  try { localStorage.setItem(_PLACE_KEY, JSON.stringify(rec)); } catch (_) {}
+}
+window._frtRestorePlace = function () {
+  var rec = null;
+  try { rec = JSON.parse(localStorage.getItem(_PLACE_KEY) || 'null'); localStorage.removeItem(_PLACE_KEY); } catch (_) { return false; }
+  var ids = _frtPlaceIds();
+  if (!rec || !ids.pid || rec.pid !== ids.pid || rec.inst !== ids.inst) return false;
+  if (!rec.at || (Date.now() - rec.at) > _PLACE_MAX_AGE_MS) return false;
+  try {
+    var last = parseInt(localStorage.getItem(_PLACE_RESTORED_KEY), 10) || 0;
+    if (Date.now() - last < 120000) { console.warn('[Viewer] place restore skipped — restored < 2 min ago (crash-loop guard)'); return false; }
+    localStorage.setItem(_PLACE_RESTORED_KEY, String(Date.now()));
+  } catch (_) {}
+  var pinOk = !!(rec.pinId && Model.findDeficiency(rec.pinId));
+  setTimeout(function () {
+    try {
+      if (rec.drawingId) {
+        var f = pinOk ? Model.findDeficiency(rec.pinId) : null;
+        if (f && f.defic.drawingId === rec.drawingId) window._frtNavigateToPin(rec.pinId);
+        else initViewer.open(rec.drawingId);
+      }
+      if (pinOk) setTimeout(function () { try { _openPinEditor(rec.pinId); } catch (_) {} }, rec.drawingId ? 800 : 0);
+      console.log('[Viewer] restored place after an unexpected restart:', rec.drawingId || '-', rec.pinId || '-');
+    } catch (e) { console.warn('[Viewer] place restore failed:', e); }
+  }, 300);
+  return !!(rec.drawingId || pinOk);
+};
+
 function _showDrawing(idx) {
   _drawings = _getDrawingsList();
   if (idx < 0 || idx >= _drawings.length) return;
   _currentDrawingIdx = idx;
   var d = _drawings[idx];
+  try { _frtPlaceNote({ drawingId: d && d.id ? d.id : null }); } catch (_) {}   // S735 — place survives process death
   // S331i — refresh the Field Heights red dot for this drawing.
   setTimeout(_updateHeightsDot, 0);
 
@@ -865,6 +941,7 @@ export var initViewer = {
     if (overlay) overlay.classList.remove('open');
     document.body.classList.remove('dv-open');
     _currentDrawingIdx = -1;
+    try { _frtPlaceNote({ drawingId: null }); } catch (_) {}   // S735
     if (window._frtClearReturnPin) window._frtClearReturnPin(); // S151: drop stale "← Back to pin" chip
   },
 
@@ -2180,6 +2257,7 @@ function _openPinEditor(deficId) {
     _peSubscribed = true;
   }
   var d = f.defic;
+  try { _frtPlaceNote({ pinId: deficId }); } catch (_) {}   // S735 — place survives process death
   var overlay = document.getElementById('pin-editor-overlay');
   if (!overlay) return;
 
@@ -2509,6 +2587,7 @@ function _closePinEditor() {
   if (overlay) overlay.style.display = 'none';
   if (_peDeficId && typeof window._frtScrollLock === 'function') window._frtScrollLock(false);
   _peDeficId = null;
+  try { _frtPlaceNote({ pinId: null }); } catch (_) {}   // S735
   _peSelectionMode = false;
   _peSelectionPending = null;
   _peShowDeletedMode = false;
